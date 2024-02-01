@@ -332,6 +332,14 @@
     font-size: clamp(0.875rem, 3vw, 1rem);
     line-height: 1.5;
   }
+
+  .h-screen-safe {
+    height: calc(100vh - theme('spacing.32')); /* 32 = 16 (navbar) + 16 (footer) */
+  }
+  
+  .max-h-screen-safe {
+    max-height: calc(100vh - theme('spacing.32'));
+  }
 }
 
 /* Deck-specific styles */
