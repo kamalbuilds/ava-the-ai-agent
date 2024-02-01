@@ -73,63 +73,66 @@ export class ObserverAgent extends Agent {
 
     const toolkit = getObserverToolkit(this.address);
 
-    if (!taskManagerData) {
-      const response = await generateText({
-        model: openai(env.MODEL_NAME),
-        system: getObserverSystemPrompt(this.address),
-        prompt: OBSERVER_STARTING_PROMPT,
-        tools: toolkit,
-        maxSteps: 100,
-        onStepFinish: this.onStepFinish,
-      });
-
-      this.eventBus.emit(`${this.name}-task-manager`, {
-        report: response.text,
-      });
-    } else {
-      const response = await generateText({
-        model: openai(env.MODEL_NAME),
-        system: getObserverSystemPrompt(this.address),
-        messages: [
-          {
-            role: "assistant",
-            content: taskManagerData.report,
-          },
-          {
+    try {
+      if (!taskManagerData) {
+        const response = await generateText({
+          model: openai(env.MODEL_NAME),
+          system: getObserverSystemPrompt(this.address),
+          messages: [{
             role: "user",
-            content: `This is the feedback from the task executor agent:
-            ${taskManagerData.result}`,
-          },
-        ],
-        tools: toolkit,
-        maxSteps: 100,
-        onStepFinish: this.onStepFinish,
-      });
+            content: OBSERVER_STARTING_PROMPT
+          }],
+          tools: toolkit,
+          maxSteps: 100,
+          onStepFinish: this.onStepFinish,
+        });
 
-      if (response.toolCalls.length > 0) {
-        const noFurtherActionsTool = response.toolCalls.find(
-          (tool: any) => tool.toolName === "noFurtherActionsTool"
-        );
-        if (noFurtherActionsTool) {
-          this.eventBus.emit(`${this.name}-task-manager`, {
-            noFurtherActions: true,
-            // @ts-ignore
-            waitTime: noFurtherActionsTool.args.waitTime * 1000,
-          });
-        }
-      } else {
         this.eventBus.emit(`${this.name}-task-manager`, {
           report: response.text,
         });
-      }
-    }
+      } else {
+        const response = await generateText({
+          model: openai(env.MODEL_NAME),
+          system: getObserverSystemPrompt(this.address),
+          messages: [
+            {
+              role: "assistant",
+              content: taskManagerData.report,
+            },
+            {
+              role: "user",
+              content: `This is the feedback from the task executor agent:\n${taskManagerData.result}`
+            }
+          ],
+          tools: toolkit,
+          maxSteps: 100,
+          onStepFinish: this.onStepFinish,
+        });
 
-    // Emit response when done
-    // this.eventBus.emit('agent-response', {
-    //   agent: this.name,
-    //   message: response.text,
-    //   type: 'analysis'
-    // });
+        if (response.toolCalls.length > 0) {
+          const noFurtherActionsTool = response.toolCalls.find(
+            (tool: any) => tool.toolName === "noFurtherActionsTool"
+          );
+          if (noFurtherActionsTool) {
+            this.eventBus.emit(`${this.name}-task-manager`, {
+              noFurtherActions: true,
+              // @ts-ignore
+              waitTime: noFurtherActionsTool.args.waitTime * 1000,
+            });
+          }
+        } else {
+          this.eventBus.emit(`${this.name}-task-manager`, {
+            report: response.text,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error in observer start:", error);
+      this.eventBus.emit('agent-error', {
+        agent: this.name,
+        error: 'Failed to analyze market'
+      });
+    }
   }
 
   /**
