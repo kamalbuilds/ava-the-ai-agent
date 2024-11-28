@@ -5,5 +5,10 @@ declare module "@brian-ai/langchain" {
     llm: any;
   }): any;
 
-  
+  export function BrianToolkit(config: {
+    apiKey: string;
+    privateKeyOrAccount: `0x${string}`;
+  }): any;
+
+
 }

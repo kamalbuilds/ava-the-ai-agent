@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { NetworkStatus } from "./network";
+
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -46,10 +46,7 @@ export function Navbar() {
               </Link>
             </div>
 
-            {/* Add NetworkStatus in the middle */}
-            <div className="hidden lg:flex items-center justify-center flex-1">
-              <NetworkStatus />
-            </div>
+
 
             {/* Desktop Navigation */}
             <div className="hidden lg:flex items-center space-x-8">
