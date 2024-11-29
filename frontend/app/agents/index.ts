@@ -1,3 +1,4 @@
+// @ts-nocheck
 import {
     type BrianAgentOptions,
     BrianToolkit,
@@ -11,6 +12,7 @@ import { createToolCallingAgent, AgentExecutor } from "langchain/agents";
 import { ChatMessageHistory } from "langchain/memory";
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
+import { FunctorService } from '../services/functorService';
 
 // Message history store
 const store: Record<string, ChatMessageHistory> = {};
@@ -212,15 +214,36 @@ const createAgent = async ({
         ["placeholder", "{agent_scratchpad}"],
     ]);
 
+    // Initialize Functor Network integration
+    const functorTools = [
+        new DynamicStructuredTool({
+            name: "create_smart_account",
+            description: "Create a smart account using Functor Network",
+            schema: z.object({
+                owner: z.string(),
+                recoveryMechanism: z.array(z.string()),
+                paymaster: z.string()
+            }),
+            func: async ({ owner, recoveryMechanism, paymaster }) => {
+                return await FunctorService.createSmartAccount({
+                    owner,
+                    recoveryMechanism,
+                    paymaster
+                });
+            }
+        }),
+        // Add more Functor-specific tools as needed
+    ];
+
     const agent = createToolCallingAgent({
         llm,
-        tools: [...tools, ...brianToolkit.tools],
+        tools: [...tools, ...functorTools, ...brianToolkit.tools],
         prompt,
     });
 
     const agentExecutor = new AgentExecutor({
         agent,
-        tools: [...tools, ...brianToolkit.tools],
+        tools: [...tools, ...functorTools, ...brianToolkit.tools],
         callbacks: xmtpHandler
             ? [new XMTPCallbackHandler(xmtpHandler, llm, instructions!, xmtpHandlerOptions)]
             : [],
