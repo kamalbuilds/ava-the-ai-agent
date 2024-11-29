@@ -1,6 +1,6 @@
-# 🤖 Avalanche Portfolio Manager AI Agent
+# 🤖 Ava the Portfolio Manager AI Agent
 
-> An autonomous AI agent for managing DeFi portfolios on Avalanche, powered by Brian AI and LangChain
+> Multiple specialized autonomous AI agents with powerful tools work together to analyze, recommend, and execute optimal DeFi strategies while maintaining user-defined risk parameters and portfolio goals currently live on Avalanche , Mode , Base, powered by Brian AI and LangChain
 
 - risk parameters and portfolio balance
 - Provides real-time feedback and execution status
@@ -48,40 +48,32 @@ An autonomous AI agent that manages your Avalanche DeFi portfolio by:
 - Transaction confirmations
 - Performance metrics
 
+### 5. Kestra Orchestration
+- Execute and monitor complex workflows
+- Orchestrate multi-step operations
+- Integrate with external APIs
+- Handle errors and retries
+
+This integration enables:
+
+- Workflow Orchestration: Agents can now trigger and monitor complex multi-step operations through Kestra workflows.
+- Error Handling: Built-in retry mechanisms and error handling through Kestra's execution engine
+- Monitoring: Track execution status and progress of complex operations
+- Scalability: Leverage Kestra's distributed execution capabilities for resource-intensive tasks.
+
+The agents can now handle complex operations like portfolio rebalancing by:
+
+- Breaking down operations into discrete tasks
+- Executing them in the correct order
+- Handling failures and retries
+- Providing real-time status updates
+
+This makes the agents more robust and capable of handling complex DeFi operations in a reliable, monitored way.
+
 ## 🏗 Architecture
 
-```mermaid
-graph TB
-    subgraph Frontend
-        UI[User Interface]
-        Context[Context Manager]
-    end
-    
-    subgraph AI Layer
-        Brian[Brian AI Agent]
-        LLM[Language Model]
-        Planning[Task Planning]
-    end
-    
-    subgraph Blockchain Layer
-        Avalanche[Avalanche C-Chain]
-        Protocols[DeFi Protocols]
-        Teleporter[Avalanche Teleporter]
-    end
-    
-    User-->UI
-    UI-->Context
-    Context-->Brian
-    Brian-->LLM
-    LLM-->Planning
-    Planning-->Avalanche
-    Avalanche-->Protocols
-    Protocols-->Teleporter
-    
-    style Frontend fill:#f9f,stroke:#333,stroke-width:2px
-    style AI Layer fill:#bbf,stroke:#333,stroke-width:2px
-    style Blockchain Layer fill:#bfb,stroke:#333,stroke-width:2px
-```
+<img width="1322" alt="Screenshot 2024-12-01 at 11 15 43 AM" src="https://github.com/user-attachments/assets/30b63286-fd80-49ef-be7f-a0de1bd965a7">
+
 
 ## 🛠 Technology Stack
 - **Frontend**: Next.js, TypeScript, TailwindCSS
@@ -91,7 +83,84 @@ graph TB
 
 ## 📋 Example Use Cases
 
-### 1. Yield Optimization
+I'll update the Example Use Cases section in the README.md based on the example scenarios from page.tsx:
+
+```markdown
+## 📋 Example Use Cases
+
+### 1. Portfolio Optimization
+```text
+User: "I have 10 AVAX and want to optimize my portfolio between lending, liquidity provision, and trading. What's the best strategy right now?"
+
+Agent Collaboration Flow:
+1. Portfolio Manager analyzes request and current market conditions
+2. DeFi Analytics Agent provides real-time data:
+   - Aave AVAX lending APY: 1.77%
+   - Uniswap AVAX-USDC pool APR: 43.893%
+   - Curve Blizz pool APY: 1.58%
+   - DeFi TVL trend: +5% weekly
+3. Trading Agent evaluates market opportunities
+4. Liquidity Agent assesses pool stability
+5. Portfolio Manager provides final allocation strategy
+```
+
+### 2. Risk-Managed Yield Farming
+```text
+User: "Find me the highest yield opportunities while maintaining moderate risk levels"
+
+Agent Collaboration Flow:
+1. Portfolio Manager evaluates risk parameters
+2. DeFi Analytics Agent scans protocols:
+   - Protocol TVL analysis
+   - Smart contract audit status
+   - Historical yield stability
+3. Risk Assessment Agent performs:
+   - Protocol risk scoring
+   - Impermanent loss calculation
+   - Market volatility analysis
+4. Final recommendation with risk-adjusted returns
+```
+
+### 3. Multi-Protocol Optimization
+```text
+User: "Distribute 5000 USDC across lending platforms for the best risk-adjusted returns"
+
+Agent Collaboration Flow:
+1. DeFi Analytics Agent scans lending markets:
+   - Protocol-specific APYs
+   - Total deposits
+   - Utilization rates
+2. Risk Agent evaluates:
+   - Protocol security
+   - Market conditions
+   - Collateral factors
+3. Portfolio Manager executes:
+   - Optimal distribution
+   - Position monitoring
+   - Auto-rebalancing setup
+```
+
+### 4. Smart Rebalancing
+```text
+User: "Monitor and rebalance my portfolio to maintain 40% AVAX, 30% ETH, 30% stables"
+
+Agent Collaboration Flow:
+1. Portfolio Manager tracks allocations
+2. Trading Agent monitors:
+   - Price movements
+   - Trading volumes
+   - Market depth
+3. DeFi Analytics provides:
+   - Gas optimization data
+   - Slippage estimates
+   - Best execution routes
+4. Automated rebalancing when:
+   - Deviation exceeds 5%
+   - Gas costs are optimal
+   - Market conditions favorable
+
+
+### 5. Yield Optimization
 ```text
 User: "Optimize my stablecoin yields while maintaining 50% USDC and 50% USDT split"
 
@@ -103,7 +172,7 @@ Agent will:
 5. Monitor and rebalance as needed
 ```
 
-### 2. Portfolio Rebalancing
+### 6. Portfolio Rebalancing
 ```text
 User: "Rebalance my portfolio to 30% ETH, 30% AVAX, and 40% stables"
 
@@ -115,7 +184,7 @@ Agent will:
 5. Report completion
 ```
 
-### 3. Cross-Chain Management
+### 7. Cross-Chain Management
 ```text
 User: "Bridge 1000 USDC from Ethereum to Avalanche and deploy to highest yield"
 

@@ -12,7 +12,11 @@ import { createToolCallingAgent, AgentExecutor } from "langchain/agents";
 import { ChatMessageHistory } from "langchain/memory";
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
-import { FunctorService } from '../services/functorService';
+import { FunctorService } from '../services/functorService.ts';
+import { KestraService } from '../services/kestraService';
+
+// Initialize Kestra service
+const kestraService = new KestraService();
 
 // Message history store
 const store: Record<string, ChatMessageHistory> = {};
@@ -119,6 +123,32 @@ const coingeckoTool = new DynamicStructuredTool({
     },
 });
 
+// Add Kestra tools
+const kestraTools = [
+    new DynamicStructuredTool({
+        name: "execute_workflow",
+        description: "Execute a Kestra workflow for orchestrated operations",
+        schema: z.object({
+            namespace: z.string(),
+            flowId: z.string(),
+            inputs: z.any().optional()
+        }),
+        func: async ({ namespace, flowId, inputs }) => {
+            return await kestraService.executeWorkflow(namespace, flowId, inputs);
+        }
+    }),
+    new DynamicStructuredTool({
+        name: "check_workflow_status",
+        description: "Check the status of a Kestra workflow execution",
+        schema: z.object({
+            executionId: z.string()
+        }),
+        func: async ({ executionId }) => {
+            return await kestraService.getExecutionStatus(executionId);
+        }
+    })
+];
+
 export interface Agent {
     id: string;
     name: string;
@@ -127,11 +157,13 @@ export interface Agent {
 }
 
 export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): Promise<Agent[]> => {
-    // Trading Agent
+    // Trading Agent with Kestra orchestration
     const tradingAgent = await createAgent({
         ...baseOptions,
-        tools: [coingeckoTool],
-        instructions: "You are a specialized trading agent. Focus on price analysis and trading opportunities.",
+        tools: [...kestraTools, coingeckoTool],
+        instructions: `You are a specialized trading agent with workflow orchestration capabilities.
+            You can execute and monitor complex trading operations using Kestra workflows.
+            Focus on price analysis and trading opportunities.`,
     });
 
     // Liquidity Pool Agent
@@ -141,11 +173,13 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
         instructions: "You are a liquidity pool specialist. Help users find and analyze liquidity pools.",
     });
 
-    // Portfolio Management Agent
+    // Portfolio Management Agent with Kestra orchestration
     const portfolioAgent = await createAgent({
         ...baseOptions,
-        tools: [coingeckoTool, defiLlamaToolkit.getTVLTool],
-        instructions: "You are a portfolio management specialist. Help users optimize their portfolio allocation.",
+        tools: [...kestraTools, coingeckoTool, defiLlamaToolkit.getTVLTool],
+        instructions: `You are a portfolio management specialist with workflow orchestration capabilities.
+            You can orchestrate complex portfolio operations using Kestra workflows.
+            Help users optimize their portfolio allocation.`,
     });
 
     // DeFiLlama Analysis Agent
