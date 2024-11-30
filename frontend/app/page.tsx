@@ -1,284 +1,299 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { createBrianAgent } from "@brian-ai/langchain";
 import { ChatOpenAI } from "@langchain/openai";
-import { useState, useRef, useEffect } from "react";
 import { Client } from "@xmtp/xmtp-js";
 import { ethers } from "ethers";
 import { BrianToolkit } from "@brian-ai/langchain";
 import { AvalancheConfig } from "@brian-ai/langchain/chains";
+import { initializeAgents } from "./agents";
+import { SendHorizontal, Bot, User } from "lucide-react";
+import { AgentCharacters } from "./agents/AgentCharacters";
 
-// Define interfaces
 interface Message {
   role: "user" | "assistant" | "system";
   content: string;
+  timestamp: string;
 }
 
 interface AgentState {
-  isExecuting: boolean;
-  currentTask: string | null;
-  lastUpdate: string;
-  progress: number;
+  isInitialized: boolean;
+  isProcessing: boolean;
+  error: string | null;
+  activeAgent: string | null;
+  systemEvents: Array<{
+    timestamp: string;
+    event: string;
+    agent?: string;
+    type: 'info' | 'warning' | 'error' | 'success';
+  }>;
+}
+
+interface Agent {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  message?: string;
+  agent?: any;
 }
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [agentState, setAgentState] = useState<AgentState>({
-    isExecuting: false,
-    currentTask: null,
-    lastUpdate: "",
-    progress: 0
+    isInitialized: false,
+    isProcessing: false,
+    error: null,
+    activeAgent: null,
+    systemEvents: []
   });
+  const [agents, setAgents] = useState<Agent[]>([]);
 
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const clientRef = useRef<any>(null);
   const agentRef = useRef<any>(null);
 
-  // Initialize Brian AI agent with Avalanche configuration
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   useEffect(() => {
-    const initAgent = async () => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    const setupAgents = async () => {
       try {
-        // Validate environment variables
-        const brianApiKey = process.env["NEXT_PUBLIC_BRIAN_API_KEY"];
-        const privateKey = process.env["NEXT_PUBLIC_PRIVATE_KEY"];
-        const openAiKey = process.env["NEXT_PUBLIC_OPENAI_API_KEY"];
+        setAgentState(prev => ({
+          ...prev,
+          isProcessing: true,
+          systemEvents: [...prev.systemEvents, {
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            event: 'Initializing AI agents...',
+            type: 'info'
+          }]
+        }));
 
-        if (!brianApiKey || !privateKey || !openAiKey) {
-          throw new Error("Missing required environment variables");
-        }
-
-        // Format private key
-        const formattedPrivateKey = privateKey.startsWith('0x')
-          ? privateKey
-          : `0x${privateKey}`;
-
-        // Create Brian AI agent with Avalanche configuration
-        const agent = await createBrianAgent({
-          apiKey: brianApiKey,
-          privateKeyOrAccount: formattedPrivateKey as `0x${string}`,
-          llm: new ChatOpenAI({
-            apiKey: openAiKey,
-            modelName: "gpt-4",
-            temperature: 0.7,
-          }),
-          config: {
-            defaultChain: "avalanche",
-            supportedChains: ["avalanche"],
-            // Add Avalanche-specific configurations
-            avalanche: {
-              rpcUrl: "https://api.avax.network/ext/bc/C/rpc",
-              chainId: 43114,
-              // Add commonly used contract addresses
-              contracts: {
-                router: "0x60aE616a2155Ee3d9A68541Ba4544862310933d4", // Trader Joe Router
-                factory: "0x9Ad6C38BE94206cA50bb0d90783181662f0Cfa10", // Trader Joe Factory
-              }
-            }
-          }
-        });
-
-
-        // Initialize Brian toolkit for additional functionality
-        const brianToolkit = new BrianToolkit({
-          apiKey: brianApiKey,
-          privateKeyOrAccount: formattedPrivateKey as `0x${string}`,
-        });
-
-        // Store agent and toolkit references
-        agentRef.current = agent;
-
-        // Add initial system message
-        setMessages([{
-          role: "system",
-          content: "I am your Avalanche portfolio management AI agent. I can help optimize your portfolio through autonomous execution of trades, yield farming, and risk management. What would you like me to help you with?"
-        }]);
-
-      } catch (error) {
-        console.error("Failed to initialize agent:", error);
-        setMessages([{
-          role: "system",
-          content: `Error initializing agent: ${error.message}`
-        }]);
-      }
-    };
-
-    initAgent();
-  }, []);
-
-  // Update executeAutonomously function to use Brian agent capabilities
-  const executeAutonomously = async (goal: string) => {
-    if (!agentRef.current) {
-      setMessages(prev => [...prev, {
-        role: "system",
-        content: "Agent not initialized. Please try again."
-      }]);
-      return;
-    }
-
-    setAgentState({
-      isExecuting: true,
-      currentTask: "Planning portfolio optimization strategy...",
-      lastUpdate: new Date().toISOString(),
-      progress: 0
-    });
-
-    try {
-      // Get current portfolio state
-      const portfolioAnalysis = await agentRef.current.invoke({
-        input: "Analyze current portfolio holdings and performance metrics"
-      });
-
-      console.log("portfolioAnalysis", portfolioAnalysis);
-
-      // Generate optimization strategy
-      const strategy = await agentRef.current.invoke({
-        input: `Based on the following portfolio analysis: ${portfolioAnalysis.output}, 
-                create a detailed strategy to achieve this goal: ${goal}`
-      });
-
-      console.log("strategy", strategy);
-
-      // Ensure strategy output is in JSON format
-      let strategyOutput = strategy.output;
-
-      // Handle case where output is a text description instead of JSON
-      if (typeof strategyOutput === 'string' && !strategyOutput.trim().startsWith('{') && !strategyOutput.trim().startsWith('[')) {
-        // Extract code blocks if present
-        const codeBlockMatch = strategyOutput.match(/```(?:json)?\s*([\s\S]*?)```/);
-        if (codeBlockMatch) {
-          strategyOutput = codeBlockMatch[1];
-        } else {
-          // Convert descriptive text to JSON steps array
-          const steps = strategyOutput.split(/\d+\.\s+\*\*/).filter(Boolean).map(step => {
-            const description = step.replace(/\*\*/g, '').trim();
-            return { description };
-          });
-          strategyOutput = JSON.stringify(steps);
-        }
-      }
-
-      // Update strategy with parsed output
-      strategy.output = strategyOutput;
-
-
-      // Parse strategy steps
-      const steps = JSON.parse(strategy.output);
-
-      console.log("steps", steps);
-
-      // Execute each step
-      for (let i = 0; i < steps.length; i++) {
-        const step = steps[i];
+        const initializedAgents = await initializeAgents();
+        setAgents(initializedAgents);
 
         setAgentState(prev => ({
           ...prev,
-          currentTask: step.description,
-          progress: (i / steps.length) * 100,
-          lastUpdate: new Date().toISOString()
+          isInitialized: true,
+          systemEvents: [...prev.systemEvents, {
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            event: 'AI agents initialized successfully',
+            type: 'success'
+          }]
         }));
 
-        // Execute transaction or analysis
-        const result = await agentRef.current.invoke({
-          input: `Execute this step: ${step.description}`,
-          // Add additional context from previous steps
-          context: {
-            previousSteps: steps.slice(0, i),
-            portfolioState: portfolioAnalysis.output
-          }
-        });
-
-        setMessages(prev => [...prev, {
+        setMessages([{
           role: "assistant",
-          content: `✅ ${step.description}\n${result.output}`
+          content: "Hello! I'm Ava, your AI portfolio manager. I can help you manage your DeFi portfolio on Avalanche. What would you like to do?",
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }]);
+      } catch (error) {
+        setAgentState(prev => ({
+          ...prev,
+          error: error instanceof Error ? error.message : 'Failed to initialize agents',
+          systemEvents: [...prev.systemEvents, {
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            event: `Initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            type: 'error'
+          }]
+        }));
+      } finally {
+        setAgentState(prev => ({ ...prev, isProcessing: false }));
+      }
+    };
 
-        // Add delay between steps
-        await new Promise(r => setTimeout(r, 1000));
+    setupAgents();
+  }, []);
+
+  const handleMessage = async (message: string) => {
+    try {
+      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setMessages(prev => [...prev, { role: "user", content: message, timestamp }]);
+
+      // Choose appropriate agent based on message content
+      let selectedAgent;
+      let agentType = '';
+
+      console.log(agents, "agents");
+
+      if (message.toLowerCase().includes('trade') || message.toLowerCase().includes('price')) {
+        selectedAgent = agents.find(agent => agent.id === 'trading');
+        agentType = 'Trading Agent';
+      } else if (message.toLowerCase().includes('pool') || message.toLowerCase().includes('liquidity')) {
+        selectedAgent = agents.find(agent => agent.id === 'liquidity');
+
+        agentType = 'Liquidity Agent';
+      } else {
+        selectedAgent = agents.find(agent => agent.id === 'portfolio');
+        agentType = 'Portfolio Agent';
       }
 
-      // Final update
       setAgentState(prev => ({
         ...prev,
-        isExecuting: false,
-        currentTask: null,
-        progress: 100
+        isProcessing: true,
+        activeAgent: agentType,
+        systemEvents: [...prev.systemEvents, {
+          timestamp,
+          event: `Processing request using ${agentType}`,
+          agent: agentType,
+          type: 'info'
+        }]
       }));
 
-    } catch (error) {
-      console.error("Autonomous execution failed:]", error);
+      console.log(selectedAgent, "selectedAgent is ");
+
+      const response = await selectedAgent?.agent?.invoke(
+        { input: message },
+        { configurable: { sessionId: "user-1" } }
+      );
+
       setMessages(prev => [...prev, {
-        role: "system",
-        content: `❌ Error during execution: ${error.message}`
+        role: "assistant",
+        content: response.output,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
+
       setAgentState(prev => ({
         ...prev,
-        isExecuting: false,
-        currentTask: null
+        systemEvents: [...prev.systemEvents, {
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          event: `${agentType} completed task successfully`,
+          agent: agentType,
+          type: 'success'
+        }]
       }));
+    } catch (error) {
+      console.error('Error handling message:', error);
+      setMessages(prev => [...prev, {
+        role: "system",
+        content: "I encountered an error while processing your request. Please try again.",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+
+      setAgentState(prev => ({
+        ...prev,
+        systemEvents: [...prev.systemEvents, {
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          event: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          agent: prev.activeAgent,
+          type: 'error'
+        }]
+      }));
+    } finally {
+      setAgentState(prev => ({ ...prev, isProcessing: false, activeAgent: null }));
     }
   };
 
-  // Handle user input submission
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
-
-    const userMessage = input;
+    if (!input.trim() || agentState.isProcessing) return;
+    handleMessage(input);
     setInput("");
-    setMessages(prev => [...prev, { role: "user", content: userMessage }]);
-
-    // Start autonomous execution
-    executeAutonomously(userMessage);
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-900">
-      <div className="flex-1 p-4">
-        {/* Messages Display */}
-        <div className="space-y-4 mb-4">
-          {messages.map((msg, idx) => (
-            <div key={idx} className={`p-4 rounded-lg ${msg.role === "user" ? "bg-blue-900" : "bg-gray-800"
+    <main className="flex  my-16">
+      {/* Left Sidebar - Agent Details */}
+      <div className="w-1/4 border-r border-gray-200 p-4 overflow-y-auto">
+        <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
+        {agents.map((agent) => (
+          <div
+            key={agent.id}
+            className={`p-4 mb-2 rounded-lg cursor-pointer ${agentState.activeAgent === agent.id ? 'bg-blue-100' : 'bg-gray-50'
+              }`}
+          >
+            <h3 className="font-medium text-gray-900">{agent.name}</h3>
+            <p className="text-sm text-gray-600">{agent.description}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Center - Chat Interface */}
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1 overflow-y-auto p-4">
+          {messages.map((message, index) => (
+            <div key={index} className={`mb-4 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'
               }`}>
-              <p className="text-white">{msg.content}</p>
+              <div className={`flex items-start max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                }`}>
+                {/* Icon container */}
+                <div className={`flex-shrink-0 ${message.role === 'user' ? 'ml-2' : 'mr-2'
+                  }`}>
+                  {message.role === 'user' ? (
+                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                      <User className="w-5 h-5 text-white" />
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                      <Bot className="w-5 h-5 text-white" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Message content */}
+                <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'
+                  }`}>
+                  <div className={`p-3 rounded-lg ${message.role === 'user'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-900'
+                    }`}>
+                    {message.content}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {message.timestamp}
+                  </div>
+                </div>
+              </div>
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
 
-        {/* Agent Status Display */}
-        {agentState.isExecuting && (
-          <div className="mb-4 p-4 bg-gray-800 rounded-lg">
-            <h3 className="text-white font-bold">Current Task:</h3>
-            <p className="text-white">{agentState.currentTask}</p>
-            <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2">
-              <div
-                className="bg-blue-600 h-2.5 rounded-full"
-                style={{ width: `${agentState.progress}%` }}
-              ></div>
-            </div>
+        {/* Input form */}
+        <form onSubmit={handleSubmit} className="border-t p-4">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              className="flex-1 rounded-lg border p-2"
+              placeholder="Type your message..."
+            />
+            <Button type="submit" disabled={agentState.isProcessing}>
+              <SendHorizontal className="h-4 w-4" />
+            </Button>
           </div>
-        )}
-
-        {/* Input Form */}
-        <form onSubmit={handleSubmit} className="mt-4">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Enter your portfolio management goal..."
-            className="w-full p-4 rounded-lg bg-gray-800 text-white"
-            disabled={agentState.isExecuting}
-          />
-          <button
-            type="submit"
-            disabled={agentState.isExecuting || !input.trim()}
-            className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50"
-          >
-            {agentState.isExecuting ? "Agent is working..." : "Start Execution"}
-          </button>
         </form>
       </div>
-    </div>
+
+      {/* Right Sidebar - System Events */}
+      <div className="w-1/4 border-l border-gray-200 p-4 overflow-y-auto">
+        <h2 className="text-lg font-semibold mb-4">System Events</h2>
+        {agentState.systemEvents.map((event, index) => (
+          <div
+            key={index}
+            className={`p-3 mb-2 rounded-lg ${event.type === 'error' ? 'bg-red-100' :
+              event.type === 'success' ? 'bg-green-100' :
+                event.type === 'warning' ? 'bg-yellow-100' : 'bg-blue-100'
+              }`}
+          >
+            <div className="text-sm font-medium">
+              {event.agent && <span className="text-gray-600">[{event.agent}] </span>}
+              <span className="text-gray-900">{event.event}</span>
+            </div>
+            <div className="text-xs text-gray-500">{event.timestamp}</div>
+          </div>
+        ))}
+      </div>
+    </main>
   );
 }

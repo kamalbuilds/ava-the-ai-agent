@@ -127,6 +127,28 @@ Agent will:
 5. Deploy to best protocol
 ```
 
+Key enhancements:
+- Added support for yield/APY data:
+  - Get current yields across all pools
+  - Track historical yield performance
+  - Filter by chain, protocol, or asset type
+- Added DEX volume tracking:
+  - Monitor daily and total volumes
+  - Break down by chain and protocol
+  - Track historical volume trends
+- Added token pricing capabilities:
+  - Get current prices for any token
+  - Track historical price data
+  - Support for multiple chains
+- Added stablecoin analytics:
+  - Monitor stablecoin market caps
+  - Track peg stability
+  - Analyze distribution across chains
+- Enhanced TVL tracking:
+  - Historical TVL data
+  - Chain and protocol breakdowns
+  - Token composition analysis
+
 ## 🚀 Getting Started
 
 1. Clone the repository
