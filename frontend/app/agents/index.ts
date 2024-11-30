@@ -222,7 +222,7 @@ const createAgent = async ({
         agent,
         tools: [...tools, ...brianToolkit.tools],
         callbacks: xmtpHandler
-            ? [new XMTPCallbackHandler(xmtpHandler, llm, instructions, xmtpHandlerOptions)]
+            ? [new XMTPCallbackHandler(xmtpHandler, llm, instructions!, xmtpHandlerOptions)]
             : [],
     });
 
