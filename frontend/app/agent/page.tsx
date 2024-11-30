@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { Card } from '../../components/ui/Card';
+import { Card } from '../../components/ui/card';
 import { initializeAgent } from './config';
 import { PortfolioManager } from './portfolio-manager';
 import { BrianToolkit } from "@brian-ai/langchain";
@@ -26,7 +26,7 @@ export default function AgentDashboard() {
                 });
 
                 const portfolioManager = new PortfolioManager(agent, toolkit);
-                console.log(portfolioManager,"portfolio manager",agent)
+                console.log(portfolioManager, "portfolio manager", agent)
 
                 // Initial scan
                 const stats = await portfolioManager.scanAndOptimize();
