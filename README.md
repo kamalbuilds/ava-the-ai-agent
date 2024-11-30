@@ -1,6 +1,6 @@
-# 🤖 Avalanche Portfolio Manager AI Agent
+# 🤖 Ava the Portfolio AI Manager Agent
 
-> An autonomous AI agent for managing DeFi portfolios on Avalanche, powered by Brian AI and LangChain
+> An autonomous AI agent for managing DeFi portfolios on Avalanche , Mode , Base, powered by Brian AI and LangChain
 
 - risk parameters and portfolio balance
 - Provides real-time feedback and execution status
