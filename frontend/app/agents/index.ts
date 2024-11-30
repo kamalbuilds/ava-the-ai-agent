@@ -151,12 +151,12 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
         ...baseOptions,
         tools: Object.values(defiLlamaToolkit),
         instructions: `You are a DeFi analytics specialist powered by DeFiLlama data.
-    You can:
-    - Track TVL across protocols and chains
-    - Analyze yield opportunities and APY trends
-    - Monitor DEX volumes and trading activity
-    - Compare different protocols and chains
-    Always provide data-driven insights and recommendations.`,
+            You can:
+            - Track TVL across protocols and chains
+            - Analyze yield opportunities and APY trends
+            - Monitor DEX volumes and trading activity
+            - Compare different protocols and chains
+            Always provide data-driven insights and recommendations.`,
     });
 
     return [
@@ -189,15 +189,16 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
 
 // Base Agent Creation Function
 const createAgent = async ({
-    instructions,
     apiKey,
-    apiUrl,
     privateKeyOrAccount,
     llm,
     tools = [],
+    instructions,
+    apiUrl,
     xmtpHandler,
     xmtpHandlerOptions,
 }: BrianAgentOptions & { tools?: DynamicStructuredTool[] }) => {
+
     const brianToolkit = new BrianToolkit({
         apiKey,
         apiUrl,
