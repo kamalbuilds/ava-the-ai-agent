@@ -12,6 +12,7 @@ import { AvalancheConfig } from "@brian-ai/langchain/chains";
 import { initializeAgents } from "./agents";
 import { SendHorizontal, Bot, User } from "lucide-react";
 import { AgentCharacters } from "./agents/AgentCharacters";
+import Image from 'next/image';
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -40,6 +41,14 @@ interface Agent {
   message?: string;
   agent?: any;
 }
+
+// Add a mapping for agent images
+const agentImages = {
+  'trading': '/agent_trader.png',
+  'liquidity': '/agent_default.png',  // You can add different images for each agent
+  'portfolio': '/agent_default.png',
+  'defi-analytics': '/agent_analyst.png'
+};
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -208,11 +217,31 @@ export default function Home() {
         {agents.map((agent) => (
           <div
             key={agent.id}
-            className={`p-4 mb-2 rounded-lg cursor-pointer ${agentState.activeAgent === agent.id ? 'bg-blue-100' : 'bg-gray-50'
+            className={`p-4 mb-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id ? 'bg-blue-50 border border-blue-200' : 'bg-white border'
               }`}
           >
-            <h3 className="font-medium text-gray-900">{agent.name}</h3>
-            <p className="text-sm text-gray-600">{agent.description}</p>
+            <div className="flex items-center mb-2">
+              <div className="relative w-12 h-12 mr-3">
+                <Image
+                  src={agentImages[agent.id as keyof typeof agentImages]}
+                  alt={agent.name}
+                  fill
+                  className="rounded-full object-cover"
+                  priority
+                />
+              </div>
+              <div>
+                <h3 className="font-medium text-gray-900">{agent.name}</h3>
+                <p className="text-xs text-gray-500">AI Assistant</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
+            {agentState.activeAgent === agent.id && (
+              <div className="mt-2 text-xs text-blue-600 flex items-center">
+                <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
+                Active
+              </div>
+            )}
           </div>
         ))}
       </div>
