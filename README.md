@@ -1,4 +1,4 @@
-# 🤖 Ava the Portfolio AI Manager Agent
+# 🤖 Ava the Portfolio Manager AI Agent
 
 > Multiple autonomous AI agents with powerful tools for managing DeFi portfolios and executing Defi Tasks on Avalanche , Mode , Base, powered by Brian AI and LangChain
 
