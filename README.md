@@ -11,7 +11,7 @@ Managing DeFi portfolios across multiple protocols on Avalanche can be complex a
 Users need to:
 - Monitor multiple positions across different protocols
 - Execute complex multi-step transactions
-- Stay updated with the latest yield opportunities
+- Stay updated with the latest crosschain yield opportunities
 - Maintain desired portfolio allocations
 - React quickly to market changes
 
