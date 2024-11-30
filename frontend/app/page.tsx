@@ -42,16 +42,24 @@ interface Agent {
   agent?: any;
 }
 
+// Add this interface for agent collaboration messages
+interface CollaborationMessage extends Message {
+  agentId?: string;
+  agentName?: string;
+  collaborationType?: 'question' | 'response' | 'suggestion' | 'decision';
+}
+
+
 // Add a mapping for agent images
 const agentImages = {
-  'trading': '/agent_trader.png',
-  'liquidity': '/agent_default.png',  // You can add different images for each agent
-  'portfolio': '/agent_default.png',
+  'trading': '/agent_analyst.png',
+  'liquidity': '/agent_analyst.png',  // You can add different images for each agent
+  'portfolio': '/agent_analyst.png',
   'defi-analytics': '/agent_analyst.png'
 };
 
 export default function Home() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<CollaborationMessage[]>([]);
   const [input, setInput] = useState("");
   const [agentState, setAgentState] = useState<AgentState>({
     isInitialized: false,
@@ -126,77 +134,93 @@ export default function Home() {
   const handleMessage = async (message: string) => {
     try {
       const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setMessages(prev => [...prev, { role: "user", content: message, timestamp }]);
 
-      // Choose appropriate agent based on message content
-      let selectedAgent;
-      let agentType = '';
+      setMessages(prev => [...prev, {
+        role: "user",
+        content: message,
+        timestamp
+      }]);
 
-      console.log(agents, "agents");
-
-      if (message.toLowerCase().includes('trade') || message.toLowerCase().includes('price')) {
-        selectedAgent = agents.find(agent => agent.id === 'trading');
-        agentType = 'Trading Agent';
-      } else if (message.toLowerCase().includes('pool') || message.toLowerCase().includes('liquidity')) {
-        selectedAgent = agents.find(agent => agent.id === 'liquidity');
-
-        agentType = 'Liquidity Agent';
-      } else {
-        selectedAgent = agents.find(agent => agent.id === 'portfolio');
-        agentType = 'Portfolio Agent';
-      }
-
+      // Start collaboration process
       setAgentState(prev => ({
         ...prev,
         isProcessing: true,
-        activeAgent: agentType,
         systemEvents: [...prev.systemEvents, {
           timestamp,
-          event: `Processing request using ${agentType}`,
-          agent: agentType,
+          event: 'Starting agent collaboration',
           type: 'info'
         }]
       }));
 
-      console.log(selectedAgent, "selectedAgent is ");
-
-      const response = await selectedAgent?.agent?.invoke(
-        { input: message },
+      // Initial analysis by Portfolio Agent
+      const portfolioAgent = agents.find(agent => agent.id === 'portfolio');
+      const initialAnalysis = await portfolioAgent?.agent?.invoke(
+        { input: `Analyze this request and determine which other agents should be involved: ${message}` },
         { configurable: { sessionId: "user-1" } }
       );
 
       setMessages(prev => [...prev, {
         role: "assistant",
-        content: response.output,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        content: initialAnalysis.output,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        agentId: 'portfolio',
+        agentName: 'Portfolio Manager',
+        collaborationType: 'analysis'
       }]);
 
-      setAgentState(prev => ({
-        ...prev,
-        systemEvents: [...prev.systemEvents, {
+      // Determine relevant agents based on message content
+      const relevantAgents = agents.filter(agent => {
+        const messageContent = message.toLowerCase();
+        return (
+          (messageContent.includes('trade') && agent.id === 'trading') ||
+          (messageContent.includes('liquidity') && agent.id === 'liquidity') ||
+          (messageContent.includes('analytics') && agent.id === 'defi-analytics')
+        );
+      });
+
+      console.log(relevantAgents, "relevantAgents selected are");
+
+      // Get input from each relevant agent
+      for (const agent of relevantAgents) {
+        const agentResponse = await agent?.agent?.invoke(
+          {
+            input: `Given the user request "${message}" and portfolio analysis "${initialAnalysis.output}", what is your perspective and recommendation?`
+          },
+          { configurable: { sessionId: "user-1" } }
+        );
+
+        setMessages(prev => [...prev, {
+          role: "assistant",
+          content: agentResponse.output,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          event: `${agentType} completed task successfully`,
-          agent: agentType,
-          type: 'success'
-        }]
-      }));
+          agentId: agent.id,
+          agentName: agent.name,
+          collaborationType: 'suggestion'
+        }]);
+      }
+
+      // Final consensus
+      const finalConsensus = await portfolioAgent?.agent?.invoke(
+        { input: `Based on all suggestions, provide a final recommendation for: ${message}` },
+        { configurable: { sessionId: "user-1" } }
+      );
+
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: finalConsensus.output,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        agentId: 'portfolio',
+        agentName: 'Portfolio Manager',
+        collaborationType: 'decision'
+      }]);
+
     } catch (error) {
-      console.error('Error handling message:', error);
+      console.error('Error in collaboration:', error);
       setMessages(prev => [...prev, {
         role: "system",
-        content: "I encountered an error while processing your request. Please try again.",
+        content: "An error occurred during agent collaboration. Please try again.",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
-
-      setAgentState(prev => ({
-        ...prev,
-        systemEvents: [...prev.systemEvents, {
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          event: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          agent: prev.activeAgent,
-          type: 'error'
-        }]
-      }));
     } finally {
       setAgentState(prev => ({ ...prev, isProcessing: false, activeAgent: null }));
     }
@@ -210,7 +234,7 @@ export default function Home() {
   };
 
   return (
-    <main className="flex  my-16">
+    <main className="flex h-screen">
       {/* Left Sidebar - Agent Details */}
       <div className="w-1/4 border-r border-gray-200 p-4 overflow-y-auto">
         <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
@@ -254,23 +278,32 @@ export default function Home() {
               }`}>
               <div className={`flex items-start max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
                 }`}>
-                {/* Icon container */}
-                <div className={`flex-shrink-0 ${message.role === 'user' ? 'ml-2' : 'mr-2'
-                  }`}>
+                {/* Agent/User Icon */}
+                <div className={`flex-shrink-0 ${message.role === 'user' ? 'ml-2' : 'mr-2'}`}>
                   {message.role === 'user' ? (
                     <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
                       <User className="w-5 h-5 text-white" />
                     </div>
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
-                      <Bot className="w-5 h-5 text-white" />
+                    <div className="relative">
+                      <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                        <Bot className="w-5 h-5 text-white" />
+                      </div>
+                      {message.collaborationType && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500" />
+                      )}
                     </div>
                   )}
                 </div>
 
-                {/* Message content */}
-                <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'
-                  }`}>
+                {/* Message Content */}
+                <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+                  {message.agentName && (
+                    <span className="text-xs font-medium text-gray-500 mb-1">
+                      {message.agentName}
+                      {message.collaborationType && ` • ${message.collaborationType}`}
+                    </span>
+                  )}
                   <div className={`p-3 rounded-lg ${message.role === 'user'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-900'
@@ -287,7 +320,7 @@ export default function Home() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input form */}
+        {/* Input Form */}
         <form onSubmit={handleSubmit} className="border-t p-4">
           <div className="flex gap-2">
             <input
