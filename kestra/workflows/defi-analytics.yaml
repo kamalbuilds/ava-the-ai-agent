@@ -1,0 +1,50 @@
+id: defi-analytics
+namespace: defi.portfolio
+
+inputs:
+  - id: protocols
+    type: ARRAY
+    itemType: STRING
+  - id: chains
+    type: ARRAY
+    itemType: STRING
+
+tasks:
+  - id: fetch_tvl_data
+    type: io.kestra.plugin.scripts.python.Script
+    script: |
+      import json
+      from defi_llama import get_tvl_data
+      
+      tvl_data = get_tvl_data(
+          protocols={{ inputs.protocols }},
+          chains={{ inputs.chains }}
+      )
+      
+      with open('tvl_data.json', 'w') as f:
+          json.dump(tvl_data, f)
+    outputFiles:
+      - tvl_data.json
+
+  - id: analyze_yields
+    type: io.kestra.plugin.scripts.python.Script
+    inputs:
+      protocols: "{{ inputs.protocols }}"
+    outputFiles:
+      - yield_data.json
+
+  - id: analyze_volume
+    type: io.kestra.plugin.scripts.python.Script
+    inputs:
+      protocols: "{{ inputs.protocols }}"
+    outputFiles:
+      - volume_data.json
+
+  - id: generate_report
+    type: io.kestra.plugin.scripts.python.Script
+    inputs:
+      tvl_data: "{{ outputs.fetch_tvl_data.files['tvl_data.json'] }}"
+      yield_data: "{{ outputs.analyze_yields.files['yield_data.json'] }}"
+      volume_data: "{{ outputs.analyze_volume.files['volume_data.json'] }}"
+    outputFiles:
+      - analytics_report.json

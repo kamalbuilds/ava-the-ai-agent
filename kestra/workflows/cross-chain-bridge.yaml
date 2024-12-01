@@ -1,0 +1,53 @@
+id: cross-chain-bridge
+namespace: defi.portfolio
+
+inputs:
+  - id: source_chain
+    type: STRING
+  - id: target_chain
+    type: STRING
+  - id: token
+    type: STRING
+  - id: amount
+    type: FLOAT
+
+tasks:
+  - id: validate_bridge_path
+    type: io.kestra.plugin.scripts.python.Script
+    script: |
+      import json
+      from bridge_validator import validate_bridge_path
+      
+      path = validate_bridge_path(
+          source="{{ inputs.source_chain }}",
+          target="{{ inputs.target_chain }}",
+          token="{{ inputs.token }}"
+      )
+      
+      with open('bridge_path.json', 'w') as f:
+          json.dump(path, f)
+    outputFiles:
+      - bridge_path.json
+
+  - id: estimate_fees
+    type: io.kestra.plugin.scripts.python.Script
+    inputs:
+      bridge_path: "{{ outputs.validate_bridge_path.files['bridge_path.json'] }}"
+    outputFiles:
+      - fee_estimate.json
+
+  - id: initiate_bridge
+    type: io.kestra.plugin.scripts.python.Script
+    inputs:
+      bridge_path: "{{ outputs.validate_bridge_path.files['bridge_path.json'] }}"
+      fee_estimate: "{{ outputs.estimate_fees.files['fee_estimate.json'] }}"
+    outputFiles:
+      - bridge_tx.json
+
+  - id: monitor_bridge
+    type: io.kestra.plugin.scripts.python.Script
+    inputs:
+      bridge_tx: "{{ outputs.initiate_bridge.files['bridge_tx.json'] }}"
+    retry:
+      maxAttempt: 10
+      interval: PT1M
