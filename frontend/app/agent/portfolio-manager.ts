@@ -3,7 +3,7 @@
 import { BrianToolkit } from "@brian-ai/langchain";
 import { BaseChain } from "langchain/chains";
 import { AvaCloudSDK } from "@avalabs/avacloud-sdk";
-import { FunctorService } from '../services/functorService';
+import { FunctorService } from '../services/functorService.ts';
 
 export class PortfolioManager {
     private agent: BaseChain | null;
