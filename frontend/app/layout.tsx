@@ -5,6 +5,7 @@ import { Inter } from "next/font/google";
 import { MainLayout } from "@/components/layouts/MainLayout";
 import { ThirdwebProvider } from "thirdweb/react";
 import { QueryClient, QueryClientProvider } from 'react-query';
+import Provider from "./Provider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -20,15 +21,18 @@ export default function RootLayout({
 }) {
 
   const queryClient = new QueryClient();
+
   return (
     <html lang="en" className={`${inter.variable} font-sans`}>
       <body
         className={`${inter.className} bg-dark-navy min-h-screen antialiased`}
       >
         <QueryClientProvider client={queryClient}>
-          <ThirdwebProvider>
-            <MainLayout>{children}</MainLayout>
-          </ThirdwebProvider>
+          <Provider>
+            <ThirdwebProvider>
+              <MainLayout>{children}</MainLayout>
+            </ThirdwebProvider>
+          </Provider>
         </QueryClientProvider>
       </body>
     </html>

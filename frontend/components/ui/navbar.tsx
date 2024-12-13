@@ -1,5 +1,4 @@
 "use client";
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
@@ -7,6 +6,7 @@ import { WalletIcon, ChartBarIcon, CogIcon } from "@heroicons/react/24/outline";
 import { ConnectButton, lightTheme } from "thirdweb/react";
 import { client } from "@/app/client";
 import { avalanche, avalancheFuji, ethereum, modeTestnet, bsc, base } from "thirdweb/chains";
+import OktoConnect from "./OktoConnect";
 
 const navItems = [
   {
@@ -75,7 +75,8 @@ export function Navbar() {
           </div>
 
           <div className="flex items-center space-x-4">
-            <ConnectButton
+            <OktoConnect />
+            {/* <ConnectButton
               client={client}
               theme={lightTheme()}
               chains={[avalancheFuji, avalanche, modeTestnet, ethereum, bsc, base]}
@@ -90,7 +91,7 @@ export function Navbar() {
             //   chain: avalancheFuji,
             //   sponsorGas: true,
             // }}
-            />
+            /> */}
           </div>
         </div>
       </div>
