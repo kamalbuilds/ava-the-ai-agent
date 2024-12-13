@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { useProvider } from '@thirdweb-dev/react';
 import { PortfolioValidatorAgent } from '../agents/portfolio-validator';
 import { Button } from '@/components/ui/button';
-import { PortfolioAnalysis, ValidationResult, ValidationStrategy } from '@/types/portfolio';
+import {
+    PortfolioAnalysis,
+    ValidationResult,
+    ValidationStrategy,
+    Portfolio
+} from '@/types/portfolio';
 
 // Mock current portfolio for development
 const currentPortfolio = {
@@ -37,7 +42,8 @@ export function PortfolioValidator() {
             const result = await validator.validatePortfolio(
                 portfolio.tokens,
                 portfolio.amounts,
-                portfolio.strategy
+                portfolio.strategy,
+                portfolio.validationType
             );
             setValidationResult(result);
         } catch (err) {

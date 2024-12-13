@@ -4,19 +4,20 @@ import type { ValidationResult, PortfolioAnalysis, ValidationStrategy } from '@/
 import { AIClient, client } from '@/lib/client';
 
 export class PortfolioValidatorAgent {
-    private contract: ethers.Contract | undefined;
+    private contract: ethers.Contract;
 
     constructor(
         private contractAddress: string,
         private provider: ethers.Provider
     ) {
-        if (contractAddress) {
-            this.contract = new ethers.Contract(
-                contractAddress,
-                PortfolioValidationServiceManager,
-                provider
-            );
+        if (!contractAddress) {
+            throw new Error('Contract address is required');
         }
+        this.contract = new ethers.Contract(
+            contractAddress,
+            PortfolioValidationServiceManager,
+            provider
+        );
     }
 
     async validatePortfolio(
@@ -25,12 +26,8 @@ export class PortfolioValidatorAgent {
         strategy: string,
         validationType: ValidationStrategy
     ) {
-        if (!this.contract) {
-            throw new Error('Contract not initialized');
-        }
-
         // Create validation task
-        const tx = await this.contract['createPortfolioTask'](
+        const tx = await this.contract.createPortfolioTask(
             tokens,
             amounts,
             strategy,
@@ -65,20 +62,11 @@ export class PortfolioValidatorAgent {
     }
 
     private async getTokenData(tokenAddress: string) {
-        if (!this.contract) {
-            throw new Error('Contract not initialized');
-        }
-        return await this.contract.tokenRegistry(tokenAddress);
+        return await this.contract['tokenRegistry'](tokenAddress);
     }
 
     private async waitForValidations(taskId: number): Promise<ValidationResult[]> {
-        if (!this.contract) {
-            throw new Error('Contract not initialized');
-        }
-
-        // Poll for validations
-        const validations = await this.contract['getTaskValidations'](taskId);
-        return validations;
+        return await this.contract['getTaskValidations'](taskId);
     }
 
     private async analyzeValidations(validations: ValidationResult[], tokenData: any[]): Promise<PortfolioAnalysis> {
