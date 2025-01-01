@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schema.hypermode.com/modus.json",
+  "endpoints": {
+    "default": {
+      "type": "graphql",
+      "path": "/graphql",
+      "auth": "bearer-token"
+    }
+  },
+  "models": {
+    "minilm": {
+      "sourceModel": "sentence-transformers/all-MiniLM-L6-v2",
+      "provider": "hugging-face",
+      "connection": "hypermode"
+    },
+    "portfolio-analyzer": {
+      "sourceModel": "gpt-4",
+      "provider": "hugging-face",
+      "connection": "hypermode"
+    }
+  },
+  "connections": {
+    "neo4j": {
+      "type": "neo4j",
+      "dbUri": "{{NEO4J_URI}}",
+      "username": "{{NEO4J_USERNAME}}",
+      "password": "{{NEO4J_PASSWORD}}"
+    },
+    "openai": {
+      "type": "http",
+      "baseUrl": "https://api.openai.com/",
+      "headers": {
+        "Authorization": "Bearer {{OPENAI_API_KEY}}"
+      }
+    }
+  }
+}
