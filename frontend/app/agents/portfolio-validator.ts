@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import { PortfolioValidationServiceManager } from '@/contracts/abis';
 import type { ValidationResult, PortfolioAnalysis, ValidationStrategy } from '@/types/portfolio';
-import { AIClient, client } from '@/lib/client';
+import { x, client } from '@/lib/client';
 
 export class PortfolioValidatorAgent {
     private contract: ethers.Contract;
@@ -27,7 +27,7 @@ export class PortfolioValidatorAgent {
         validationType: ValidationStrategy
     ) {
         // Create validation task
-        const tx = await this.contract.createPortfolioTask(
+        const tx = await this.contract['createPortfolioTask'](
             tokens,
             amounts,
             strategy,

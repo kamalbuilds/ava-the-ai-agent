@@ -14,7 +14,7 @@ import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
 import { FunctorService } from '../services/functorService.ts';
 import { KestraService } from '../services/kestraService';
-import { OrchestrationAgent } from './orchestrationAgent';
+import { OrchestrationAgent } from './orchaestrationAgent';
 
 // Initialize Kestra service
 const kestraService = new KestraService();
