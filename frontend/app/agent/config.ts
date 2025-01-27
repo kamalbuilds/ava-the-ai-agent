@@ -35,7 +35,7 @@ export const CONFIG = {
     DEFAULT_RISK_LEVEL: 5,
     MAX_TRADE_SIZE: '1000000000000000000', // 1 TOKEN
     REFRESH_INTERVAL: 10000, // 10 seconds
-    GELATO_RELAY_API_KEY: process.env.NEXT_PUBLIC_GELATO_API_KEY,
+    GELATO_RELAY_API_KEY: process.env['NEXT_PUBLIC_GELATO_API_KEY'] || '',
 
     // Contract addresses per network
     ADDRESSES: {
