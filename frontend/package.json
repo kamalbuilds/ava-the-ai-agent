@@ -10,7 +10,6 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\""
   },
   "dependencies": {
-    "@agoric/orchestration": "^0.2.0-u18.2",
     "@avalabs/avacloud-sdk": "^0.8.0",
     "@babel/runtime": "^7.26.0",
     "@brian-ai/langchain": "^1.0.4",
@@ -25,7 +24,7 @@
     "canvas-confetti": "^1.9.3",
     "clsx": "^2.1.1",
     "crypto-browserify": "^3.12.1",
-    "ethers": "^6.13.4",
+    "ethers": "^5.7.2",
     "framer-motion": "^11.12.0",
     "https-browserify": "^1.0.0",
     "jsonwebtoken": "^9.0.2",

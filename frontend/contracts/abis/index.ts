@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import PortfolioValidationServiceManagerABI from '../../../eigenlayer-portfoliotask-avs/abis/PortfolioValidationServiceManager.json';
 
-export const PortfolioValidationServiceManager = new ethers.Interface(
+export const PortfolioValidationServiceManager = new ethers.utils.Interface(
     PortfolioValidationServiceManagerABI.abi
 );
 
