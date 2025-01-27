@@ -1,12 +1,12 @@
 "use client";
-import { ThirdwebClient } from '@thirdweb-dev/sdk';
-import { ValidationResult, PortfolioAnalysis } from './contracts/abis';
+import { ValidationResult, PortfolioAnalysis } from '../contracts/abis';
+import { createThirdwebClient, ThirdwebClient } from 'thirdweb';
 
 export interface AIClient extends ThirdwebClient {
     analyzePortfolioValidations(validations: ValidationResult[]): Promise<PortfolioAnalysis>;
 }
 
-export const client = new ThirdwebClient({
+export const client = createThirdwebClient({
     clientId: process.env["NEXT_PUBLIC_THIRDWEB_CLIENT_ID"] as string,
 }) as AIClient;
 

@@ -1,14 +1,15 @@
-import { ThirdwebSDK } from '@thirdweb-dev/sdk';
 import type { ValidationResult, PortfolioAnalysis } from '@/types/portfolio';
+import { createThirdwebClient } from 'thirdweb';
+import { ThirdwebClient } from 'thirdweb';
 
-export interface AIClient extends ThirdwebSDK {
+export interface AIClient extends ThirdwebClient {
     analyzePortfolioValidations(
         validations: ValidationResult[],
         tokenData: any[]
     ): Promise<PortfolioAnalysis>;
 }
 
-export const client = new ThirdwebSDK({
+export const client = createThirdwebClient({
     clientId: process.env['NEXT_PUBLIC_THIRDWEB_CLIENT_ID'] ?? ''
 }) as AIClient;
 
