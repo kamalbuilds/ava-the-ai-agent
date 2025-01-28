@@ -12,9 +12,11 @@ import { ChatMessageHistory } from "langchain/memory";
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
 import { FunctorService } from '../services/functorService';
-import { defiLlamaToolkit , coingeckoTool, coinbaseDevToolkit } from "./tools";
+import { defiLlamaToolkit, coingeckoTool  } from "./tools";
 import { ChainValues } from "@langchain/core/utils/types";
 import * as ethers from "ethers";
+import { Wallet } from "@coinbase/coinbase-sdk";
+import { createCoinbaseTools } from "./tools";
 
 // Update message history store and getter
 const store: Record<string, ChatMessageHistory> = {};
@@ -76,39 +78,33 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
             Help users optimize their portfolio allocation while maintaining efficiency and security.`
     });
 
-    // Initialize CDP toolkit with wallet
-    const walletData = await initializeCDPWallet(baseOptions);
-    const cdpTools = await coinbaseDevToolkit.setup({ walletData });
+    // Initialize Coinbase wallet
+    const wallet = await initializeCDPWallet(baseOptions);
+    
+    // Create Coinbase tools
+    const coinbaseTools = await createCoinbaseTools(wallet);
 
-    // CDP Management Agent
+    // Coinbase Dev Agent
     const coinbaseAgent = await createAgent({
         ...baseOptions,
         tools: [
-            ...cdpTools,
+            coinbaseTools.getBalance,
+            coinbaseTools.bridge,
             defiLlamaToolkit.getTVLTool,
             coingeckoTool,
         ],
-        instructions: `You are a Coinbase Developer Platform (CDP) specialist.
+        instructions: `You are a Coinbase Developer Platform specialist.
             
             Available Operations:
-            - Swap tokens on supported DEXs
-            - Bridge assets across chains
-            - Deposit/Withdraw from DeFi protocols
-            - Transfer tokens between addresses
-            - Check token balances
-            - Deploy NFTs and ERC-20 tokens
+            - Check token balances across chains
+            - Bridge assets between networks
+            - Monitor prices and TVL
             
             Supported Networks:
             - Base (primary)
             - Ethereum
             - Optimism
             - Arbitrum
-            
-            Integration Features:
-            - Price monitoring via CoinGecko
-            - Protocol analytics via DeFiLlama
-            - Cross-chain operations
-            - Gas optimization
             
             Always prioritize:
             - Transaction safety
@@ -117,26 +113,24 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
             - Risk warnings for complex operations`,
     });
 
-    // Helper function to initialize CDP wallet
-    async function initializeCDPWallet(options: BrianAgentOptions) {
+    // Helper function to initialize Coinbase wallet
+    async function initializeCDPWallet(options: BrianAgentOptions): Promise<Wallet> {
         try {
-            // Create or import wallet based on private key
-            const wallet = new ethers.Wallet(
-                options.privateKeyOrAccount,
-                new ethers.providers.JsonRpcProvider(
-                    process.env["NEXT_PUBLIC_BASE_RPC_URL"]
-                )
+            const provider = new ethers.providers.JsonRpcProvider(
+                process.env["NEXT_PUBLIC_BASE_RPC_URL"]
             );
-
-            // Return wallet data in expected format
-            return {
-                address: wallet.address,
-                privateKey: wallet.privateKey,
+            
+            const signer = new ethers.Wallet(options.privateKeyOrAccount, provider);
+            
+            // Create Coinbase wallet instance
+            return new Wallet({
+                address: signer.address,
+                privateKey: signer.privateKey,
                 provider: "base",
-                chainId: 8453 // Base mainnet
-            };
+                chainId: 8453
+            });
         } catch (error) {
-            console.error("Failed to initialize CDP wallet:", error);
+            console.error("Failed to initialize Coinbase wallet:", error);
             throw error;
         }
     }
@@ -169,14 +163,11 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
         {
             id: 'coinbase-dev',
             name: 'Coinbase Dev Agent',
-            description: 'Executes defi operations via Coinbase CDP',
+            description: 'Executes cross-chain operations via Coinbase CDP',
             agent: coinbaseAgent,
             metadata: {
                 supportedChains: ["base", "ethereum", "optimism", "arbitrum"],
-                capabilities: [
-                    "swap", "bridge", "deposit", "withdraw",
-                    "transfer", "balance", "deploy"
-                ]
+                capabilities: ["balance", "bridge"]
             }
         }
     ];
