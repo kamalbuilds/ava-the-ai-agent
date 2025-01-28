@@ -1,4 +1,3 @@
-// @ts-nocheck
 import {
     type BrianAgentOptions,
     BrianToolkit,
@@ -12,11 +11,9 @@ import { createToolCallingAgent, AgentExecutor } from "langchain/agents";
 import { ChatMessageHistory } from "langchain/memory";
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
-import { FunctorService } from '../services/functorService.ts';
-import { KestraService } from '../services/kestraService';
+import { FunctorService } from '../services/functorService';
+import { defiLlamaToolkit , coingeckoTool } from "./tools";
 
-// Initialize Kestra service
-const kestraService = new KestraService();
 
 // Message history store
 const store: Record<string, ChatMessageHistory> = {};
@@ -27,127 +24,6 @@ function getMessageHistory(sessionId: string) {
     }
     return store[sessionId];
 }
-
-// DeFiLlama Tools Definition
-const defiLlamaToolkit = {
-    getTVLTool: new DynamicStructuredTool({
-        name: "get_protocol_tvl",
-        description: "Get current and historical TVL data for a protocol",
-        schema: z.object({
-            protocol: z.string().describe("Protocol name/slug"),
-        }),
-        func: async ({ protocol }) => {
-            const response = await fetch(`https://api.llama.fi/protocol/${protocol}`);
-
-            console.log(response, "response from the api");
-            const data = await response.json();
-            return JSON.stringify({
-                name: data.name,
-                tvl: data.tvl,
-                chainTvls: data.chainTvls,
-                currentChainTvls: data.currentChainTvls,
-            });
-        },
-    }),
-
-    getYieldsTool: new DynamicStructuredTool({
-        name: "get_yield_pools",
-        description: "Get yield/APY data for DeFi pools",
-        schema: z.object({
-            chain: z.string().optional().describe("Optional chain filter"),
-        }),
-        func: async ({ chain }) => {
-            const response = await fetch("https://yields.llama.fi/pools");
-            const data = await response.json();
-            const pools = data.data
-                .filter((pool: any) => !chain || pool.chain === chain)
-                .slice(0, 10)
-                .map((pool: any) => ({
-                    chain: pool.chain,
-                    project: pool.project,
-                    symbol: pool.symbol,
-                    tvlUsd: pool.tvlUsd,
-                    apy: pool.apy,
-                }));
-            return JSON.stringify(pools);
-        },
-    }),
-
-    getDexVolumesTool: new DynamicStructuredTool({
-        name: "get_dex_volumes",
-        description: "Get DEX trading volume data",
-        schema: z.object({
-            chain: z.string().optional().describe("Optional chain filter"),
-        }),
-        func: async ({ chain }) => {
-            const endpoint = chain ?
-                `https://api.llama.fi/overview/dexs/${chain}` :
-                'https://api.llama.fi/overview/dexs';
-            const response = await fetch(endpoint);
-            const data = await response.json();
-            const volumes = data.protocols
-                .slice(0, 10)
-                .map((dex: any) => ({
-                    name: dex.name,
-                    chain: dex.chain,
-                    dailyVolume: dex.dailyVolume,
-                    totalVolume: dex.totalVolume,
-                }));
-            return JSON.stringify(volumes);
-        },
-    }),
-};
-
-// Tools Definition
-const coingeckoTool = new DynamicStructuredTool({
-    name: "get_token_price",
-    description: "Get the current price of any cryptocurrency token",
-    schema: z.object({
-        tokenId: z.string().describe("The token ID from CoinGecko"),
-    }),
-    func: async ({ tokenId }) => {
-        try {
-            const response = await fetch(
-                `https://api.coingecko.com/api/v3/coins/${tokenId}`,
-                {
-                    headers: {
-                        "x-cg-demo-api-key": process.env["NEXT_PUBLIC_COINGECKO_API_KEY"]!,
-                    },
-                }
-            );
-            const data = await response.json();
-            return `${tokenId.toUpperCase()} price: $${data.market_data.current_price.usd}`;
-        } catch (error) {
-            return `Error fetching ${tokenId} price`;
-        }
-    },
-});
-
-// Add Kestra tools
-const kestraTools = [
-    new DynamicStructuredTool({
-        name: "execute_workflow",
-        description: "Execute a Kestra workflow for orchestrated operations",
-        schema: z.object({
-            namespace: z.string(),
-            flowId: z.string(),
-            inputs: z.any().optional()
-        }),
-        func: async ({ namespace, flowId, inputs }) => {
-            return await kestraService.executeWorkflow(namespace, flowId, inputs);
-        }
-    }),
-    new DynamicStructuredTool({
-        name: "check_workflow_status",
-        description: "Check the status of a Kestra workflow execution",
-        schema: z.object({
-            executionId: z.string()
-        }),
-        func: async ({ executionId }) => {
-            return await kestraService.getExecutionStatus(executionId);
-        }
-    })
-];
 
 export interface Agent {
     id: string;
@@ -160,7 +36,7 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
     // Trading Agent with Kestra orchestration
     const tradingAgent = await createAgent({
         ...baseOptions,
-        tools: [...kestraTools, coingeckoTool],
+        tools: [ coingeckoTool],
         instructions: `You are a specialized trading agent with workflow orchestration capabilities.
             You can execute and monitor complex trading operations using Kestra workflows.
             Focus on price analysis and trading opportunities.`,
@@ -190,7 +66,6 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
     const portfolioAgent = await createAgent({
         ...baseOptions,
         tools: [
-            ...kestraTools,
             coingeckoTool,
             defiLlamaToolkit.getTVLTool,
         ],
@@ -295,7 +170,7 @@ const createAgent = async ({
     });
 };
 
-// Usage Example
+
 export const initializeAgents = async () => {
     const baseOptions = {
         apiKey: process.env["NEXT_PUBLIC_BRIAN_API_KEY"]!,
