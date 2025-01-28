@@ -1,5 +1,6 @@
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
+import { BrianCDPToolkit } from "@brian-ai/langchain";
 
 
 // DeFiLlama Tools Definition
@@ -95,4 +96,15 @@ export const coingeckoTool = new DynamicStructuredTool({
             return `Error fetching ${tokenId} price`;
         }
     },
+});
+
+
+export const brianCDPToolkit = new BrianCDPToolkit({
+    apiKey: process.env["NEXT_PUBLIC_BRIAN_API_KEY"]!,
+    coinbaseApiKeyName: process.env["NEXT_PUBLIC_COINBASE_API_KEY_NAME"]!,
+    coinbaseApiKeySecret: process.env["NEXT_PUBLIC_COINBASE_API_KEY_SECRET"]!,
+    coinbaseOptions: {
+        network: "mainnet",
+        defaultChain: "base"
+    }
 });
