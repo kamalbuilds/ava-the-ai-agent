@@ -377,47 +377,44 @@ export default function Home() {
   };
 
   return (
-    <main className="flex h-[calc(100vh-theme(spacing.16)-theme(spacing.16))]">
+    <main className="flex my-16">
       {/* Left Sidebar - Agent Details */}
-      <div className="w-1/4 border-r border-gray-200 overflow-y-auto">
-        <div className="p-4">
-          <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
-          {agents.map((agent) => (
-            <div
-              key={agent.id}
-              className={`p-4 mb-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id ? 'bg-blue-50 border border-blue-200' : 'bg-white border'
-                }`}
-            >
-              <div className="flex items-center mb-2">
-                <div className="relative w-12 h-12 mr-3">
-                  <Image
-                    src={agentImages[agent.id as keyof typeof agentImages]}
-                    alt={agent.name}
-                    fill
-                    className="rounded-full object-cover"
-                    priority
-                  />
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900">{agent.name}</h3>
-                  <p className="text-xs text-gray-500">AI Assistant</p>
-                </div>
+      <div className="w-1/4 border-r border-gray-200 p-4 overflow-y-auto">
+        <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
+        {agents.map((agent) => (
+          <div
+            key={agent.id}
+            className={`p-4 mb-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id ? 'bg-blue-50 border border-blue-200' : 'bg-white border'
+              }`}
+          >
+            <div className="flex items-center mb-2">
+              <div className="relative w-12 h-12 mr-3">
+                <Image
+                  src={agentImages[agent.id as keyof typeof agentImages]}
+                  alt={agent.name}
+                  fill
+                  className="rounded-full object-cover"
+                  priority
+                />
               </div>
-              <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
-              {agentState.activeAgent === agent.id && (
-                <div className="mt-2 text-xs text-blue-600 flex items-center">
-                  <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
-                  Active
-                </div>
-              )}
+              <div>
+                <h3 className="font-medium text-gray-900">{agent.name}</h3>
+                <p className="text-xs text-gray-500">AI Assistant</p>
+              </div>
             </div>
-          ))}
-        </div>
+            <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
+            {agentState.activeAgent === agent.id && (
+              <div className="mt-2 text-xs text-blue-600 flex items-center">
+                <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
+                Active
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* Center - Chat Interface */}
       <div className="flex-1 flex flex-col">
-        {/* Messages Container */}
         <div className="flex-1 overflow-y-auto p-4">
           {messages.map((message, index) => (
             <div key={index} className={`mb-4 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'
@@ -467,44 +464,40 @@ export default function Home() {
         </div>
 
         {/* Input Form */}
-        <div className="border-t">
-          <form onSubmit={handleSubmit} className="p-4">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                className="flex-1 rounded-lg border p-2"
-                placeholder="Type your message..."
-              />
-              <Button type="submit" disabled={agentState.isProcessing}>
-                <SendHorizontal className="h-4 w-4" />
-              </Button>
-            </div>
-          </form>
-        </div>
+        <form onSubmit={handleSubmit} className="border-t p-4">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              className="flex-1 rounded-lg border p-2"
+              placeholder="Type your message..."
+            />
+            <Button type="submit" disabled={agentState.isProcessing}>
+              <SendHorizontal className="h-4 w-4" />
+            </Button>
+          </div>
+        </form>
       </div>
 
       {/* Right Sidebar - System Events */}
-      <div className="w-1/4 border-l border-gray-200 overflow-y-auto">
-        <div className="p-4">
-          <h2 className="text-lg font-semibold mb-4">System Events</h2>
-          {agentState.systemEvents.map((event, index) => (
-            <div
-              key={index}
-              className={`p-3 mb-2 rounded-lg ${event.type === 'error' ? 'bg-red-100' :
-                event.type === 'success' ? 'bg-green-100' :
-                  event.type === 'warning' ? 'bg-yellow-100' : 'bg-blue-100'
-                }`}
-            >
-              <div className="text-sm font-medium">
-                {event.agent && <span className="text-gray-600">[{event.agent}] </span>}
-                <span className="text-gray-900">{event.event}</span>
-              </div>
-              <div className="text-xs text-gray-500">{event.timestamp}</div>
+      <div className="w-1/4 border-l border-gray-200 p-4 overflow-y-auto">
+        <h2 className="text-lg font-semibold mb-4">System Events</h2>
+        {agentState.systemEvents.map((event, index) => (
+          <div
+            key={index}
+            className={`p-3 mb-2 rounded-lg ${event.type === 'error' ? 'bg-red-100' :
+              event.type === 'success' ? 'bg-green-100' :
+                event.type === 'warning' ? 'bg-yellow-100' : 'bg-blue-100'
+              }`}
+          >
+            <div className="text-sm font-medium">
+              {event.agent && <span className="text-gray-600">[{event.agent}] </span>}
+              <span className="text-gray-900">{event.event}</span>
             </div>
-          ))}
-        </div>
+            <div className="text-xs text-gray-500">{event.timestamp}</div>
+          </div>
+        ))}
       </div>
     </main>
   );
