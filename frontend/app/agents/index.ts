@@ -12,7 +12,7 @@ import { ChatMessageHistory } from "langchain/memory";
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
 import { FunctorService } from '../services/functorService';
-import { defiLlamaToolkit , coingeckoTool, brianCDPToolkit } from "./tools";
+import { defiLlamaToolkit , coingeckoTool, coinbaseDevToolkit } from "./tools";
 import { ChainValues } from "@langchain/core/utils/types";
 import * as ethers from "ethers";
 
@@ -78,47 +78,43 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
 
     // Initialize CDP toolkit with wallet
     const walletData = await initializeCDPWallet(baseOptions);
-    const cdpTools = await brianCDPToolkit.setup({ 
-        walletData,
-        // config: {
-        //     defaultCollateralRatio: 200,
-        //     liquidationThreshold: 150,
-        //     maxDebtPerPosition: ethers.utils.parseEther("10000"),
-        //     supportedCollateral: ["ETH", "WBTC", "LINK"]
-        // }
-    });
+    const cdpTools = await coinbaseDevToolkit.setup({ walletData });
 
     // CDP Management Agent
-    const cdpAgent = await createAgent({
+    const coinbaseAgent = await createAgent({
         ...baseOptions,
         tools: [
             ...cdpTools,
-            defiLlamaToolkit.getTVLTool, // Add TVL monitoring
-            coingeckoTool, // Add price monitoring
+            defiLlamaToolkit.getTVLTool,
+            coingeckoTool,
         ],
-        instructions: `You are a CDP (Collateralized Debt Position) management specialist on Coinbase Base.
+        instructions: `You are a Coinbase Developer Platform (CDP) specialist.
             
-            Core Capabilities:
-            - Create and manage CDPs with optimal collateral ratios
-            - Monitor position health and liquidation risks
-            - Provide automated risk alerts
-            - Execute collateral/debt adjustments
-            - Analyze market conditions for CDP management
+            Available Operations:
+            - Swap tokens on supported DEXs
+            - Bridge assets across chains
+            - Deposit/Withdraw from DeFi protocols
+            - Transfer tokens between addresses
+            - Check token balances
+            - Deploy NFTs and ERC-20 tokens
             
-            Safety Guidelines:
-            - Maintain minimum 200% collateral ratio
-            - Alert users at 150% ratio
-            - Consider market volatility when suggesting positions
-            - Maximum debt per position: 10,000 USD
-            - Supported collateral: ETH, WBTC, LINK
+            Supported Networks:
+            - Base (primary)
+            - Ethereum
+            - Optimism
+            - Arbitrum
             
             Integration Features:
-            - Monitor asset prices via CoinGecko
-            - Track protocol TVL via DeFiLlama
-            - Automate position adjustments
-            - Provide real-time risk notifications
+            - Price monitoring via CoinGecko
+            - Protocol analytics via DeFiLlama
+            - Cross-chain operations
+            - Gas optimization
             
-            Always prioritize risk management and provide clear explanations for recommendations.`,
+            Always prioritize:
+            - Transaction safety
+            - Gas efficiency
+            - Clear operation explanations
+            - Risk warnings for complex operations`,
     });
 
     // Helper function to initialize CDP wallet
@@ -171,15 +167,16 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
             agent: defiLlamaAgent
         },
         {
-            id: 'cdp',
-            name: 'CDP Manager',
-            description: 'Manages Coinbase Base CDPs with automated risk monitoring',
-            agent: cdpAgent,
+            id: 'coinbase-dev',
+            name: 'Coinbase Dev Agent',
+            description: 'Executes defi operations via Coinbase CDP',
+            agent: coinbaseAgent,
             metadata: {
-                network: 'base',
-                supportedCollateral: ["ETH", "WBTC", "LINK"],
-                minCollateralRatio: 200,
-                alertThreshold: 150
+                supportedChains: ["base", "ethereum", "optimism", "arbitrum"],
+                capabilities: [
+                    "swap", "bridge", "deposit", "withdraw",
+                    "transfer", "balance", "deploy"
+                ]
             }
         }
     ];
