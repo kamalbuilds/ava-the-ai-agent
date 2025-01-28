@@ -13,16 +13,17 @@ import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
 import { FunctorService } from '../services/functorService';
 import { defiLlamaToolkit , coingeckoTool } from "./tools";
+import { ChainValues } from "@langchain/core/utils/types";
 
 
-// Message history store
+// Update message history store and getter
 const store: Record<string, ChatMessageHistory> = {};
 
-function getMessageHistory(sessionId: string) {
+function getMessageHistory(sessionId: string): ChatMessageHistory {
     if (!(sessionId in store)) {
         store[sessionId] = new ChatMessageHistory();
     }
-    return store[sessionId];
+    return store[sessionId]!;
 }
 
 export interface Agent {
@@ -112,16 +113,16 @@ const createAgent = async ({
     apiUrl,
     xmtpHandler,
     xmtpHandlerOptions,
-}: BrianAgentOptions & { tools?: DynamicStructuredTool[] }) => {
+}: BrianAgentOptions & { tools?: Array<DynamicStructuredTool<any>> }) => {
 
     const brianToolkit = new BrianToolkit({
         apiKey,
-        apiUrl,
         privateKeyOrAccount,
+        ...(apiUrl ? { apiUrl } : {})
     });
 
     const prompt = ChatPromptTemplate.fromMessages([
-        ["system", instructions],
+        ["system", instructions || ""],
         ["placeholder", "{chat_history}"],
         ["human", "{input}"],
         ["placeholder", "{agent_scratchpad}"],
