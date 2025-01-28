@@ -307,27 +307,110 @@ Agent will:
 5. Deploy to best protocol
 ```
 
-Key enhancements:
-- Added support for yield/APY data:
-  - Get current yields across all pools
-  - Track historical yield performance
-  - Filter by chain, protocol, or asset type
-- Added DEX volume tracking:
-  - Monitor daily and total volumes
-  - Break down by chain and protocol
-  - Track historical volume trends
-- Added token pricing capabilities:
-  - Get current prices for any token
-  - Track historical price data
-  - Support for multiple chains
-- Added stablecoin analytics:
-  - Monitor stablecoin market caps
-  - Track peg stability
-  - Analyze distribution across chains
-- Enhanced TVL tracking:
-  - Historical TVL data
-  - Chain and protocol breakdowns
-  - Token composition analysis
+### 8. Starknet Portfolio Management
+```text
+User: "Deploy and manage my meme token portfolio on Starknet with unruggable features"
+
+Agent Collaboration Flow:
+1. Portfolio Manager analyzes Starknet opportunities:
+   - Unruggable meme token protocols
+   - Cairo-based DeFi platforms
+   - Cross-L2 bridges (Starkgate)
+
+2. DeFi Analytics Agent provides Starknet data:
+   - Jediswap liquidity pools
+   - Ekubo AMM metrics
+   - zkLend lending rates
+   - Cross-L2 bridge volumes
+
+3. Risk Assessment Agent evaluates:
+   - Smart contract security (Cairo 1.0)
+   - Protocol TVL stability
+   - Bridge security
+   - Token distribution metrics
+
+4. Execution Flow:
+   - Deploy using Starknet.js/Starknet React
+   - Integrate with Argent X/Braavos wallet
+   - Monitor via Starkscan/Voyager
+   - Auto-rebalance using Cairo contracts
+
+Key Features:
+- Cairo 1.0 smart contract integration
+- STARK-proof based security
+- Cross-L2 bridging optimization
+- Unruggable token standards compliance
+- Real-time Starknet block monitoring
+
+Example Implementation:
+```cairo
+#[starknet::contract]
+mod PortfolioManager {
+    use starknet::ContractAddress;
+    use array::ArrayTrait;
+    
+    #[storage]
+    struct Storage {
+        portfolio_tokens: LegacyMap::<ContractAddress, u256>,
+        risk_parameters: LegacyMap::<ContractAddress, u256>,
+        total_value: u256,
+    }
+
+    #[external(v0)]
+    fn add_to_portfolio(
+        ref self: ContractState,
+        token: ContractAddress,
+        amount: u256
+    ) {
+        // Verify token is unruggable
+        assert(self.is_unruggable(token), 'Token must be unruggable');
+        
+        // Update portfolio
+        self.portfolio_tokens.write(token, amount);
+        self.update_total_value();
+    }
+
+    #[view]
+    fn get_portfolio_stats(self: @ContractState) -> (u256, u256) {
+        (self.total_value.read(), self.risk_score.read())
+    }
+}
+```
+
+Integration with Unruggable Standards:
+- Implements ERC-20 with additional safety features
+- Automated liquidity management
+- Token vesting mechanisms
+- DAO-governed parameters
+- STARK-verified operations
+
+Benefits:
+1. Provable security through STARK proofs
+2. Gas optimization via Cairo VM
+3. Cross-L2 interoperability
+4. Transparent on-chain analytics
+5. Automated risk management
+```
+
+This example showcases how the AI agent can:
+- Deploy and manage portfolios on Starknet
+- Integrate with unruggable token standards
+- Monitor cross-L2 opportunities
+- Execute STARK-verified transactions
+- Maintain optimal risk parameters
+
+The integration leverages key Starknet infrastructure:
+- Cairo 1.0 for smart contracts
+- Starknet.js for interactions
+- Argent X/Braavos for wallet management
+- Starkscan/Voyager for monitoring
+- Starkgate for bridging assets
+
+Resources:
+- [Awesome Starknet](https://github.com/keep-starknet-strange/awesome-starknet)
+- [Unruggable Meme Standard](https://github.com/keep-starknet-strange/unruggable.meme)
+- [Cairo Book](https://book.cairo-lang.org/)
+- [Starknet Documentation](https://docs.starknet.io/)
 
 ## 🚀 Getting Started
 

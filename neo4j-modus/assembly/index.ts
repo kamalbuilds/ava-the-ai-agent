@@ -5,7 +5,7 @@ import { JSON } from "json-as"
 
 const HOST = "neo4j" // Connection name from modus.json
 
-@json
+@JSON
 class Token {
   address: string
   symbol: string
@@ -18,7 +18,7 @@ class Token {
   }
 }
 
-@json
+@JSON
 class PortfolioValidation {
   operator: string
   assessment: string
