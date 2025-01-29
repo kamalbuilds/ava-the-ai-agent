@@ -5,10 +5,10 @@ import {
   getWalletFungiblePositions,
   getWalletPortfolio,
   getWalletTransactions,
-} from "@/app/autonomous/data";
+} from "@/app/autonomous-agents/data";
 import { cache } from "hono/cache";
 import { privateKeyToAccount } from "viem/accounts";
-import { env } from "@/app/autonomous/env";
+import { env } from "@/app/autonomous-agents/env";
 
 
 const walletRouter = new Hono();

@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { retrieveThoughts, retrieveThoughtsByAgent } from "@/app/autonomous/memory";
+import { retrieveThoughts, retrieveThoughtsByAgent } from "@/app/autonomous-agents/memory";
 
 const thoughtsRouter = new Hono();
 
