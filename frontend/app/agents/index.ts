@@ -78,62 +78,61 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
             Help users optimize their portfolio allocation while maintaining efficiency and security.`
     });
 
-    // Initialize Coinbase wallet
-    const wallet = await initializeCDPWallet(baseOptions);
-    
-    // Create Coinbase tools
-    const coinbaseTools = await createCoinbaseTools(wallet);
 
-    // Coinbase Dev Agent
-    const coinbaseAgent = await createAgent({
-        ...baseOptions,
-        tools: [
-            coinbaseTools.getBalance,
-            coinbaseTools.bridge,
-            defiLlamaToolkit.getTVLTool,
-            coingeckoTool,
-        ],
-        instructions: `You are a Coinbase Developer Platform specialist.
+    // const wallet = await initializeCDPWallet(baseOptions);
+    
+    // const coinbaseTools = await createCoinbaseTools(wallet);
+
+    // // Coinbase Dev Agent
+    // const coinbaseAgent = await createAgent({
+    //     ...baseOptions,
+    //     tools: [
+    //         coinbaseTools.getBalance,
+    //         coinbaseTools.bridge,
+    //         defiLlamaToolkit.getTVLTool,
+    //         coingeckoTool,
+    //     ],
+    //     instructions: `You are a Coinbase Developer Platform specialist.
             
-            Available Operations:
-            - Check token balances across chains
-            - Bridge assets between networks
-            - Monitor prices and TVL
+    //         Available Operations:
+    //         - Check token balances across chains
+    //         - Bridge assets between networks
+    //         - Monitor prices and TVL
             
-            Supported Networks:
-            - Base (primary)
-            - Ethereum
-            - Optimism
-            - Arbitrum
+    //         Supported Networks:
+    //         - Base (primary)
+    //         - Ethereum
+    //         - Optimism
+    //         - Arbitrum
             
-            Always prioritize:
-            - Transaction safety
-            - Gas efficiency
-            - Clear operation explanations
-            - Risk warnings for complex operations`,
-    });
+    //         Always prioritize:
+    //         - Transaction safety
+    //         - Gas efficiency
+    //         - Clear operation explanations
+    //         - Risk warnings for complex operations`,
+    // });
 
     // Helper function to initialize Coinbase wallet
-    async function initializeCDPWallet(options: BrianAgentOptions): Promise<Wallet> {
-        try {
-            const provider = new ethers.providers.JsonRpcProvider(
-                process.env["NEXT_PUBLIC_BASE_RPC_URL"]
-            );
+    // async function initializeCDPWallet(options: BrianAgentOptions): Promise<Wallet> {
+    //     try {
+    //         const provider = new ethers.providers.JsonRpcProvider(
+    //             process.env["NEXT_PUBLIC_BASE_RPC_URL"]
+    //         );
             
-            const signer = new ethers.Wallet(options.privateKeyOrAccount, provider);
+    //         const signer = new ethers.Wallet(options.privateKeyOrAccount, provider);
             
-            // Create Coinbase wallet instance
-            return new Wallet({
-                address: signer.address,
-                privateKey: signer.privateKey,
-                provider: "base",
-                chainId: 8453
-            });
-        } catch (error) {
-            console.error("Failed to initialize Coinbase wallet:", error);
-            throw error;
-        }
-    }
+    //         // Create Coinbase wallet instance
+    //         return ({
+    //             address: signer.address,
+    //             privateKey: signer.privateKey,
+    //             provider: "base",
+    //             chainId: 8453
+    //         });
+    //     } catch (error) {
+    //         console.error("Failed to initialize Coinbase wallet:", error);
+    //         throw error;
+    //     }
+    // }
 
     return [
         {
@@ -160,16 +159,16 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
             description: 'Provides comprehensive DeFi market analysis using DeFiLlama data',
             agent: defiLlamaAgent
         },
-        {
-            id: 'coinbase-dev',
-            name: 'Coinbase Dev Agent',
-            description: 'Executes cross-chain operations via Coinbase CDP',
-            agent: coinbaseAgent,
-            metadata: {
-                supportedChains: ["base", "ethereum", "optimism", "arbitrum"],
-                capabilities: ["balance", "bridge"]
-            }
-        }
+        // {
+        //     id: 'coinbase-dev',
+        //     name: 'Coinbase Dev Agent',
+        //     description: 'Executes cross-chain operations via Coinbase CDP',
+        //     agent: coinbaseAgent,
+        //     metadata: {
+        //         supportedChains: ["base", "ethereum", "optimism", "arbitrum"],
+        //         capabilities: ["balance", "bridge"]
+        //     }
+        // }
     ];
 };
 
