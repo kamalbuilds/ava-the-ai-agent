@@ -1,5 +1,9 @@
 import type { Hex } from "viem";
-import env from "../env";
+
+const headers = {
+  accept: "application/json",
+  authorization: `Basic ${process.env['NEXT_PUBLIC_ZERION_API_KEY']}`,
+};
 
 /**
  * @dev Gets the balance chart of a wallet
@@ -11,13 +15,10 @@ export const getWalletBalanceChart = async (
   period: string = "month"
 ) => {
   try {
-    const url = `https://api.zerion.io/v1/wallets/${address}/charts/${period}?currency=usd&filter[chain_ids]=${env.CHAIN_NAME}`;
+    const url = `https://api.zerion.io/v1/wallets/${address}/charts/${period}?currency=usd&filter[chain_ids]=${process.env['NEXT_PUBLIC_CHAIN_NAME']}`;
     const options = {
       method: "GET",
-      headers: {
-        accept: "application/json",
-        authorization: `Basic ${env.ZERION_API_KEY}`,
-      },
+      headers
     };
 
     const response = await fetch(url, options);
@@ -39,10 +40,7 @@ export const getWalletPortfolio = async (address: Hex) => {
   try {
     const options = {
       method: "GET",
-      headers: {
-        accept: "application/json",
-        authorization: `Basic ${env.ZERION_API_KEY}`,
-      },
+      headers
     };
 
     const response = await fetch(
@@ -65,13 +63,10 @@ export const getWalletPortfolio = async (address: Hex) => {
  */
 export const getWalletTransactions = async (address: Hex) => {
   try {
-    const url = `https://api.zerion.io/v1/wallets/${address}/transactions/?currency=usd&page[size]=100&filter[trash]=only_non_trash&filter[chain_ids]=${env.CHAIN_NAME}`;
+    const url = `https://api.zerion.io/v1/wallets/${address}/transactions/?currency=usd&page[size]=100&filter[trash]=only_non_trash&filter[chain_ids]=${process.env['NEXT_PUBLIC_CHAIN_NAME']}`;
     const options = {
       method: "GET",
-      headers: {
-        accept: "application/json",
-        authorization: `Basic ${env.ZERION_API_KEY}`,
-      },
+      headers
     };
 
     const response = await fetch(url, options);
@@ -93,14 +88,11 @@ export const getWalletFungiblePositions = async (address: Hex) => {
   try {
     const options = {
       method: "GET",
-      headers: {
-        accept: "application/json",
-        authorization: `Basic ${env.ZERION_API_KEY}`,
-      },
+      headers
     };
 
     const response = await fetch(
-      `https://api.zerion.io/v1/wallets/${address}/positions/?filter[positions]=only_simple&currency=usd&filter[chain_ids]=${env.CHAIN_NAME}&filter[trash]=only_non_trash&sort=value`,
+      `https://api.zerion.io/v1/wallets/${address}/positions/?filter[positions]=only_simple&currency=usd&filter[chain_ids]=${process.env['NEXT_PUBLIC_CHAIN_NAME']}&filter[trash]=only_non_trash&sort=value`,
       options
     );
 

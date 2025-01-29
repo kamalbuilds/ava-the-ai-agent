@@ -8,8 +8,6 @@ import { Agent } from "../agent";
 import { openai } from "@ai-sdk/openai";
 import { getTaskManagerToolkit } from "./toolkit";
 import { saveThought, storeReport } from "../../memory";
-import env from "../../env";
-
 /**
  * @dev The task manager agent is responsible for generating tasks to be executed.
  */
@@ -68,7 +66,7 @@ export class TaskManagerAgent extends Agent {
     }
 
     const { toolCalls } = await generateText({
-      model: openai(env.MODEL_NAME, { structuredOutputs: true }),
+      model: openai(process.env['NEXT_PUBLIC_MODEL_NAME']!, { structuredOutputs: true }),
       system: getTaskManagerSystemPrompt(),
       prompt: `Given the report that follows, decide to generate one or more tasks to be executed.
       

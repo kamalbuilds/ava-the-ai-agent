@@ -3,14 +3,12 @@ import { EventBus } from "../comms";
 import { ExecutorAgent } from "./executor";
 import { ObserverAgent } from "./observer";
 import { TaskManagerAgent } from "./task-manager";
-import figlet from "figlet";
 
 /**
  * Registers the agents and returns them
  * @returns The registered agents
  */
 export const registerAgents = (eventBus: EventBus, account: Account) => {
-  console.log(figlet.textSync("XENON"));
   console.log("======== Registering agents =========");
   // initialize the agents
   console.log(`[registerAgents] initializing executor agent...`);

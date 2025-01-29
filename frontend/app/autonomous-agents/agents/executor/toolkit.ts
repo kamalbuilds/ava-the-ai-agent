@@ -2,7 +2,6 @@ import { generateText, tool } from "ai";
 import { openai } from "@ai-sdk/openai";
 import type { Account } from "viem";
 import { z } from "zod";
-import env from "../../env";
 import {
   deleteTask,
   retrieveTaskById,
@@ -45,19 +44,19 @@ export const getTransactionDataTool = (account: Account) =>
             try {
               const brianResponse = await fetch(
                 `${
-                  env.BRIAN_API_URL ||
+                  process.env['NEXT_PUBLIC_BRIAN_API_URL'] ||
                   "https://staging-api.brianknows.org/api/v0/agent/transaction"
                 }`,
                 {
                   method: "POST",
                   body: JSON.stringify({
                     prompt: task,
-                    chainId: env.CHAIN_ID,
+                    chainId: process.env['NEXT_PUBLIC_CHAIN_ID'],
                     address: account.address,
                   }),
                   headers: {
                     "Content-Type": "application/json",
-                    "x-brian-api-key": env.BRIAN_API_KEY,
+                    "x-brian-api-key": process.env['NEXT_PUBLIC_BRIAN_API_KEY'],
                   },
                 }
               );
@@ -218,11 +217,11 @@ export const getExecutorToolkit = (account: Account) => {
 
         const walletClient = createWalletClient({
           account,
-          chain: getChain(parseInt(env.CHAIN_ID)),
+          chain: getChain(parseInt(process.env['NEXT_PUBLIC_CHAIN_ID'] || '8453')),
           transport: http(),
         });
         const publicClient = createPublicClient({
-          chain: getChain(parseInt(env.CHAIN_ID)),
+          chain: getChain(parseInt(process.env['NEXT_PUBLIC_CHAIN_ID'] || '8453')),
           transport: http(),
         });
 

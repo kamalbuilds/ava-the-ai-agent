@@ -1,9 +1,12 @@
+// @ts-nocheck
 import { createClient } from "@supabase/supabase-js";
-import env from "../env";
 import OpenAI from "openai";
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY || "";
 // Create a single supabase client for interacting with your database
-const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_KEY);
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 
 /**
  * @dev Saves a thought to the database

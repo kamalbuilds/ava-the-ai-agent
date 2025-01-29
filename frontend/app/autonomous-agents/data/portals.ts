@@ -1,5 +1,4 @@
 import type { Hex } from "viem";
-import env from "../env";
 
 /**
  * @dev Gets the balances of an account
@@ -7,11 +6,11 @@ import env from "../env";
  * @returns The balances of the account
  */
 export const getAccountBalances = async (owner: Hex) => {
-  const url = `https://api.portals.fi/v2/account?owner=${owner}&networks=${env.CHAIN_NAME}`;
+  const url = `https://api.portals.fi/v2/account?owner=${owner}&networks=${process.env['NEXT_PUBLIC_CHAIN_NAME']}`;
   const response = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${env.PORTALS_API_KEY}`,
+      Authorization: `Bearer ${process.env['NEXT_PUBLIC_PORTALS_API_KEY']}`,
     },
   });
 
@@ -31,12 +30,12 @@ export const getMarketData = async (
   maxApy: number = 60
 ) => {
   const fetchTokenData = async (search: string, minLiquidity: number) => {
-    const url = `https://api.portals.fi/v2/tokens?networks=${env.CHAIN_NAME}&minLiquidity=${minLiquidity}&minApy=${minApy}&maxApy=${maxApy}&search=${search}`;
+    const url = `https://api.portals.fi/v2/tokens?networks=${process.env['NEXT_PUBLIC_CHAIN_NAME']}&minLiquidity=${minLiquidity}&minApy=${minApy}&maxApy=${maxApy}&search=${search}`;
     console.log("======== fetchTokenData =========");
     const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${env.PORTALS_API_KEY}`,
+        Authorization: `Bearer ${process.env['NEXT_PUBLIC_PORTALS_API_KEY']}`,
       },
     });
     return response.json();
@@ -69,12 +68,12 @@ export const getPositionData = async (
 ) => {
   const results = await Promise.all(
     queries.map(async ({ protocol, token }) => {
-      const url = `https://api.portals.fi/v2/tokens?networks=${env.CHAIN_NAME}&platforms=${protocol}&minLiquidity=${minLiquidity}&minApy=${minApy}&maxApy=${maxApy}&search=${token}`;
+      const url = `https://api.portals.fi/v2/tokens?networks=${process.env['NEXT_PUBLIC_CHAIN_NAME']}&platforms=${protocol}&minLiquidity=${minLiquidity}&minApy=${minApy}&maxApy=${maxApy}&search=${token}`;
       console.log("======== fetchPositionData =========");
       const response = await fetch(url, {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${env.PORTALS_API_KEY}`,
+          Authorization: `Bearer ${process.env['NEXT_PUBLIC_PORTALS_API_KEY']}`,
         },
       });
       const data = await response.json();

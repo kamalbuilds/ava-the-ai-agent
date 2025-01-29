@@ -6,10 +6,13 @@ import { getObserverSystemPrompt } from "../../system-prompts";
 import type { Hex } from "viem";
 import { getObserverToolkit } from "./toolkit";
 import { saveThought } from "../../memory";
-import env from "../../env";
+
 
 const OBSERVER_STARTING_PROMPT =
   "Based on the current market data and the tokens that you hold, generate a report explaining what steps could be taken.";
+
+// At the top of the file, get API key once
+const OPENAI_API_KEY = process.env['NEXT_PUBLIC_OPENAI_API_KEY'] || '';
 
 /**
  * @dev The observer agent is responsible for generating a report about the best opportunities to make money.
@@ -31,6 +34,8 @@ export class ObserverAgent extends Agent {
    */
   async handleEvent(event: string, data: any): Promise<void> {
     switch (event) {
+      case 'user-input':
+        return this.handleUserInput(data);
       case `task-manager-${this.name}`:
         return this.handleTaskManagerEvent(data);
     }
@@ -61,7 +66,8 @@ export class ObserverAgent extends Agent {
 
     if (!taskManagerData) {
       const response = await generateText({
-        model: openai(env.MODEL_NAME),
+        model: openai("gpt-3.5-turbo"),
+        apiKey: OPENAI_API_KEY,
         system: getObserverSystemPrompt(address),
         prompt: OBSERVER_STARTING_PROMPT,
         tools: toolkit,
@@ -74,7 +80,8 @@ export class ObserverAgent extends Agent {
       });
     } else {
       const response = await generateText({
-        model: openai(env.MODEL_NAME),
+        model: openai(process.env['NEXT_PUBLIC_MODEL_NAME']!),
+        apiKey: OPENAI_API_KEY,
         system: getObserverSystemPrompt(address),
         messages: [
           {
@@ -128,6 +135,40 @@ export class ObserverAgent extends Agent {
         text,
         toolCalls,
         toolResults,
+      });
+    }
+  }
+
+  private async handleUserInput(data: { message: string, callback: (response: any) => void }): Promise<void> {
+    const { message, callback } = data;
+    
+    try {
+      const response = await generateText({
+        model: openai(process.env['NEXT_PUBLIC_MODEL_NAME']!),
+        apiKey: OPENAI_API_KEY,
+        system: getObserverSystemPrompt(this.address!),
+        prompt: message,
+        tools: getObserverToolkit(this.address!),
+        maxSteps: 100,
+        onStepFinish: this.onStepFinish,
+      });
+
+      callback({
+        text: response.text,
+        agent: 'Observer',
+        type: 'analysis'
+      });
+
+      // Continue with normal agent flow
+      this.eventBus.emit(`${this.name}-task-manager`, {
+        report: response.text,
+      });
+    } catch (error) {
+      console.error('Error in observer agent:', error);
+      callback({
+        text: 'Failed to process request in autonomous mode',
+        agent: 'Observer',
+        type: 'error'
       });
     }
   }

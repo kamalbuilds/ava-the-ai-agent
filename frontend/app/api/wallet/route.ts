@@ -8,7 +8,6 @@ import {
 } from "@/app/autonomous-agents/data";
 import { cache } from "hono/cache";
 import { privateKeyToAccount } from "viem/accounts";
-import { env } from "@/app/autonomous-agents/env";
 
 
 const walletRouter = new Hono();
@@ -20,7 +19,7 @@ walletRouter.get(
     cacheControl: "max-age=36000",
   }),
   async (c) => {
-    const account = privateKeyToAccount(env.PRIVATE_KEY as `0x${string}`);
+    const account = privateKeyToAccount(process.env['NEXT_PUBLIC_PRIVATE_KEY'] as `0x${string}`);
 
     const period = c.req.query("period") || "month";
 
