@@ -13,6 +13,7 @@ import { initializeAgents } from "./agents";
 import { SendHorizontal, Bot, User } from "lucide-react";
 import { AgentCharacters } from "./agents/AgentCharacters";
 import Image from 'next/image';
+import { Switch } from "@/components/ui/switch";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -49,7 +50,7 @@ interface CollaborationMessage extends Message {
   collaborationType?: 'question' | 'response' | 'suggestion' | 'decision';
 }
 
-// Add this near the top of the file with other constants
+
 const EXAMPLE_RESPONSES = {
   "I have 10 AVAX and want to optimize my portfolio between lending, liquidity provision, and trading. What's the best strategy right now?": [
     // Portfolio Manager Initial Analysis
@@ -149,7 +150,7 @@ const EXAMPLE_RESPONSES = {
 // Add a mapping for agent images
 const agentImages = {
   'trading': '/agent_trader.png',
-  'liquidity': '/agent_liquidity.png',  // You can add different images for each agent
+  'liquidity': '/agent_liquidity.png',
   'portfolio': '/agent_default.png',
   'defi-analytics': '/agent_analyst.png'
 };
@@ -165,6 +166,7 @@ export default function Home() {
     systemEvents: []
   });
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [autonomousMode, setAutonomousMode] = useState(false);
 
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const clientRef = useRef<any>(null);
@@ -463,19 +465,34 @@ export default function Home() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Form */}
         <form onSubmit={handleSubmit} className="border-t p-4">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              className="flex-1 rounded-lg border p-2"
-              placeholder="Type your message..."
-            />
-            <Button type="submit" disabled={agentState.isProcessing}>
-              <SendHorizontal className="h-4 w-4" />
-            </Button>
+          <div className="flex flex-col gap-4">
+            {/* Add autonomous mode toggle */}
+            <div className="flex items-center justify-end gap-2">
+              <label htmlFor="autonomous-mode" className="text-sm text-gray-600">
+                Autonomous Mode
+              </label>
+              <Switch
+                id="autonomous-mode"
+                checked={autonomousMode}
+                onCheckedChange={setAutonomousMode}
+                className="data-[state=checked]:bg-blue-500"
+              />
+            </div>
+            
+            {/* Existing input field and button */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                className="flex-1 rounded-lg border p-2"
+                placeholder="Type your message..."
+              />
+              <Button type="submit" disabled={agentState.isProcessing}>
+                <SendHorizontal className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </form>
       </div>
