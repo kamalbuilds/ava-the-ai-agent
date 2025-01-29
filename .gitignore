@@ -17,3 +17,8 @@ out/
 .pnp.*
 
 yarn.lock
+
+server/node_modules/
+server/.next
+server/.env
+server/dist
