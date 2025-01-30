@@ -4,55 +4,69 @@ import { ExecutorAgent } from "./executor";
 import { ObserverAgent } from "./observer";
 import { TaskManagerAgent } from "./task-manager";
 import { CdpAgent } from "./cdp-agent";
-import figlet from "figlet";
-
 /**
  * Registers the agents and returns them
  * @returns The registered agents
  */
 export const registerAgents = (eventBus: EventBus, account: Account) => {
-  console.log(figlet.textSync("AVA-2.0"));
   console.log("======== Registering agents =========");
 
   // Initialize agents
   const executorAgent = new ExecutorAgent("executor", eventBus, account);
+  console.log(`[registerAgents] executor agent initialized.`);
+  console.log(`[registerAgents] initializing observer agent...`);
   const observerAgent = new ObserverAgent("observer", eventBus);
+  console.log(`[registerAgents] observer agent initialized.`);
+  console.log(`[registerAgents] initializing task manager agent...`);
   const taskManagerAgent = new TaskManagerAgent("task-manager", eventBus);
-  const cdpAgent = new CdpAgent("cdp", eventBus);
+  console.log(`[registerAgents] task manager agent initialized.`);
 
   // Initialize CDP agent
-  cdpAgent.initialize().catch(console.error);
+  const cdpagent = new CdpAgent("cdp-agent", eventBus);
+  console.log(`[registerAgents] cdp agent initialized.`);
 
   // Register event handlers
   registerEventHandlers(eventBus, {
     executorAgent,
     observerAgent,
     taskManagerAgent,
-    cdpAgent,
+    cdpagent,
   });
+
+  console.log("all events registered");
 
   return {
     executorAgent,
     observerAgent,
     taskManagerAgent,
-    cdpAgent,
+    cdpagent,
   };
 };
 
 function registerEventHandlers(eventBus: EventBus, agents: any) {
-  // Register existing handlers
+  // Observer <-> Task Manager
   eventBus.register(`observer-task-manager`, (data) =>
     agents.taskManagerAgent.handleEvent(`observer-task-manager`, data)
   );
 
-  // Add CDP agent handlers
+  // Task Manager <-> CDP
   eventBus.register(`task-manager-cdp`, (data) =>
     agents.cdpAgent.handleEvent(`task-manager-cdp`, data)
   );
-
   eventBus.register(`cdp-task-manager`, (data) =>
     agents.taskManagerAgent.handleEvent(`cdp-task-manager`, data)
   );
 
-  // ... register other existing handlers
+  // Task Manager <-> Observer
+  eventBus.register(`task-manager-observer`, (data) =>
+    agents.observerAgent.handleEvent(`task-manager-observer`, data)
+  );
+
+  // Task Manager <-> Executor
+  eventBus.register(`task-manager-executor`, (data) =>
+    agents.executorAgent.handleEvent(`task-manager-executor`, data)
+  );
+  eventBus.register(`executor-task-manager`, (data) =>
+    agents.taskManagerAgent.handleEvent(`executor-task-manager`, data)
+  );
 }

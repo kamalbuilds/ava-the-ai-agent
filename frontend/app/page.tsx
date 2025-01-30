@@ -14,14 +14,21 @@ import { SendHorizontal, Bot, User } from "lucide-react";
 import { AgentCharacters } from "./agents/AgentCharacters";
 import Image from 'next/image';
 import { Switch } from "@/components/ui/switch";
-import { EventBus } from "./autonomous-agents/comms";
-import { registerAgents } from "./autonomous-agents/agents";
-import { privateKeyToAccount } from "viem/accounts";
+import { EXAMPLE_RESPONSES } from "../lib/example";
+import { EventBus } from './types/event-bus'; // Revert to type import since implementation is server-side
+
+
+type CollaborationType =
+  'analysis' | 'execution' | 'report' |
+  'question' | 'response' | 'suggestion' | 'decision';
 
 interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: string;
+  agentId?: string;
+  agentName?: string;
+  collaborationType?: CollaborationType;
 }
 
 interface AgentState {
@@ -42,113 +49,11 @@ interface Agent {
   name: string;
   type: string;
   status: string;
+  description: string;
   message?: string;
   agent?: any;
 }
 
-// Add this interface for agent collaboration messages
-interface CollaborationMessage extends Message {
-  agentId?: string;
-  agentName?: string;
-  collaborationType?: 'question' | 'response' | 'suggestion' | 'decision';
-}
-
-
-const EXAMPLE_RESPONSES = {
-  "I have 10 AVAX and want to optimize my portfolio between lending, liquidity provision, and trading. What's the best strategy right now?": [
-    // Portfolio Manager Initial Analysis
-    {
-      role: "assistant",
-      content: "Analyzing your 10 AVAX portfolio allocation request. Given current market conditions, we should evaluate lending rates, LP opportunities, and trading pairs. Let me consult our specialized agents.",
-      agentName: "Portfolio Manager",
-      collaborationType: "analysis",
-      timestamp: "10:30 AM"
-    },
-
-    // DeFi Analytics Agent Response
-    {
-      role: "assistant",
-      content: "Current market analysis:\n- Aave AVAX lending APY: 1,77%\n- Uniswap AVAX-USDC pool APR: 43.893%\n- Curve Blizz pool APY: 1.58%\nTotal DeFi TVL trend is up 5% this week, suggesting growing stability.",
-      agentName: "DeFi Analytics",
-      collaborationType: "suggestion",
-      timestamp: "10:31 AM"
-    },
-
-    // Liquidity Pool Agent Response
-    {
-      role: "assistant",
-      content: "Recommended LP allocation:\n1. AVAX-USDC Uniswap V3 (concentrated liquidity 1800-2200): 4 AVAX\n2. blizz Curve: 3 AVAX\nCurrent impermanent loss risk: Moderate",
-      agentName: "Liquidity Pool Agent",
-      collaborationType: "suggestion",
-      timestamp: "10:31 AM"
-    },
-
-    // Trading Agent Response
-    {
-      role: "assistant",
-      content: "Market conditions favor keeping 3 AVAX in spot for potential swing trading. Key resistance at $2,200, support at $1,850. Set up limit orders at these levels.",
-      agentName: "Trading Agent",
-      collaborationType: "suggestion",
-      timestamp: "10:32 AM"
-    },
-
-    // Portfolio Manager Final Consensus
-    {
-      role: "assistant",
-      content: "Based on all analyses, here's your optimized portfolio strategy for 10 AVAX:\n\n1. Liquidity Provision (7 AVAX):\n   - 4 AVAX in Uniswap AVAX-USDC\n   - 3 AVAX in Curve blizz pool\n\n2. Trading Reserve (3 AVAX):\n   - Set limit orders at $2,200 and $1,850\n\nRationale: This allocation maximizes yield while maintaining trading flexibility. Expected monthly yield: ~10.5% APY\n\nShall I provide step-by-step implementation instructions?",
-      agentName: "Portfolio Manager",
-      collaborationType: "decision",
-      timestamp: "10:32 AM"
-    }
-  ],
-  "What are the best yield opportunities across DeFi right now, considering risks and TVL?": [
-    // Portfolio Manager Initial Analysis
-    {
-      role: "assistant",
-      content: "I'll analyze current DeFi yield opportunities with a focus on risk assessment and TVL stability. Let me coordinate with our specialists.",
-      agentName: "Portfolio Manager",
-      collaborationType: "analysis",
-      timestamp: "2:45 PM"
-    },
-
-    // DeFi Analytics Agent
-    {
-      role: "assistant",
-      content: "Protocol TVL Analysis:\n1. AAVE: $5.2B (↑2% week)\n2. Curve: $3.8B (stable)\n3. Convex: $3.1B (↑5% week)\n\nRisk Metrics:\n- Smart Contract Risk: Low-Medium\n- Protocol Maturity: High\n- Audit Status: All Recently Audited",
-      agentName: "DeFi Analytics",
-      collaborationType: "suggestion",
-      timestamp: "2:46 PM"
-    },
-
-    // Liquidity Agent
-    {
-      role: "assistant",
-      content: "Top Stable Opportunities:\n1. Curve tricrypto pool: 8.2% APY\n2. Convex stETH pool: 7.5% APY\n3. AAVE USDC lending: 4.8% APY\n\nVolatility Index: Low for all mentioned pools",
-      agentName: "Liquidity Pool Agent",
-      collaborationType: "suggestion",
-      timestamp: "2:46 PM"
-    },
-
-    // Trading Agent
-    {
-      role: "assistant",
-      content: "Market Correlation Analysis:\n- Curve pools showing 0.3 correlation with ETH price\n- Lending rates expected to increase with upcoming Fed meeting\n- Volume analysis suggests stable liquidity in major pools",
-      agentName: "Trading Agent",
-      collaborationType: "suggestion",
-      timestamp: "2:47 PM"
-    },
-
-    // Final Consensus
-    {
-      role: "assistant",
-      content: "Based on comprehensive analysis, here are the top yield opportunities ranked by risk-adjusted returns:\n\n1. Best Safe Yield:\n   - Curve tricrypto pool (8.2% APY)\n   - Risk: Low, TVL: $825M\n\n2. Best Moderate Risk:\n   - Convex stETH pool (7.5% APY)\n   - Additional CRV rewards possible\n\n3. Best Conservative:\n   - AAVE USDC lending (4.8% APY)\n   - Lowest risk, highest liquidity\n\nRecommended Strategy:\n- Split allocation: 40% tricrypto, 40% stETH, 20% lending\n- Set up alerts for rate changes above 2%\n\nWould you like detailed entry instructions for any of these opportunities?",
-      agentName: "Portfolio Manager",
-      collaborationType: "decision",
-      timestamp: "2:47 PM"
-    }
-  ],
-
-};
 
 // Add a mapping for agent images
 const agentImages = {
@@ -159,8 +64,9 @@ const agentImages = {
 };
 
 export default function Home() {
-  const [messages, setMessages] = useState<CollaborationMessage[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [autonomousMode, setAutonomousMode] = useState(false);
   const [agentState, setAgentState] = useState<AgentState>({
     isInitialized: false,
     isProcessing: false,
@@ -169,7 +75,6 @@ export default function Home() {
     systemEvents: []
   });
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [autonomousMode, setAutonomousMode] = useState(false);
 
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const clientRef = useRef<any>(null);
@@ -236,252 +141,339 @@ export default function Home() {
 
   useEffect(() => {
     if (autonomousMode && !eventBusRef.current) {
-      const initializeAutonomousAgents = async () => {
-        try {
-          // Initialize event bus
-          eventBusRef.current = new EventBus();
+      // Initialize autonomous agents
+      eventBusRef.current = new EventBus();
 
-          const key = "0x...";
-          // Initialize account
-          const account = privateKeyToAccount(key as `0x${string}`);
+      // Connect to backend WebSocket on port 3002
+      eventBusRef.current.connect('ws://localhost:3002');
 
-          // Register agents
-          const agents = registerAgents(eventBusRef.current, account);
-          agentsRef.current = agents;
+      subscribeToAgentEvents();
 
-          // Add system event
-          setAgentState(prev => ({
-            ...prev,
-            systemEvents: [...prev.systemEvents, {
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              event: 'Autonomous agents initialized',
-              type: 'success'
-            }]
-          }));
-
-          // Start observer agent
-          agents.observerAgent.start(account.address);
-        } catch (error) {
-          console.error('Error initializing autonomous agents:', error);
-          setAgentState(prev => ({
-            ...prev,
-            systemEvents: [...prev.systemEvents, {
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              event: 'Failed to initialize autonomous agents',
-              type: 'error'
-            }]
-          }));
-        }
-      };
-
-      initializeAutonomousAgents();
+      addSystemEvent({
+        event: 'Autonomous agents activated',
+        type: 'success'
+      });
+    } else if (!autonomousMode && eventBusRef.current) {
+      // Send stop command to backend
+      fetch('/api/observer/stop', { method: 'POST' });
+      cleanupAutonomousAgents();
     }
   }, [autonomousMode]);
 
-  const handleMessage = async (message: string) => {
-    try {
-      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const cleanupAutonomousAgents = () => {
+    eventBusRef.current = null;
+    agentsRef.current = null;
+    addSystemEvent({
+      event: 'Autonomous agents deactivated',
+      type: 'info'
+    });
+  };
 
-      // Add user message
+  const subscribeToAgentEvents = () => {
+    if (!eventBusRef.current) return;
+
+    eventBusRef.current.subscribe('agent-action', (data: any) => {
+      addSystemEvent({
+        event: data.action,
+        agent: data.agent,
+        type: 'info'
+      });
+    });
+
+    eventBusRef.current.subscribe('agent-response', (data: any) => {
+      // Add agent message to chat
       setMessages(prev => [...prev, {
-        role: "user",
-        content: message,
-        timestamp
+        role: 'assistant',
+        content: data.message,
+        timestamp: new Date().toLocaleTimeString(),
+        agentName: data.agent,
+        collaborationType: data.type
       }]);
 
-      if (autonomousMode) {
-        // Call observer agent endpoint
-        const response = await fetch('http://localhost:3001/api/observer/start', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ message })
+      addSystemEvent({
+        event: `${data.agent} completed ${data.type}`,
+        agent: data.agent,
+        type: 'success'
+      });
+    });
+
+    eventBusRef.current.subscribe('agent-error', (data: any) => {
+      addSystemEvent({
+        event: data.error,
+        agent: data.agent,
+        type: 'error'
+      });
+    });
+  };
+
+  const handleMessage = async (message: string) => {
+    if (!message.trim()) return;
+
+    const timestamp = new Date().toLocaleTimeString();
+
+    // Add user message
+    setMessages(prev => [...prev, {
+      role: 'user',
+      content: message,
+      timestamp
+    }]);
+
+    if (autonomousMode) {
+      // Send command to agents via WebSocket
+      eventBusRef.current?.emit('command', {
+        type: 'command',
+        command: message
+      });
+    } else {
+      // Handle regular chat mode
+      // Check if this is an example query
+      if (message in EXAMPLE_RESPONSES) {
+        addSystemEvent({
+          event: 'Processing example scenario',
+          type: 'info'
         });
 
-        const result = await response.json();
-        if (!result.success) {
-          throw new Error(result.error);
+        for (const response of EXAMPLE_RESPONSES[message]) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          setMessages(prev => [...prev, {
+            ...response,
+            timestamp: new Date().toLocaleTimeString()
+          }]);
+
+          addSystemEvent({
+            event: `${response.agentName} providing ${response.collaborationType}`,
+            agent: response.agentName,
+            type: 'info'
+          });
         }
-      } else {
-        // Call CDP agent endpoint
-        const response = await fetch('http://localhost:3001/api/message', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ prompt: message })
+
+        addSystemEvent({
+          event: 'Example scenario completed',
+          type: 'success'
         });
 
-        const result = await response.json();
+        return;
+      }
+
+      addSystemEvent({
+        event: 'Starting agent collaboration',
+        type: 'info'
+      });
+
+      const portfolioAgent = agents.find(agent => agent.id === 'portfolio');
+      const initialAnalysis = await portfolioAgent?.agent?.invoke(
+        { input: `Analyze this request and determine which other agents should be involved: ${message}` },
+        { configurable: { sessionId: "user-1" } }
+      );
+
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: initialAnalysis.output,
+        timestamp: new Date().toLocaleTimeString(),
+        agentId: 'portfolio',
+        agentName: 'Portfolio Manager',
+        collaborationType: 'analysis'
+      }]);
+
+      const relevantAgents = agents.filter(agent => {
+        const messageContent = message.toLowerCase();
+        return (
+          (messageContent.includes('trade') && agent.id === 'trading') ||
+          (messageContent.includes('liquidity') && agent.id === 'liquidity') ||
+          (messageContent.includes('analytics') && agent.id === 'defi-analytics')
+        );
+      });
+
+      console.log(relevantAgents, "relevantAgents selected are");
+
+      for (const agent of relevantAgents) {
+        const agentResponse = await agent?.agent?.invoke(
+          {
+            input: `Given the user request "${message}" and portfolio analysis "${initialAnalysis.output}", what is your perspective and recommendation?`
+          },
+          { configurable: { sessionId: "user-1" } }
+        );
 
         setMessages(prev => [...prev, {
           role: "assistant",
-          content: result.response,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          content: agentResponse.output,
+          timestamp: new Date().toLocaleTimeString(),
+          agentId: agent.id,
+          agentName: agent.name,
+          collaborationType: 'suggestion'
         }]);
       }
-    } catch (error) {
-      console.error('Error processing message:', error);
-      // Handle error appropriately
+
+      const finalConsensus = await portfolioAgent?.agent?.invoke(
+        { input: `Based on all suggestions, provide a final recommendation for: ${message}` },
+        { configurable: { sessionId: "user-1" } }
+      );
+
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: finalConsensus.output,
+        timestamp: new Date().toLocaleTimeString(),
+        agentId: 'portfolio',
+        agentName: 'Portfolio Manager',
+        collaborationType: 'decision'
+      }]);
     }
-  };
+  }
+};
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || agentState.isProcessing) return;
-    handleMessage(input);
-    setInput("");
-  };
+const addSystemEvent = (event: Omit<AgentState['systemEvents'][0], 'timestamp'>) => {
+  setAgentState(prev => ({
+    ...prev,
+    systemEvents: [...prev.systemEvents, {
+      ...event,
+      timestamp: new Date().toLocaleTimeString()
+    }]
+  }));
+};
 
-  useEffect(() => {
-    return () => {
-      if (eventBusRef.current) {
-        // Cleanup event listeners
-        eventBusRef.current = null;
-        agentsRef.current = null;
-      }
-    };
-  }, []);
+const handleSubmit = (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!input.trim() || agentState.isProcessing) return;
+  handleMessage(input);
+  setInput("");
+};
 
-  return (
-    <main className="flex my-16">
-      {/* Left Sidebar - Agent Details */}
-      <div className="w-1/4 border-r border-gray-200 p-4 overflow-y-auto">
-        <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
-        {agents.map((agent) => (
-          <div
-            key={agent.id}
-            className={`p-4 mb-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id ? 'bg-blue-50 border border-blue-200' : 'bg-white border'
-              }`}
-          >
-            <div className="flex items-center mb-2">
-              <div className="relative w-12 h-12 mr-3">
-                <Image
-                  src={agentImages[agent.id as keyof typeof agentImages]}
-                  alt={agent.name}
-                  fill
-                  className="rounded-full object-cover"
-                  priority
-                />
-              </div>
-              <div>
-                <h3 className="font-medium text-gray-900">{agent.name}</h3>
-                <p className="text-xs text-gray-500">AI Assistant</p>
-              </div>
+return (
+  <main className="flex my-16">
+    {/* Left Sidebar - Agent Details */}
+    <div className="w-1/4 border-r border-gray-200 p-4 overflow-y-auto">
+      <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
+      {agents.map((agent) => (
+        <div
+          key={agent.id}
+          className={`p-4 mb-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id ? 'bg-blue-50 border border-blue-200' : 'bg-white border'
+            }`}
+        >
+          <div className="flex items-center mb-2">
+            <div className="relative w-12 h-12 mr-3">
+              <Image
+                src={agentImages[agent.id as keyof typeof agentImages]}
+                alt={agent.name}
+                fill
+                className="rounded-full object-cover"
+                priority
+              />
             </div>
-            <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
-            {agentState.activeAgent === agent.id && (
-              <div className="mt-2 text-xs text-blue-600 flex items-center">
-                <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
-                Active
-              </div>
-            )}
+            <div>
+              <h3 className="font-medium text-gray-900">{agent.name}</h3>
+              <p className="text-xs text-gray-500">AI Assistant</p>
+            </div>
           </div>
-        ))}
-      </div>
-
-      {/* Center - Chat Interface */}
-      <div className="flex-1 flex flex-col">
-        <div className="flex-1 overflow-y-auto p-4">
-          {messages.map((message, index) => (
-            <div key={index} className={`mb-4 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'
-              }`}>
-              <div className={`flex items-start max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-                }`}>
-                {/* Agent/User Icon */}
-                <div className={`flex-shrink-0 ${message.role === 'user' ? 'ml-2' : 'mr-2'}`}>
-                  {message.role === 'user' ? (
-                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
-                      <User className="w-5 h-5 text-white" />
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
-                        <Bot className="w-5 h-5 text-white" />
-                      </div>
-                      {message.collaborationType && (
-                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500" />
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Message Content */}
-                <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
-                  {message.agentName && (
-                    <span className="text-xs font-medium text-gray-500 mb-1">
-                      {message.agentName}
-                      {message.collaborationType && ` • ${message.collaborationType}`}
-                    </span>
-                  )}
-                  <div className={`p-3 rounded-lg ${message.role === 'user'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-900'
-                    }`}>
-                    {message.content}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {message.timestamp}
-                  </div>
-                </div>
-              </div>
+          <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
+          {agentState.activeAgent === agent.id && (
+            <div className="mt-2 text-xs text-blue-600 flex items-center">
+              <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
+              Active
             </div>
-          ))}
-          <div ref={messagesEndRef} />
+          )}
         </div>
+      ))}
+    </div>
 
-        <form onSubmit={handleSubmit} className="border-t p-4">
-          <div className="flex flex-col gap-4">
-            {/* Add autonomous mode toggle */}
-            <div className="flex items-center justify-end gap-2">
-              <label htmlFor="autonomous-mode" className="text-sm text-gray-600">
-                Autonomous Mode
-              </label>
-              <Switch
-                id="autonomous-mode"
-                checked={autonomousMode}
-                onCheckedChange={setAutonomousMode}
-                className="data-[state=checked]:bg-blue-500"
-              />
-            </div>
+    {/* Center - Chat Interface */}
+    <div className="flex-1 flex flex-col">
+      <div className="flex-1 overflow-y-auto p-4">
+        {messages.map((message, index) => (
+          <div key={index} className={`mb-4 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'
+            }`}>
+            <div className={`flex items-start max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+              }`}>
+              {/* Agent/User Icon */}
+              <div className={`flex-shrink-0 ${message.role === 'user' ? 'ml-2' : 'mr-2'}`}>
+                {message.role === 'user' ? (
+                  <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                      <Bot className="w-5 h-5 text-white" />
+                    </div>
+                    {message.collaborationType && (
+                      <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500" />
+                    )}
+                  </div>
+                )}
+              </div>
 
-            {/* Existing input field and button */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                className="flex-1 rounded-lg border p-2"
-                placeholder="Type your message..."
-              />
-              <Button type="submit" disabled={agentState.isProcessing}>
-                <SendHorizontal className="h-4 w-4" />
-              </Button>
+              {/* Message Content */}
+              <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+                {message.agentName && (
+                  <span className="text-xs font-medium text-gray-500 mb-1">
+                    {message.agentName}
+                    {message.collaborationType && ` • ${message.collaborationType}`}
+                  </span>
+                )}
+                <div className={`p-3 rounded-lg ${message.role === 'user'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 text-gray-900'
+                  }`}>
+                  {message.content}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {message.timestamp}
+                </div>
+              </div>
             </div>
-          </div>
-        </form>
-      </div>
-
-      {/* Right Sidebar - System Events */}
-      <div className="w-1/4 border-l border-gray-200 p-4 overflow-y-auto">
-        <h2 className="text-lg font-semibold mb-4">System Events</h2>
-        {agentState.systemEvents.map((event, index) => (
-          <div
-            key={index}
-            className={`p-3 mb-2 rounded-lg ${event.type === 'error' ? 'bg-red-100' :
-              event.type === 'success' ? 'bg-green-100' :
-                event.type === 'warning' ? 'bg-yellow-100' : 'bg-blue-100'
-              }`}
-          >
-            <div className="text-sm font-medium">
-              {event.agent && <span className="text-gray-600">[{event.agent}] </span>}
-              <span className="text-gray-900">{event.event}</span>
-            </div>
-            <div className="text-xs text-gray-500">{event.timestamp}</div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
-    </main>
-  );
+
+      <form onSubmit={handleSubmit} className="border-t p-4">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-end gap-2">
+            <label className="text-sm text-gray-600">
+              Autonomous Mode
+            </label>
+            <Switch
+              checked={autonomousMode}
+              onCheckedChange={setAutonomousMode}
+              className="data-[state=checked]:bg-blue-500"
+            />
+          </div>
+
+          {/* Existing input field and button */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              className="flex-1 rounded-lg border p-2"
+              placeholder="Type your message..."
+            />
+            <Button type="submit" disabled={agentState.isProcessing}>
+              <SendHorizontal className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    {/* Right Sidebar - System Events */}
+    <div className="w-1/4 border-l border-gray-200 p-4 overflow-y-auto">
+      <h2 className="text-lg font-semibold mb-4">System Events</h2>
+      {agentState.systemEvents.map((event, index) => (
+        <div
+          key={index}
+          className={`p-3 mb-2 rounded-lg ${event.type === 'error' ? 'bg-red-100' :
+            event.type === 'success' ? 'bg-green-100' :
+              event.type === 'warning' ? 'bg-yellow-100' : 'bg-blue-100'
+            }`}
+        >
+          <div className="text-sm font-medium">
+            {event.agent && <span className="text-gray-600">[{event.agent}] </span>}
+            <span className="text-gray-900">{event.event}</span>
+          </div>
+          <div className="text-xs text-gray-500">{event.timestamp}</div>
+        </div>
+      ))}
+    </div>
+  </main>
+);
 }

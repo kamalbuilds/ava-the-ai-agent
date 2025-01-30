@@ -54,6 +54,8 @@ export class CdpAgent extends Agent {
         responseMessage = chunk.tools.messages[0].content;
       }
     }
+
+    console.log(responseMessage, "response message");
     return responseMessage;
   }
 
