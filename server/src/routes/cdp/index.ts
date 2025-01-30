@@ -2,9 +2,9 @@ import { Hono } from "hono";
 import type { Environment } from "../../env";
 import { agents } from "../..";
 
-const router = new Hono<Environment>();
+const app = new Hono<Environment>();
 
-router.post("/message", async (c) => {
+app.post("/message", async (c) => {
     try {
         console.log("CDP Agent request received");
         const { prompt } = await c.req.json();
@@ -21,4 +21,4 @@ router.post("/message", async (c) => {
     }
 });
 
-export { router as cdpRouter }; 
+export default app; 
