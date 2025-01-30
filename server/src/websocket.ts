@@ -1,7 +1,8 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { EventBus } from './comms/event-bus';
+import { agents } from './index';
 
-const WS_PORT = 3002; // Different port for WebSocket
+const WS_PORT = 3002;
 
 export function setupWebSocket(eventBus: EventBus) {
     const wss = new WebSocketServer({ port: WS_PORT });
@@ -11,7 +12,10 @@ export function setupWebSocket(eventBus: EventBus) {
 
         // Forward agent events to the client
         const forwardEvent = (data: any) => {
-            ws.send(JSON.stringify(data));
+            ws.send(JSON.stringify({
+                type: 'agent-event',
+                ...data
+            }));
         };
 
         eventBus.subscribe('agent-action', forwardEvent);
@@ -22,11 +26,30 @@ export function setupWebSocket(eventBus: EventBus) {
             try {
                 const data = JSON.parse(message);
                 if (data.type === 'command') {
-                    // Handle user commands
-                    eventBus.emit('user-command', data);
+                    if (data.command === 'stop') {
+                        // Stop all agent activities
+                        agents.observerAgent.stop();
+                        eventBus.emit('agent-action', {
+                            agent: 'system',
+                            action: 'All agents stopped'
+                        });
+                    } else {
+                        // Start task processing
+                        eventBus.emit('agent-action', {
+                            agent: 'system',
+                            action: 'Starting task processing'
+                        });
+
+                        // Start with observer agent
+                        await agents.observerAgent.processTask(data.command);
+                    }
                 }
             } catch (error) {
                 console.error('Error processing WebSocket message:', error);
+                eventBus.emit('agent-error', {
+                    agent: 'system',
+                    error: 'Failed to process command'
+                });
             }
         });
 

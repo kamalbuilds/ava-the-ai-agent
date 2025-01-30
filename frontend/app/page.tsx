@@ -16,6 +16,7 @@ import Image from 'next/image';
 import { Switch } from "@/components/ui/switch";
 import { EXAMPLE_RESPONSES } from "../lib/example";
 import { EventBus } from './types/event-bus'; // Revert to type import since implementation is server-side
+import { WebSocketEventBus } from './services/websocket-event-bus';
 
 
 type CollaborationType =
@@ -141,11 +142,12 @@ export default function Home() {
 
   useEffect(() => {
     if (autonomousMode && !eventBusRef.current) {
-      // Initialize autonomous agents
-      eventBusRef.current = new EventBus();
+      // Initialize WebSocket connection
+      const eventBus = new WebSocketEventBus();
+      eventBusRef.current = eventBus;
 
-      // Connect to backend WebSocket on port 3002
-      eventBusRef.current.connect('ws://localhost:3002');
+      // Connect to backend WebSocket
+      eventBus.connect('ws://localhost:3002');
 
       subscribeToAgentEvents();
 
@@ -154,8 +156,11 @@ export default function Home() {
         type: 'success'
       });
     } else if (!autonomousMode && eventBusRef.current) {
-      // Send stop command to backend
-      fetch('/api/observer/stop', { method: 'POST' });
+      // Send stop command and cleanup
+      eventBusRef.current.emit('command', {
+        type: 'command',
+        command: 'stop'
+      });
       cleanupAutonomousAgents();
     }
   }, [autonomousMode]);
@@ -218,11 +223,16 @@ export default function Home() {
       timestamp
     }]);
 
-    if (autonomousMode) {
-      // Send command to agents via WebSocket
-      eventBusRef.current?.emit('command', {
+    if (autonomousMode && eventBusRef.current) {
+      // Send task to autonomous agents
+      eventBusRef.current.emit('command', {
         type: 'command',
         command: message
+      });
+
+      addSystemEvent({
+        event: `Task received: ${message}`,
+        type: 'info'
       });
     } else {
       // Handle regular chat mode
@@ -318,162 +328,161 @@ export default function Home() {
         collaborationType: 'decision'
       }]);
     }
-  }
-};
+  };
 
-const addSystemEvent = (event: Omit<AgentState['systemEvents'][0], 'timestamp'>) => {
-  setAgentState(prev => ({
-    ...prev,
-    systemEvents: [...prev.systemEvents, {
-      ...event,
-      timestamp: new Date().toLocaleTimeString()
-    }]
-  }));
-};
+  const addSystemEvent = (event: Omit<AgentState['systemEvents'][0], 'timestamp'>) => {
+    setAgentState(prev => ({
+      ...prev,
+      systemEvents: [...prev.systemEvents, {
+        ...event,
+        timestamp: new Date().toLocaleTimeString()
+      }]
+    }));
+  };
 
-const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!input.trim() || agentState.isProcessing) return;
-  handleMessage(input);
-  setInput("");
-};
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || agentState.isProcessing) return;
+    handleMessage(input);
+    setInput("");
+  };
 
-return (
-  <main className="flex my-16">
-    {/* Left Sidebar - Agent Details */}
-    <div className="w-1/4 border-r border-gray-200 p-4 overflow-y-auto">
-      <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
-      {agents.map((agent) => (
-        <div
-          key={agent.id}
-          className={`p-4 mb-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id ? 'bg-blue-50 border border-blue-200' : 'bg-white border'
-            }`}
-        >
-          <div className="flex items-center mb-2">
-            <div className="relative w-12 h-12 mr-3">
-              <Image
-                src={agentImages[agent.id as keyof typeof agentImages]}
-                alt={agent.name}
-                fill
-                className="rounded-full object-cover"
-                priority
-              />
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900">{agent.name}</h3>
-              <p className="text-xs text-gray-500">AI Assistant</p>
-            </div>
-          </div>
-          <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
-          {agentState.activeAgent === agent.id && (
-            <div className="mt-2 text-xs text-blue-600 flex items-center">
-              <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
-              Active
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-
-    {/* Center - Chat Interface */}
-    <div className="flex-1 flex flex-col">
-      <div className="flex-1 overflow-y-auto p-4">
-        {messages.map((message, index) => (
-          <div key={index} className={`mb-4 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'
-            }`}>
-            <div className={`flex items-start max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-              }`}>
-              {/* Agent/User Icon */}
-              <div className={`flex-shrink-0 ${message.role === 'user' ? 'ml-2' : 'mr-2'}`}>
-                {message.role === 'user' ? (
-                  <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
-                    <User className="w-5 h-5 text-white" />
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
-                      <Bot className="w-5 h-5 text-white" />
-                    </div>
-                    {message.collaborationType && (
-                      <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500" />
-                    )}
-                  </div>
-                )}
+  return (
+    <main className="flex my-16">
+      {/* Left Sidebar - Agent Details */}
+      <div className="w-1/4 border-r border-gray-200 p-4 overflow-y-auto">
+        <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
+        {agents.map((agent) => (
+          <div
+            key={agent.id}
+            className={`p-4 mb-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id ? 'bg-blue-50 border border-blue-200' : 'bg-white border'
+              }`}
+          >
+            <div className="flex items-center mb-2">
+              <div className="relative w-12 h-12 mr-3">
+                <Image
+                  src={agentImages[agent.id as keyof typeof agentImages]}
+                  alt={agent.name}
+                  fill
+                  className="rounded-full object-cover"
+                  priority
+                />
               </div>
-
-              {/* Message Content */}
-              <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
-                {message.agentName && (
-                  <span className="text-xs font-medium text-gray-500 mb-1">
-                    {message.agentName}
-                    {message.collaborationType && ` • ${message.collaborationType}`}
-                  </span>
-                )}
-                <div className={`p-3 rounded-lg ${message.role === 'user'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-100 text-gray-900'
-                  }`}>
-                  {message.content}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {message.timestamp}
-                </div>
+              <div>
+                <h3 className="font-medium text-gray-900">{agent.name}</h3>
+                <p className="text-xs text-gray-500">AI Assistant</p>
               </div>
             </div>
+            <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
+            {agentState.activeAgent === agent.id && (
+              <div className="mt-2 text-xs text-blue-600 flex items-center">
+                <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
+                Active
+              </div>
+            )}
           </div>
         ))}
-        <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={handleSubmit} className="border-t p-4">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-end gap-2">
-            <label className="text-sm text-gray-600">
-              Autonomous Mode
-            </label>
-            <Switch
-              checked={autonomousMode}
-              onCheckedChange={setAutonomousMode}
-              className="data-[state=checked]:bg-blue-500"
-            />
-          </div>
+      {/* Center - Chat Interface */}
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1 overflow-y-auto p-4">
+          {messages.map((message, index) => (
+            <div key={index} className={`mb-4 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'
+              }`}>
+              <div className={`flex items-start max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                }`}>
+                {/* Agent/User Icon */}
+                <div className={`flex-shrink-0 ${message.role === 'user' ? 'ml-2' : 'mr-2'}`}>
+                  {message.role === 'user' ? (
+                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                      <User className="w-5 h-5 text-white" />
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                        <Bot className="w-5 h-5 text-white" />
+                      </div>
+                      {message.collaborationType && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500" />
+                      )}
+                    </div>
+                  )}
+                </div>
 
-          {/* Existing input field and button */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              className="flex-1 rounded-lg border p-2"
-              placeholder="Type your message..."
-            />
-            <Button type="submit" disabled={agentState.isProcessing}>
-              <SendHorizontal className="h-4 w-4" />
-            </Button>
-          </div>
+                {/* Message Content */}
+                <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+                  {message.agentName && (
+                    <span className="text-xs font-medium text-gray-500 mb-1">
+                      {message.agentName}
+                      {message.collaborationType && ` • ${message.collaborationType}`}
+                    </span>
+                  )}
+                  <div className={`p-3 rounded-lg ${message.role === 'user'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-900'
+                    }`}>
+                    {message.content}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {message.timestamp}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+          <div ref={messagesEndRef} />
         </div>
-      </form>
-    </div>
 
-    {/* Right Sidebar - System Events */}
-    <div className="w-1/4 border-l border-gray-200 p-4 overflow-y-auto">
-      <h2 className="text-lg font-semibold mb-4">System Events</h2>
-      {agentState.systemEvents.map((event, index) => (
-        <div
-          key={index}
-          className={`p-3 mb-2 rounded-lg ${event.type === 'error' ? 'bg-red-100' :
-            event.type === 'success' ? 'bg-green-100' :
-              event.type === 'warning' ? 'bg-yellow-100' : 'bg-blue-100'
-            }`}
-        >
-          <div className="text-sm font-medium">
-            {event.agent && <span className="text-gray-600">[{event.agent}] </span>}
-            <span className="text-gray-900">{event.event}</span>
+        <form onSubmit={handleSubmit} className="border-t p-4">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-end gap-2">
+              <label className="text-sm text-gray-600">
+                Autonomous Mode
+              </label>
+              <Switch
+                checked={autonomousMode}
+                onCheckedChange={setAutonomousMode}
+                className="data-[state=checked]:bg-blue-500"
+              />
+            </div>
+
+            {/* Existing input field and button */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                className="flex-1 rounded-lg border p-2"
+                placeholder="Type your message..."
+              />
+              <Button type="submit" disabled={agentState.isProcessing}>
+                <SendHorizontal className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-          <div className="text-xs text-gray-500">{event.timestamp}</div>
-        </div>
-      ))}
-    </div>
-  </main>
-);
+        </form>
+      </div>
+
+      {/* Right Sidebar - System Events */}
+      <div className="w-1/4 border-l border-gray-200 p-4 overflow-y-auto">
+        <h2 className="text-lg font-semibold mb-4">System Events</h2>
+        {agentState.systemEvents.map((event, index) => (
+          <div
+            key={index}
+            className={`p-3 mb-2 rounded-lg ${event.type === 'error' ? 'bg-red-100' :
+              event.type === 'success' ? 'bg-green-100' :
+                event.type === 'warning' ? 'bg-yellow-100' : 'bg-blue-100'
+              }`}
+          >
+            <div className="text-sm font-medium">
+              {event.agent && <span className="text-gray-600">[{event.agent}] </span>}
+              <span className="text-gray-900">{event.event}</span>
+            </div>
+            <div className="text-xs text-gray-500">{event.timestamp}</div>
+          </div>
+        ))}
+      </div>
+    </main>
+  );
 }

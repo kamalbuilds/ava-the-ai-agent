@@ -8,14 +8,16 @@ import { getObserverToolkit } from "./toolkit";
 import { saveThought } from "../../memory";
 import env from "../../env";
 
-const OBSERVER_STARTING_PROMPT =
-  "Based on the current market data and the tokens that you hold, generate a report explaining what steps could be taken.";
+const OBSERVER_STARTING_PROMPT = "what is virtuals protocol on base chain"
+
+const oldprompt = "Based on the current market data and the tokens that you hold, generate a report explaining what steps could be taken.";
 
 /**
  * @dev The observer agent is responsible for generating a report about the best opportunities to make money.
  */
 export class ObserverAgent extends Agent {
   address?: Hex;
+  private isRunning: boolean = false;
 
   /**
    * @param name - The name of the agent
@@ -142,5 +144,38 @@ export class ObserverAgent extends Agent {
         toolResults,
       });
     }
+  }
+
+  async stop(): Promise<void> {
+    this.isRunning = false;
+    this.eventBus.emit('agent-action', {
+      agent: this.name,
+      action: 'Stopping observation'
+    });
+  }
+
+  async processTask(task: string): Promise<void> {
+    this.isRunning = true;
+
+    this.eventBus.emit('agent-action', {
+      agent: this.name,
+      action: 'Analyzing task: ' + task
+    });
+
+    // Process the task and coordinate with other agents
+    const response = await this.analyzeTask(task);
+
+    // Send to task manager for execution
+    this.eventBus.emit(`${this.name}-task-manager`, {
+      report: response,
+      task
+    });
+  }
+
+  private async analyzeTask(task: string): Promise<string> {
+    // Implement task analysis logic
+    // This should use your existing AI tools to analyze the task
+    // and determine the best course of action
+    return "Task analysis result";
   }
 }

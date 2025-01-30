@@ -21,4 +21,4 @@ app.post("/message", async (c) => {
     }
 });
 
-export default app; 
+export { app as cdpRouter }; 

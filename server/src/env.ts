@@ -14,7 +14,7 @@ const envSchema = z.object({
   BRIAN_API_URL: z.string().default("https://staging-api.brianknows.org"),
   CHAIN_ID: z.string().default("8453"),
   CHAIN_NAME: z.string().default("base"),
-  MODEL_NAME: z.string().default("gpt-4o-2024-08-06"),
+  MODEL_NAME: z.string().default("gpt-3.5-turbo"),
   CDP_API_KEY_NAME: z.string(),
   CDP_API_KEY_PRIVATE_KEY: z.string(),
   MNEMONIC_PHRASE: z.string(),
