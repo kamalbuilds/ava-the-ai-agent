@@ -15,6 +15,9 @@ const envSchema = z.object({
   CHAIN_ID: z.string().default("8453"),
   CHAIN_NAME: z.string().default("base"),
   MODEL_NAME: z.string().default("gpt-4o-2024-08-06"),
+  CDP_API_KEY_NAME: z.string(),
+  CDP_API_KEY_PRIVATE_KEY: z.string(),
+  MNEMONIC_PHRASE: z.string(),
 });
 
 export const env = envSchema.parse(process.env);
