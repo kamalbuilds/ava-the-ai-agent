@@ -57,6 +57,12 @@ export class ObserverAgent extends Agent {
   async start(address: Hex, taskManagerData?: any): Promise<any> {
     this.address = address;
 
+    // Emit event when starting
+    this.eventBus.emit('agent-action', {
+      agent: this.name,
+      action: 'Starting market analysis'
+    });
+
     const toolkit = getObserverToolkit(address);
 
     if (!taskManagerData) {
@@ -109,6 +115,13 @@ export class ObserverAgent extends Agent {
         });
       }
     }
+
+    // Emit response when done
+    // this.eventBus.emit('agent-response', {
+    //   agent: this.name,
+    //   message: response.text,
+    //   type: 'analysis'
+    // });
   }
 
   /**
@@ -116,10 +129,9 @@ export class ObserverAgent extends Agent {
    */
   async onStepFinish({ text, toolCalls, toolResults }: any) {
     console.log(
-      `[observer] step finished. tools called: ${
-        toolCalls.length > 0
-          ? toolCalls.map((tool: any) => tool.toolName).join(", ")
-          : "none"
+      `[observer] step finished. tools called: ${toolCalls.length > 0
+        ? toolCalls.map((tool: any) => tool.toolName).join(", ")
+        : "none"
       }`
     );
     if (text) {

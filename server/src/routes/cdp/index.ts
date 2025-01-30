@@ -13,7 +13,7 @@ router.post("/message", async (c) => {
             return c.json({ error: "Prompt is required" }, 400);
         }
 
-        const response = await agents.cdpAgent.processMessage(prompt);
+        const response = await agents.cdpagent.processMessage(prompt);
         return c.json({ response });
     } catch (error) {
         console.error("Error processing CDP message:", error);

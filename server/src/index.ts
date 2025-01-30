@@ -5,6 +5,7 @@ import env from "./env";
 import { registerAgents } from "./agents";
 import { EventBus } from "./comms";
 import { privateKeyToAccount } from "viem/accounts";
+import { setupWebSocket } from './websocket';
 import figlet from "figlet";
 
 console.log(figlet.textSync("AVA-2.0"));
@@ -13,7 +14,10 @@ console.log("======== Initializing Server =========");
 // Initialize event bus and agents
 const eventBus = new EventBus();
 const account = privateKeyToAccount(env.PRIVATE_KEY as `0x${string}`);
-const agents = registerAgents(eventBus, account);
+export const agents = registerAgents(eventBus, account);
+
+// Setup WebSocket server
+setupWebSocket(eventBus);
 
 const PORT = env.PORT || 3001;
 
@@ -25,5 +29,3 @@ serve({
   console.log(`[👀] Observer agent starting...`);
   agents.observerAgent.start(account.address);
 });
-
-export { agents };

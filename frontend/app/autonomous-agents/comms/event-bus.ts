@@ -4,9 +4,7 @@ import { EventEmitter } from "events";
  * EventBus is a simple event bus implementation using the EventEmitter from Node.js.
  * It allows you to register callbacks for specific events and emit events with data.
  * In this context, it's used to communicate between agents.
- *
- * @author orbulo
- */
+  */
 export class EventBus {
   protected eventEmitter: EventEmitter;
 
