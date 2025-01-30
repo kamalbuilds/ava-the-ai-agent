@@ -12,11 +12,8 @@ import { ChatMessageHistory } from "langchain/memory";
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
 import { FunctorService } from '../services/functorService';
-import { defiLlamaToolkit, coingeckoTool  } from "./tools";
+import { defiLlamaToolkit, coingeckoTool } from "./tools";
 import { ChainValues } from "@langchain/core/utils/types";
-import * as ethers from "ethers";
-import { Wallet } from "@coinbase/coinbase-sdk";
-import { createCoinbaseTools } from "./tools";
 
 // Update message history store and getter
 const store: Record<string, ChatMessageHistory> = {};
@@ -40,7 +37,7 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
     // Trading Agent with Kestra orchestration
     const tradingAgent = await createAgent({
         ...baseOptions,
-        tools: [ coingeckoTool],
+        tools: [coingeckoTool],
         instructions: `You are a specialized trading agent with workflow orchestration capabilities.
             You can execute and monitor complex trading operations using Kestra workflows.
             Focus on price analysis and trading opportunities.`,
@@ -80,7 +77,7 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
 
 
     // const wallet = await initializeCDPWallet(baseOptions);
-    
+
     // const coinbaseTools = await createCoinbaseTools(wallet);
 
     // // Coinbase Dev Agent
@@ -93,18 +90,18 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
     //         coingeckoTool,
     //     ],
     //     instructions: `You are a Coinbase Developer Platform specialist.
-            
+
     //         Available Operations:
     //         - Check token balances across chains
     //         - Bridge assets between networks
     //         - Monitor prices and TVL
-            
+
     //         Supported Networks:
     //         - Base (primary)
     //         - Ethereum
     //         - Optimism
     //         - Arbitrum
-            
+
     //         Always prioritize:
     //         - Transaction safety
     //         - Gas efficiency
@@ -118,9 +115,9 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
     //         const provider = new ethers.providers.JsonRpcProvider(
     //             process.env["NEXT_PUBLIC_BASE_RPC_URL"]
     //         );
-            
+
     //         const signer = new ethers.Wallet(options.privateKeyOrAccount, provider);
-            
+
     //         // Create Coinbase wallet instance
     //         return ({
     //             address: signer.address,

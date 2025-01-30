@@ -1,11 +1,5 @@
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
-import { 
-    createCDPGetBalanceTool,
-    createCDPBridgeTool,
-    createBorrowTool
-} from "@brian-ai/langchain";
-import { Wallet } from "@coinbase/coinbase-sdk";
 
 
 // DeFiLlama Tools Definition
@@ -103,18 +97,3 @@ export const coingeckoTool = new DynamicStructuredTool({
     },
 });
 
-
-
-// Create Coinbase tools factory
-export const createCoinbaseTools = async (wallet: Wallet) => {
-    const brianSDK = {
-        apiKey: process.env["NEXT_PUBLIC_BRIAN_API_KEY"]!,
-        apiUrl: process.env["NEXT_PUBLIC_BRIAN_API_URL"],
-    };
-
-    return {
-        getBalance: createCDPGetBalanceTool(brianSDK, wallet),
-        bridge: createCDPBridgeTool(brianSDK, wallet),
-        borrow : createBorrowTool(brianSDK, wallet),
-    };
-};
