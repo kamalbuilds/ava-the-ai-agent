@@ -1,14 +1,9 @@
 import { initializeAgent } from "..";
 import { HumanMessage } from "@langchain/core/messages";
-import express from "express";
 
-export const sendMessageToClient = async (
-  req: express.Request,
-  res: express.Response
-) => {
-  const { prompt }: { prompt: string } = req.body; // Get the prompt from the request body
+export const sendMessageToClient = async (prompt: string) => {
   if (!prompt) {
-    return res.status(400).send("Prompt is required");
+    throw new Error("Prompt is required");
   }
 
   try {
@@ -27,9 +22,9 @@ export const sendMessageToClient = async (
       }
     }
 
-    res.json({ response: responseMessage });
+    return responseMessage;
   } catch (error) {
     console.error("Error processing message:", error);
-    res.status(500).send("Internal Server Error");
+    throw error;
   }
 };

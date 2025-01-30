@@ -4,7 +4,9 @@ import { Coinbase } from "@coinbase/coinbase-sdk";
 import { ChatGroq } from "@langchain/groq";
 import { MemorySaver } from "@langchain/langgraph";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import "dotenv/config";
+import { Agent } from "../agent";
+import type { EventBus } from "../../comms";
+import env from "../../env";
 import {
   SIGN_MESSAGE_PROMPT,
   signMessage,
@@ -16,6 +18,55 @@ import {
   CreatePredictionInput,
 } from "./actions/create_prediction";
 
+export class CdpAgent extends Agent {
+  private agent: any;
+  private config: any;
+
+  constructor(name: string, eventBus: EventBus) {
+    super(name, eventBus);
+  }
+
+  async initialize() {
+    const { agent, config } = await initializeAgent();
+    this.agent = agent;
+    this.config = config;
+  }
+
+  async handleEvent(event: string, data: any): Promise<void> {
+    // Handle events from other agents
+    console.log(`CDP Agent handling event: ${event}`);
+  }
+
+  async processMessage(message: string) {
+    if (!this.agent) {
+      throw new Error("CDP Agent not initialized");
+    }
+    const stream = await this.agent.stream(
+      { messages: [{ role: "user", content: message }] },
+      this.config
+    );
+
+    let responseMessage = "";
+    for await (const chunk of stream) {
+      if ("agent" in chunk) {
+        responseMessage = chunk.agent.messages[0].content;
+      } else if ("tools" in chunk) {
+        responseMessage = chunk.tools.messages[0].content;
+      }
+    }
+    return responseMessage;
+  }
+
+  async onStepFinish({ text, toolCalls, toolResults }: any): Promise<void> {
+    console.log(
+      `[cdp-agent] step finished. tools called: ${toolCalls?.length > 0
+        ? toolCalls.map((tool: any) => tool.toolName).join(", ")
+        : "none"
+      }`
+    );
+  }
+}
+
 /**
  * Initialize the agent with CDP AgentKit
  *
@@ -24,11 +75,11 @@ import {
 export async function initializeAgent() {
   //   Initialize LLM
   const groqModel = new ChatGroq({
-    apiKey: process.env.GROQ_API_KEY,
+    apiKey: env.GROQ_API_KEY,
   });
 
-  const apiKeyName = process.env.CDP_API_KEY_NAME as string;
-  const apiKeyPrivateKey = process.env.CDP_API_KEY_PRIVATE_KEY as string;
+  const apiKeyName = env.CDP_API_KEY_NAME;
+  const apiKeyPrivateKey = env.CDP_API_KEY_PRIVATE_KEY;
 
   Coinbase.configure({
     apiKeyName,
@@ -37,8 +88,8 @@ export async function initializeAgent() {
 
   // Configure CDP AgentKit
   const walletDataConfig = {
-    networkId: process.env.NETWORK_ID || "base-sepolia",
-    mnemonicPhrase: process.env.MNEMONIC_PHRASE,
+    networkId: env.NETWORK_ID || "base-sepolia",
+    mnemonicPhrase: env.MNEMONIC_PHRASE,
   };
 
   // Initialize CDP AgentKit
@@ -73,7 +124,7 @@ export async function initializeAgent() {
   // Store buffered conversation history in memory
   const memory = new MemorySaver();
   const agentConfig = {
-    configurable: { thread_id: "CDP AgentKit Chatbot Example!" },
+    configurable: { thread_id: "CDP AgentKit Chatbot" },
   };
 
   // Create React Agent using the LLM and CDP AgentKit tools
@@ -81,7 +132,7 @@ export async function initializeAgent() {
     llm: groqModel,
     tools,
     checkpointSaver: memory,
-    messageModifier: "You are AI Agent build by Coinbase Developer Agent Kit",
+    messageModifier: "You are AI Agent built by Coinbase Developer Agent Kit",
   });
 
   return { agent, config: agentConfig };

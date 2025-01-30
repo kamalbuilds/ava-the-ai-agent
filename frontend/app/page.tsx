@@ -240,11 +240,11 @@ export default function Home() {
         try {
           // Initialize event bus
           eventBusRef.current = new EventBus();
-          
+
           const key = "0x...";
           // Initialize account
           const account = privateKeyToAccount(key as `0x${string}`);
-          
+
           // Register agents
           const agents = registerAgents(eventBusRef.current, account);
           agentsRef.current = agents;
@@ -290,166 +290,40 @@ export default function Home() {
       }]);
 
       if (autonomousMode) {
-        // Handle autonomous mode
-        if (!eventBusRef.current || !agentsRef.current) {
-          throw new Error('Autonomous agents not initialized');
-        }
-
-        setAgentState(prev => ({
-          ...prev,
-          isProcessing: true,
-          systemEvents: [...prev.systemEvents, {
-            timestamp,
-            event: 'Processing request in autonomous mode',
-            type: 'info'
-          }]
-        }));
-
-        // Send message to observer agent
-        const { observerAgent } = agentsRef.current;
-        await observerAgent.handleEvent('user-input', {
-          message,
-          callback: (response: any) => {
-            // Add agent response to messages
-            setMessages(prev => [...prev, {
-              role: "assistant",
-              content: response.text,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              agentName: response.agent,
-              collaborationType: response.type
-            }]);
-          }
+        // Call observer agent endpoint
+        const response = await fetch('http://localhost:3001/api/observer/start', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ message })
         });
 
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.error);
+        }
       } else {
-        // Check if this is an example query
-        if (message in EXAMPLE_RESPONSES) {
-          // Add system event for example response
-          setAgentState(prev => ({
-            ...prev,
-            isProcessing: true,
-            systemEvents: [...prev.systemEvents, {
-              timestamp,
-              event: 'Processing example scenario',
-              type: 'info'
-            }]
-          }));
-
-          // Simulate delay for realistic feel
-          for (const response of EXAMPLE_RESPONSES[message]) {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
-            setMessages(prev => [...prev, {
-              ...response,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            }]);
-
-            // Add corresponding system event
-            setAgentState(prev => ({
-              ...prev,
-              systemEvents: [...prev.systemEvents, {
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                event: `${response.agentName} providing ${response.collaborationType}`,
-                agent: response.agentName,
-                type: 'info'
-              }]
-            }));
-          }
-
-          setAgentState(prev => ({
-            ...prev,
-            isProcessing: false,
-            systemEvents: [...prev.systemEvents, {
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              event: 'Example scenario completed',
-              type: 'success'
-            }]
-          }));
-
-          return;
-        }
-
-        // Existing dynamic response logic
-        setAgentState(prev => ({
-          ...prev,
-          isProcessing: true,
-          systemEvents: [...prev.systemEvents, {
-            timestamp,
-            event: 'Starting agent collaboration',
-            type: 'info'
-          }]
-        }));
-
-        // Initial analysis by Portfolio Agent
-        const portfolioAgent = agents.find(agent => agent.id === 'portfolio');
-        const initialAnalysis = await portfolioAgent?.agent?.invoke(
-          { input: `Analyze this request and determine which other agents should be involved: ${message}` },
-          { configurable: { sessionId: "user-1" } }
-        );
-
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: initialAnalysis.output,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          agentId: 'portfolio',
-          agentName: 'Portfolio Manager',
-          collaborationType: 'analysis'
-        }]);
-
-        // Determine relevant agents based on message content
-        const relevantAgents = agents.filter(agent => {
-          const messageContent = message.toLowerCase();
-          return (
-            (messageContent.includes('trade') && agent.id === 'trading') ||
-            (messageContent.includes('liquidity') && agent.id === 'liquidity') ||
-            (messageContent.includes('analytics') && agent.id === 'defi-analytics')
-          );
+        // Call CDP agent endpoint
+        const response = await fetch('http://localhost:3001/api/message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ prompt: message })
         });
 
-        console.log(relevantAgents, "relevantAgents selected are");
-
-        // Get input from each relevant agent
-        for (const agent of relevantAgents) {
-          const agentResponse = await agent?.agent?.invoke(
-            {
-              input: `Given the user request "${message}" and portfolio analysis "${initialAnalysis.output}", what is your perspective and recommendation?`
-            },
-            { configurable: { sessionId: "user-1" } }
-          );
-
-          setMessages(prev => [...prev, {
-            role: "assistant",
-            content: agentResponse.output,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            agentId: agent.id,
-            agentName: agent.name,
-            collaborationType: 'suggestion'
-          }]);
-        }
-
-        // Final consensus
-        const finalConsensus = await portfolioAgent?.agent?.invoke(
-          { input: `Based on all suggestions, provide a final recommendation for: ${message}` },
-          { configurable: { sessionId: "user-1" } }
-        );
+        const result = await response.json();
 
         setMessages(prev => [...prev, {
           role: "assistant",
-          content: finalConsensus.output,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          agentId: 'portfolio',
-          agentName: 'Portfolio Manager',
-          collaborationType: 'decision'
+          content: result.response,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }]);
       }
     } catch (error) {
-      console.error('Error in message handling:', error);
-      setMessages(prev => [...prev, {
-        role: "system",
-        content: "An error occurred while processing your request. Please try again.",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
-    } finally {
-      setAgentState(prev => ({ ...prev, isProcessing: false, activeAgent: null }));
+      console.error('Error processing message:', error);
+      // Handle error appropriately
     }
   };
 
@@ -571,7 +445,7 @@ export default function Home() {
                 className="data-[state=checked]:bg-blue-500"
               />
             </div>
-            
+
             {/* Existing input field and button */}
             <div className="flex gap-2">
               <input
