@@ -318,12 +318,6 @@ export default function Home() {
         collaborationType: 'decision'
       }]);
     }
-  } catch (error) {
-    console.error('Error:', error);
-    addSystemEvent({
-      event: error.message,
-      type: 'error'
-    });
   }
 };
 
