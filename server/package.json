@@ -1,7 +1,7 @@
 {
-  "name": "server",
+  "name": "ava-autonomous-agents",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "src/index.ts",
   "scripts": {
     "build": "tsc",
     "start": "npm run build && nodemon dist/index.js",
@@ -21,7 +21,13 @@
     "express": "^4.21.2",
     "nodemon": "^3.1.9",
     "viem": "^2.22.17",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "@ai-sdk/openai": "^1.0.7",
+    "@supabase/supabase-js": "^2.47.0",
+    "ai": "^4.0.12",
+    "figlet": "^1.8.0",
+    "hono": "^4.6.12",
+    "openai": "^4.76.1"
   },
   "resolutions": {
     "@coinbase/coinbase-sdk": "^0.15.0"
@@ -30,6 +36,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.12.0",
     "ts-node": "^10.9.2",
+    "@types/figlet": "^1.7.0",
     "typescript": "^5.7.3"
   }
 }

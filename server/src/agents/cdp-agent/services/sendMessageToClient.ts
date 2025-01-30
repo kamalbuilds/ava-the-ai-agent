@@ -1,4 +1,4 @@
-import { initializeAgent } from "../agent";
+import { initializeAgent } from "..";
 import { HumanMessage } from "@langchain/core/messages";
 import express from "express";
 
