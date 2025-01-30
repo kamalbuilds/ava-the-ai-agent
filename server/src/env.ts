@@ -2,6 +2,8 @@ import { z } from "zod";
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
+  GROQ_API_KEY: z.string(),
+  NETWORK_ID: z.string(),
   SUPABASE_URL: z.string(),
   SUPABASE_KEY: z.string(),
   PRIVATE_KEY: z.string(),

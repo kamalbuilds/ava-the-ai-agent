@@ -1,14 +1,22 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
+import { cors } from "hono/cors";
 import type { Environment } from "./env";
 import { thoughtsRouter, walletRouter } from "./routes";
-import { cors } from "hono/cors";
+import { cdpRouter } from "./routes/cdp";
+import { observerRouter } from "./routes/observer";
+import { taskRouter } from "./routes/task";
 
 const app = new Hono<Environment>();
 
-app.use(cors({ origin: "*" }));
-app.use(logger());
-app.route("/thoughts", thoughtsRouter);
-app.route("/wallet", walletRouter);
+app.use("*", logger());
+app.use("*", cors());
+
+// Mount all routers
+app.route("/api/thoughts", thoughtsRouter);
+app.route("/api/wallet", walletRouter);
+app.route("/api/cdp", cdpRouter);
+app.route("/api/observer", observerRouter);
+app.route("/api/tasks", taskRouter);
 
 export { app };

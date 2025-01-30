@@ -54,8 +54,7 @@ export class TaskManagerAgent extends Agent {
 
     if (data.noFurtherActions && data.waitTime) {
       console.log(
-        `[${this.name}] no further actions needed. waiting for ${
-          data.waitTime / 1000
+        `[${this.name}] no further actions needed. waiting for ${data.waitTime / 1000
         } seconds.`
       );
       // sleep for the waitTime
@@ -131,10 +130,9 @@ export class TaskManagerAgent extends Agent {
    */
   async onStepFinish({ text, toolCalls, toolResults }: any) {
     console.log(
-      `[task-manager] step finished. tools called: ${
-        toolCalls.length > 0
-          ? toolCalls.map((tool: any) => tool.toolName).join(", ")
-          : "none"
+      `[task-manager] step finished. tools called: ${toolCalls.length > 0
+        ? toolCalls.map((tool: any) => tool.toolName).join(", ")
+        : "none"
       }`
     );
     if (text) {
@@ -145,5 +143,10 @@ export class TaskManagerAgent extends Agent {
         toolResults,
       });
     }
+  }
+
+  async getTasks() {
+    // Implement your task retrieval logic here
+    return []; // Return tasks array
   }
 }
