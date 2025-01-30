@@ -5,6 +5,7 @@
   "scripts": {
     "build": "tsc",
     "start": "npm run build && nodemon dist/index.js",
+    "start:wh": "ts-node src/websocket.ts",
     "dev": "ts-node src/index.ts"
   },
   "keywords": [],
