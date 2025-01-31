@@ -9,7 +9,7 @@ import { AgentCharacters } from "./agents/AgentCharacters";
 import Image from "next/image";
 import { Switch } from "@/components/ui/switch";
 import { EXAMPLE_RESPONSES } from "../lib/example";
-import { EventBus } from "./types/event-bus"; // Revert to type import since implementation is server-side
+import { EventBus } from "./types/event-bus";
 import { WebSocketEventBus } from "./services/websocket-event-bus";
 
 type CollaborationType =
@@ -250,42 +250,24 @@ export default function Home() {
   const subscribeToAgentEvents = () => {
     if (!eventBusRef.current) return;
 
-    // Handle system events
+    // Handle system events for right sidebar
     eventBusRef.current.subscribe('agent-event', (data: any) => {
-      const timestamp = new Date().toLocaleTimeString();
-
-      // Avoid duplicate events
-      const lastEvent = agentState.systemEvents[agentState.systemEvents.length - 1];
-      if (lastEvent?.event === data.action && lastEvent?.agent === data.agent) {
-        return;
-      }
-
-      setAgentState(prev => ({
-        ...prev,
-        systemEvents: [...prev.systemEvents, {
-          event: data.action || data.error || 'Unknown event',
-          agent: data.agent,
-          type: data.error ? 'error' : 'info',
-          timestamp
-        }]
-      }));
+      console.log(data, "data received from agent event");
+      addSystemEvent({
+        event: data.action,
+        agent: data.agent,
+        type: data.eventType || 'info',
+        timestamp: data.timestamp
+      });
     });
 
-    // Handle agent messages in chat
+    // Handle agent messages for chat
     eventBusRef.current.subscribe('agent-message', (data: any) => {
-      const timestamp = new Date().toLocaleTimeString();
-
-      // Avoid duplicate messages
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage?.content === data.message && lastMessage?.agentName === data.agent) {
-        return;
-      }
-
       setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: data.message,
-        timestamp,
-        agentName: data.agent,
+        role: data.role,
+        content: data.content,
+        timestamp: data.timestamp,
+        agentName: data.agentName,
         collaborationType: data.collaborationType
       }]);
     });
@@ -304,7 +286,7 @@ export default function Home() {
     }]);
 
     if (autonomousMode && eventBusRef.current) {
-      // Send task to autonomous agents
+      // Send command to autonomous agents
       eventBusRef.current.emit('command', {
         type: 'command',
         command: message
@@ -315,8 +297,15 @@ export default function Home() {
         type: 'info',
         timestamp
       });
+
+
     } else {
       // Handle regular chat mode
+      setMessages(prev => [...prev, {
+        role: 'user',
+        content: message,
+        timestamp: new Date().toLocaleTimeString()
+      }]);
       // Check if this is an example query
       if (message in EXAMPLE_RESPONSES) {
         addSystemEvent({
@@ -452,9 +441,6 @@ export default function Home() {
 
   return (
     <main className="flex my-16">
-      <div>
-        <button onClick={handleSendMessage}>Send Message</button>
-      </div>
       {/* Left Sidebar - Agent Details */}
       <div className="w-1/4 border-r border-gray-200 p-4 overflow-y-auto">
         <h2 className="text-lg font-semibold mb-4">Available Agents</h2>

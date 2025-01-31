@@ -145,8 +145,4 @@ export class TaskManagerAgent extends Agent {
     }
   }
 
-  async getTasks() {
-    // Implement your task retrieval logic here
-    return []; // Return tasks array
-  }
 }
