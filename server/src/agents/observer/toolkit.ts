@@ -47,8 +47,10 @@ export const getObserverToolkit = (address: Hex) => {
         );
         const { balances } = await getAccountBalances(address);
 
+        console.log(`[getWalletBalances] balances fetched: ${balances}`);
+
         const tokenBalances = balances
-          .filter(
+          ?.filter(
             (balance: any) =>
               balance.platform === "native" || balance.platform === "basic"
           )
@@ -65,10 +67,8 @@ export const getObserverToolkit = (address: Hex) => {
           )
           .map(
             (balance: any) =>
-              `[${balance.symbol}] balance: ${balance.balance} $${
-                balance.balanceUSD
-              }) on protocol ${balance.platform.replace("-", " ")} with APY ${
-                balance.metrics.apy
+              `[${balance.symbol}] balance: ${balance.balance} $${balance.balanceUSD
+              }) on protocol ${balance.platform.replace("-", " ")} with APY ${balance.metrics.apy
               }%`
           )
           .join("\n");
