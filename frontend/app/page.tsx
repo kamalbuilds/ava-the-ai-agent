@@ -238,8 +238,6 @@ export default function Home() {
     subscribeToAgentEvents();
   }, []);
 
-  console.log("New frontend");
-
   const cleanupAutonomousAgents = () => {
     eventBusRef.current = null;
     agentsRef.current = null;
@@ -250,44 +248,46 @@ export default function Home() {
   };
 
   const subscribeToAgentEvents = () => {
-    console.log("Event Bus Ref", eventBusRef.current);
-
     if (!eventBusRef.current) return;
 
-    eventBusRef.current.subscribe("agent-action", (data: any) => {
-      addSystemEvent({
-        event: data.action,
-        agent: data.agent,
-        type: "info",
-      });
-    });
+    // Handle system events
+    eventBusRef.current.subscribe('agent-event', (data: any) => {
+      const timestamp = new Date().toLocaleTimeString();
 
-    eventBusRef.current.subscribe("agent-response", (data: any) => {
-      // Add agent message to chat
-      setMessages((prev) => [
+      // Avoid duplicate events
+      const lastEvent = agentState.systemEvents[agentState.systemEvents.length - 1];
+      if (lastEvent?.event === data.action && lastEvent?.agent === data.agent) {
+        return;
+      }
+
+      setAgentState(prev => ({
         ...prev,
-        {
-          role: "assistant",
-          content: data.message,
-          timestamp: new Date().toLocaleTimeString(),
-          agentName: data.agent,
-          collaborationType: data.type,
-        },
-      ]);
-
-      addSystemEvent({
-        event: `${data.agent} completed ${data.type}`,
-        agent: data.agent,
-        type: "success",
-      });
+        systemEvents: [...prev.systemEvents, {
+          event: data.action || data.error || 'Unknown event',
+          agent: data.agent,
+          type: data.error ? 'error' : 'info',
+          timestamp
+        }]
+      }));
     });
 
-    eventBusRef.current.subscribe("agent-error", (data: any) => {
-      addSystemEvent({
-        event: data.error,
-        agent: data.agent,
-        type: "error",
-      });
+    // Handle agent messages in chat
+    eventBusRef.current.subscribe('agent-message', (data: any) => {
+      const timestamp = new Date().toLocaleTimeString();
+
+      // Avoid duplicate messages
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage?.content === data.message && lastMessage?.agentName === data.agent) {
+        return;
+      }
+
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.message,
+        timestamp,
+        agentName: data.agent,
+        collaborationType: data.collaborationType
+      }]);
     });
   };
 
@@ -297,25 +297,23 @@ export default function Home() {
     const timestamp = new Date().toLocaleTimeString();
 
     // Add user message
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "user",
-        content: message,
-        timestamp,
-      },
-    ]);
+    setMessages(prev => [...prev, {
+      role: 'user',
+      content: message,
+      timestamp
+    }]);
 
     if (autonomousMode && eventBusRef.current) {
       // Send task to autonomous agents
-      eventBusRef.current.emit("command", {
-        type: "command",
-        command: message,
+      eventBusRef.current.emit('command', {
+        type: 'command',
+        command: message
       });
 
       addSystemEvent({
         event: `Task received: ${message}`,
-        type: "info",
+        type: 'info',
+        timestamp
       });
     } else {
       // Handle regular chat mode
@@ -463,11 +461,10 @@ export default function Home() {
         {agents.map((agent) => (
           <div
             key={agent.id}
-            className={`p-4 mb-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
-              agentState.activeAgent === agent.id
-                ? "bg-blue-50 border border-blue-200"
-                : "bg-white border"
-            }`}
+            className={`p-4 mb-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id
+              ? "bg-blue-50 border border-blue-200"
+              : "bg-white border"
+              }`}
           >
             <div className="flex items-center mb-2">
               <div className="relative w-12 h-12 mr-3">
@@ -501,14 +498,12 @@ export default function Home() {
           {messages.map((message, index) => (
             <div
               key={index}
-              className={`mb-4 flex ${
-                message.role === "user" ? "justify-end" : "justify-start"
-              }`}
+              className={`mb-4 flex ${message.role === "user" ? "justify-end" : "justify-start"
+                }`}
             >
               <div
-                className={`flex items-start max-w-[80%] ${
-                  message.role === "user" ? "flex-row-reverse" : "flex-row"
-                }`}
+                className={`flex items-start max-w-[80%] ${message.role === "user" ? "flex-row-reverse" : "flex-row"
+                  }`}
               >
                 {/* Agent/User Icon */}
                 <div
@@ -542,11 +537,10 @@ export default function Home() {
                     </span>
                   )}
                   <div
-                    className={`p-3 rounded-lg ${
-                      message.role === "user"
-                        ? "bg-blue-500 text-white"
-                        : "bg-gray-100 text-gray-900"
-                    }`}
+                    className={`p-3 rounded-lg ${message.role === "user"
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-100 text-gray-900"
+                      }`}
                   >
                     {message.content}
                   </div>
@@ -594,15 +588,14 @@ export default function Home() {
         {agentState.systemEvents.map((event, index) => (
           <div
             key={index}
-            className={`p-3 mb-2 rounded-lg ${
-              event.type === "error"
-                ? "bg-red-100"
-                : event.type === "success"
-                  ? "bg-green-100"
-                  : event.type === "warning"
-                    ? "bg-yellow-100"
-                    : "bg-blue-100"
-            }`}
+            className={`p-3 mb-2 rounded-lg ${event.type === "error"
+              ? "bg-red-100"
+              : event.type === "success"
+                ? "bg-green-100"
+                : event.type === "warning"
+                  ? "bg-yellow-100"
+                  : "bg-blue-100"
+              }`}
           >
             <div className="text-sm font-medium">
               {event.agent && (

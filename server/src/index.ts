@@ -49,72 +49,70 @@ export const agents = registerAgents(eventBus, account);
 
 wss.on("connection", (ws: WebSocket) => {
   console.log(`[WebSocket] Client connected on port ${WS_PORT}`);
-
-  setInterval(() => {
-    ws.send(
-      JSON.stringify({
-        type: "agent-event",
-        agent: "server-agent",
-        action: "server-action",
-      })
-    );
-  }, 5000);
+  let isProcessing = false;
 
   // Forward agent events to the client
   const forwardEvent = (data: any) => {
-    console.log("Sending event", data);
+    const eventData = {
+      type: "agent-event",
+      timestamp: new Date().toLocaleTimeString(),
+      ...data
+    };
+    ws.send(JSON.stringify(eventData));
+  };
 
-    ws.send(
-      JSON.stringify({
-        type: "agent-event",
-        ...data,
-      })
-    );
+  // Forward agent messages to chat
+  const forwardMessage = (data: any) => {
+    const messageData = {
+      type: "agent-message",
+      timestamp: new Date().toLocaleTimeString(),
+      ...data
+    };
+    ws.send(JSON.stringify(messageData));
   };
 
   eventBus.subscribe("agent-action", forwardEvent);
-  eventBus.subscribe("agent-response", forwardEvent);
+  eventBus.subscribe("agent-response", forwardMessage);
   eventBus.subscribe("agent-error", forwardEvent);
 
   ws.on("message", async (message: string) => {
     try {
-      console.log("Message passed", message);
+      if (isProcessing) return; // Prevent multiple concurrent processes
 
-      const data = JSON.parse(message);
-      console.log("data", data);
+      const data = JSON.parse(message.toString());
 
       if (data.type === "command") {
+        isProcessing = true;
+
         if (data.command === "stop") {
-          // Stop all agent activities
           agents.observerAgent.stop();
           eventBus.emit("agent-action", {
             agent: "system",
-            action: "All agents stopped",
+            action: "All agents stopped"
           });
         } else {
-          // Start task processing
           eventBus.emit("agent-action", {
             agent: "system",
-            action: "Starting task processing",
+            action: "Starting task processing"
           });
-
-          // Start with observer agent
           await agents.observerAgent.processTask(data.command);
         }
+
+        isProcessing = false;
       }
     } catch (error) {
       console.error("Error processing WebSocket message:", error);
       eventBus.emit("agent-error", {
         agent: "system",
-        error: "Failed to process command",
+        error: "Failed to process command: " + error.message
       });
+      isProcessing = false;
     }
   });
 
   ws.on("close", () => {
-    console.log("Client disconnected");
     eventBus.unsubscribe("agent-action", forwardEvent);
-    eventBus.unsubscribe("agent-response", forwardEvent);
+    eventBus.unsubscribe("agent-response", forwardMessage);
     eventBus.unsubscribe("agent-error", forwardEvent);
   });
 });
