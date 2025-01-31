@@ -9,14 +9,10 @@ import { Client } from "@xmtp/xmtp-js";
 import { ethers } from "ethers";
 import { BrianToolkit } from "@brian-ai/langchain";
 import { AvalancheConfig } from "@brian-ai/langchain/chains";
-import { initializeAgents } from "../agents";
+import { initializeAgents } from "./agents";
 import { SendHorizontal, Bot, User } from "lucide-react";
 import { AgentCharacters } from "./agents/AgentCharacters";
 import Image from 'next/image';
-import { Switch } from "@/components/ui/switch";
-import { EventBus } from "../autonomous-agents/comms";
-import { registerAgents } from "../autonomous-agents/agents";
-import { privateKeyToAccount } from "viem/accounts";
 
 interface Message {
     role: "user" | "assistant" | "system";
@@ -53,7 +49,7 @@ interface CollaborationMessage extends Message {
     collaborationType?: 'question' | 'response' | 'suggestion' | 'decision';
 }
 
-
+// Add this near the top of the file with other constants
 const EXAMPLE_RESPONSES = {
     "I have 10 AVAX and want to optimize my portfolio between lending, liquidity provision, and trading. What's the best strategy right now?": [
         // Portfolio Manager Initial Analysis
@@ -153,7 +149,7 @@ const EXAMPLE_RESPONSES = {
 // Add a mapping for agent images
 const agentImages = {
     'trading': '/agent_trader.png',
-    'liquidity': '/agent_liquidity.png',
+    'liquidity': '/agent_liquidity.png',  // You can add different images for each agent
     'portfolio': '/agent_default.png',
     'defi-analytics': '/agent_analyst.png'
 };
@@ -169,13 +165,10 @@ export default function Home() {
         systemEvents: []
     });
     const [agents, setAgents] = useState<Agent[]>([]);
-    const [autonomousMode, setAutonomousMode] = useState(false);
 
     const messagesEndRef = useRef<null | HTMLDivElement>(null);
     const clientRef = useRef<any>(null);
     const agentRef = useRef<any>(null);
-    const eventBusRef = useRef<EventBus | null>(null);
-    const agentsRef = useRef<any>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -234,50 +227,6 @@ export default function Home() {
         setupAgents();
     }, []);
 
-    useEffect(() => {
-        if (autonomousMode && !eventBusRef.current) {
-            const initializeAutonomousAgents = async () => {
-                try {
-                    // Initialize event bus
-                    eventBusRef.current = new EventBus();
-
-                    const key = "0x...";
-                    // Initialize account
-                    const account = privateKeyToAccount(key as `0x${string}`);
-
-                    // Register agents
-                    const agents = registerAgents(eventBusRef.current, account);
-                    agentsRef.current = agents;
-
-                    // Add system event
-                    setAgentState(prev => ({
-                        ...prev,
-                        systemEvents: [...prev.systemEvents, {
-                            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                            event: 'Autonomous agents initialized',
-                            type: 'success'
-                        }]
-                    }));
-
-                    // Start observer agent
-                    agents.observerAgent.start(account.address);
-                } catch (error) {
-                    console.error('Error initializing autonomous agents:', error);
-                    setAgentState(prev => ({
-                        ...prev,
-                        systemEvents: [...prev.systemEvents, {
-                            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                            event: 'Failed to initialize autonomous agents',
-                            type: 'error'
-                        }]
-                    }));
-                }
-            };
-
-            initializeAutonomousAgents();
-        }
-    }, [autonomousMode]);
-
     const handleMessage = async (message: string) => {
         try {
             const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -289,163 +238,130 @@ export default function Home() {
                 timestamp
             }]);
 
-            if (autonomousMode) {
-                // Handle autonomous mode
-                if (!eventBusRef.current || !agentsRef.current) {
-                    throw new Error('Autonomous agents not initialized');
-                }
-
+            // Check if this is an example query
+            if (message in EXAMPLE_RESPONSES) {
+                // Add system event for example response
                 setAgentState(prev => ({
                     ...prev,
                     isProcessing: true,
                     systemEvents: [...prev.systemEvents, {
                         timestamp,
-                        event: 'Processing request in autonomous mode',
+                        event: 'Processing example scenario',
                         type: 'info'
                     }]
                 }));
 
-                // Send message to observer agent
-                const { observerAgent } = agentsRef.current;
-                await observerAgent.handleEvent('user-input', {
-                    message,
-                    callback: (response: any) => {
-                        // Add agent response to messages
-                        setMessages(prev => [...prev, {
-                            role: "assistant",
-                            content: response.text,
-                            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                            agentName: response.agent,
-                            collaborationType: response.type
-                        }]);
-                    }
-                });
+                // Simulate delay for realistic feel
+                for (const response of EXAMPLE_RESPONSES[message]) {
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+                    setMessages(prev => [...prev, {
+                        ...response,
+                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    }]);
 
-            } else {
-                // Check if this is an example query
-                if (message in EXAMPLE_RESPONSES) {
-                    // Add system event for example response
+                    // Add corresponding system event
                     setAgentState(prev => ({
                         ...prev,
-                        isProcessing: true,
                         systemEvents: [...prev.systemEvents, {
-                            timestamp,
-                            event: 'Processing example scenario',
+                            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                            event: `${response.agentName} providing ${response.collaborationType}`,
+                            agent: response.agentName,
                             type: 'info'
                         }]
                     }));
-
-                    // Simulate delay for realistic feel
-                    for (const response of EXAMPLE_RESPONSES[message]) {
-                        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
-                        setMessages(prev => [...prev, {
-                            ...response,
-                            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        }]);
-
-                        // Add corresponding system event
-                        setAgentState(prev => ({
-                            ...prev,
-                            systemEvents: [...prev.systemEvents, {
-                                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                                event: `${response.agentName} providing ${response.collaborationType}`,
-                                agent: response.agentName,
-                                type: 'info'
-                            }]
-                        }));
-                    }
-
-                    setAgentState(prev => ({
-                        ...prev,
-                        isProcessing: false,
-                        systemEvents: [...prev.systemEvents, {
-                            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                            event: 'Example scenario completed',
-                            type: 'success'
-                        }]
-                    }));
-
-                    return;
                 }
 
-                // Existing dynamic response logic
                 setAgentState(prev => ({
                     ...prev,
-                    isProcessing: true,
+                    isProcessing: false,
                     systemEvents: [...prev.systemEvents, {
-                        timestamp,
-                        event: 'Starting agent collaboration',
-                        type: 'info'
+                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        event: 'Example scenario completed',
+                        type: 'success'
                     }]
                 }));
 
-                // Initial analysis by Portfolio Agent
-                const portfolioAgent = agents.find(agent => agent.id === 'portfolio');
-                const initialAnalysis = await portfolioAgent?.agent?.invoke(
-                    { input: `Analyze this request and determine which other agents should be involved: ${message}` },
+                return;
+            }
+
+            // Existing dynamic response logic
+            setAgentState(prev => ({
+                ...prev,
+                isProcessing: true,
+                systemEvents: [...prev.systemEvents, {
+                    timestamp,
+                    event: 'Starting agent collaboration',
+                    type: 'info'
+                }]
+            }));
+
+            // Initial analysis by Portfolio Agent
+            const portfolioAgent = agents.find(agent => agent.id === 'portfolio');
+            const initialAnalysis = await portfolioAgent?.agent?.invoke(
+                { input: `Analyze this request and determine which other agents should be involved: ${message}` },
+                { configurable: { sessionId: "user-1" } }
+            );
+
+            setMessages(prev => [...prev, {
+                role: "assistant",
+                content: initialAnalysis.output,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                agentId: 'portfolio',
+                agentName: 'Portfolio Manager',
+                collaborationType: 'analysis'
+            }]);
+
+            // Determine relevant agents based on message content
+            const relevantAgents = agents.filter(agent => {
+                const messageContent = message.toLowerCase();
+                return (
+                    (messageContent.includes('trade') && agent.id === 'trading') ||
+                    (messageContent.includes('liquidity') && agent.id === 'liquidity') ||
+                    (messageContent.includes('analytics') && agent.id === 'defi-analytics')
+                );
+            });
+
+            console.log(relevantAgents, "relevantAgents selected are");
+
+            // Get input from each relevant agent
+            for (const agent of relevantAgents) {
+                const agentResponse = await agent?.agent?.invoke(
+                    {
+                        input: `Given the user request "${message}" and portfolio analysis "${initialAnalysis.output}", what is your perspective and recommendation?`
+                    },
                     { configurable: { sessionId: "user-1" } }
                 );
 
                 setMessages(prev => [...prev, {
                     role: "assistant",
-                    content: initialAnalysis.output,
+                    content: agentResponse.output,
                     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    agentId: 'portfolio',
-                    agentName: 'Portfolio Manager',
-                    collaborationType: 'analysis'
-                }]);
-
-                // Determine relevant agents based on message content
-                const relevantAgents = agents.filter(agent => {
-                    const messageContent = message.toLowerCase();
-                    return (
-                        (messageContent.includes('trade') && agent.id === 'trading') ||
-                        (messageContent.includes('liquidity') && agent.id === 'liquidity') ||
-                        (messageContent.includes('analytics') && agent.id === 'defi-analytics')
-                    );
-                });
-
-                console.log(relevantAgents, "relevantAgents selected are");
-
-                // Get input from each relevant agent
-                for (const agent of relevantAgents) {
-                    const agentResponse = await agent?.agent?.invoke(
-                        {
-                            input: `Given the user request "${message}" and portfolio analysis "${initialAnalysis.output}", what is your perspective and recommendation?`
-                        },
-                        { configurable: { sessionId: "user-1" } }
-                    );
-
-                    setMessages(prev => [...prev, {
-                        role: "assistant",
-                        content: agentResponse.output,
-                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        agentId: agent.id,
-                        agentName: agent.name,
-                        collaborationType: 'suggestion'
-                    }]);
-                }
-
-                // Final consensus
-                const finalConsensus = await portfolioAgent?.agent?.invoke(
-                    { input: `Based on all suggestions, provide a final recommendation for: ${message}` },
-                    { configurable: { sessionId: "user-1" } }
-                );
-
-                setMessages(prev => [...prev, {
-                    role: "assistant",
-                    content: finalConsensus.output,
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    agentId: 'portfolio',
-                    agentName: 'Portfolio Manager',
-                    collaborationType: 'decision'
+                    agentId: agent.id,
+                    agentName: agent.name,
+                    collaborationType: 'suggestion'
                 }]);
             }
+
+            // Final consensus
+            const finalConsensus = await portfolioAgent?.agent?.invoke(
+                { input: `Based on all suggestions, provide a final recommendation for: ${message}` },
+                { configurable: { sessionId: "user-1" } }
+            );
+
+            setMessages(prev => [...prev, {
+                role: "assistant",
+                content: finalConsensus.output,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                agentId: 'portfolio',
+                agentName: 'Portfolio Manager',
+                collaborationType: 'decision'
+            }]);
+
         } catch (error) {
-            console.error('Error in message handling:', error);
+            console.error('Error in collaboration:', error);
             setMessages(prev => [...prev, {
                 role: "system",
-                content: "An error occurred while processing your request. Please try again.",
+                content: "An error occurred during agent collaboration. Please try again.",
                 timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }]);
         } finally {
@@ -460,55 +376,48 @@ export default function Home() {
         setInput("");
     };
 
-    useEffect(() => {
-        return () => {
-            if (eventBusRef.current) {
-                // Cleanup event listeners
-                eventBusRef.current = null;
-                agentsRef.current = null;
-            }
-        };
-    }, []);
-
     return (
-        <main className="flex my-16">
+        <main className="flex h-[calc(100vh-theme(spacing.16)-theme(spacing.16))]">
             {/* Left Sidebar - Agent Details */}
-            <div className="w-1/4 border-r border-gray-200 p-4 overflow-y-auto">
-                <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
-                {agents.map((agent) => (
-                    <div
-                        key={agent.id}
-                        className={`p-4 mb-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id ? 'bg-blue-50 border border-blue-200' : 'bg-white border'
-                            }`}
-                    >
-                        <div className="flex items-center mb-2">
-                            <div className="relative w-12 h-12 mr-3">
-                                <Image
-                                    src={agentImages[agent.id as keyof typeof agentImages]}
-                                    alt={agent.name}
-                                    fill
-                                    className="rounded-full object-cover"
-                                    priority
-                                />
+            <div className="w-1/4 border-r border-gray-200 overflow-y-auto">
+                <div className="p-4">
+                    <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
+                    {agents.map((agent) => (
+                        <div
+                            key={agent.id}
+                            className={`p-4 mb-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id ? 'bg-blue-50 border border-blue-200' : 'bg-white border'
+                                }`}
+                        >
+                            <div className="flex items-center mb-2">
+                                <div className="relative w-12 h-12 mr-3">
+                                    <Image
+                                        src={agentImages[agent.id as keyof typeof agentImages]}
+                                        alt={agent.name}
+                                        fill
+                                        className="rounded-full object-cover"
+                                        priority
+                                    />
+                                </div>
+                                <div>
+                                    <h3 className="font-medium text-gray-900">{agent.name}</h3>
+                                    <p className="text-xs text-gray-500">AI Assistant</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="font-medium text-gray-900">{agent.name}</h3>
-                                <p className="text-xs text-gray-500">AI Assistant</p>
-                            </div>
+                            <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
+                            {agentState.activeAgent === agent.id && (
+                                <div className="mt-2 text-xs text-blue-600 flex items-center">
+                                    <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
+                                    Active
+                                </div>
+                            )}
                         </div>
-                        <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
-                        {agentState.activeAgent === agent.id && (
-                            <div className="mt-2 text-xs text-blue-600 flex items-center">
-                                <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
-                                Active
-                            </div>
-                        )}
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
 
             {/* Center - Chat Interface */}
             <div className="flex-1 flex flex-col">
+                {/* Messages Container */}
                 <div className="flex-1 overflow-y-auto p-4">
                     {messages.map((message, index) => (
                         <div key={index} className={`mb-4 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'
@@ -557,22 +466,9 @@ export default function Home() {
                     <div ref={messagesEndRef} />
                 </div>
 
-                <form onSubmit={handleSubmit} className="border-t p-4">
-                    <div className="flex flex-col gap-4">
-                        {/* Add autonomous mode toggle */}
-                        <div className="flex items-center justify-end gap-2">
-                            <label htmlFor="autonomous-mode" className="text-sm text-gray-600">
-                                Autonomous Mode
-                            </label>
-                            <Switch
-                                id="autonomous-mode"
-                                checked={autonomousMode}
-                                onCheckedChange={setAutonomousMode}
-                                className="data-[state=checked]:bg-blue-500"
-                            />
-                        </div>
-
-                        {/* Existing input field and button */}
+                {/* Input Form */}
+                <div className="border-t">
+                    <form onSubmit={handleSubmit} className="p-4">
                         <div className="flex gap-2">
                             <input
                                 type="text"
@@ -585,28 +481,30 @@ export default function Home() {
                                 <SendHorizontal className="h-4 w-4" />
                             </Button>
                         </div>
-                    </div>
-                </form>
+                    </form>
+                </div>
             </div>
 
             {/* Right Sidebar - System Events */}
-            <div className="w-1/4 border-l border-gray-200 p-4 overflow-y-auto">
-                <h2 className="text-lg font-semibold mb-4">System Events</h2>
-                {agentState.systemEvents.map((event, index) => (
-                    <div
-                        key={index}
-                        className={`p-3 mb-2 rounded-lg ${event.type === 'error' ? 'bg-red-100' :
-                            event.type === 'success' ? 'bg-green-100' :
-                                event.type === 'warning' ? 'bg-yellow-100' : 'bg-blue-100'
-                            }`}
-                    >
-                        <div className="text-sm font-medium">
-                            {event.agent && <span className="text-gray-600">[{event.agent}] </span>}
-                            <span className="text-gray-900">{event.event}</span>
+            <div className="w-1/4 border-l border-gray-200 overflow-y-auto">
+                <div className="p-4">
+                    <h2 className="text-lg font-semibold mb-4">System Events</h2>
+                    {agentState.systemEvents.map((event, index) => (
+                        <div
+                            key={index}
+                            className={`p-3 mb-2 rounded-lg ${event.type === 'error' ? 'bg-red-100' :
+                                event.type === 'success' ? 'bg-green-100' :
+                                    event.type === 'warning' ? 'bg-yellow-100' : 'bg-blue-100'
+                                }`}
+                        >
+                            <div className="text-sm font-medium">
+                                {event.agent && <span className="text-gray-600">[{event.agent}] </span>}
+                                <span className="text-gray-900">{event.event}</span>
+                            </div>
+                            <div className="text-xs text-gray-500">{event.timestamp}</div>
                         </div>
-                        <div className="text-xs text-gray-500">{event.timestamp}</div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
         </main>
     );

@@ -44,9 +44,8 @@ export const getTransactionDataTool = (account: Account) =>
             );
             try {
               const brianResponse = await fetch(
-                `${
-                  env.BRIAN_API_URL ||
-                  "https://staging-api.brianknows.org/api/v0/agent/transaction"
+                `${env.BRIAN_API_URL ||
+                "https://api.brianknows.org/api/v0/agent/transaction"
                 }`,
                 {
                   method: "POST",
@@ -62,6 +61,7 @@ export const getTransactionDataTool = (account: Account) =>
                 }
               );
 
+              console.log(brianResponse);
               const { result } = await brianResponse.json();
 
               if (!result) {
@@ -154,7 +154,7 @@ export const getExecutorToolkit = (account: Account) => {
       description:
         "A tool that simulates the output of all the tasks. It is useful to to check the outputs and to fix the inputs of other tasks. Always use this tool before the executeTransaction tool.",
       parameters: z.object({}),
-      execute: async ({}) => {
+      execute: async ({ }) => {
         console.log("======== simulateTasks Tool =========");
 
         const { data: taskIds } = await retrieveTasks();

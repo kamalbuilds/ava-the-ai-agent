@@ -18,7 +18,6 @@ const oldprompt = "Based on the current market data and the tokens that you hold
 export class ObserverAgent extends Agent {
   address?: Hex;
   private isRunning: boolean = false;
-  private lastResponse: string = ''; // Track last response to prevent duplicates
 
   /**
    * @param name - The name of the agent
@@ -42,19 +41,14 @@ export class ObserverAgent extends Agent {
   /**
    * @param data - The data to handle
    */
-  async handleTaskManagerEvent(data: any): Promise<void> {
-    if (!data || !data.result) return;
-
-    // Only emit if message is different
-    if (data.result !== this.lastResponse) {
-      this.lastResponse = data.result;
-      this.eventBus.emit('agent-response', {
-        agent: this.name,
-        message: data.result,
-        role: 'assistant',
-        collaborationType: 'report'
-      });
+  private async handleTaskManagerEvent(data: any): Promise<void> {
+    if (data) {
+      console.log(
+        `[${this.name}] received message from task-manager: ${data.result}`
+      );
     }
+
+    await this.start(this.address!, data);
   }
 
   /**
@@ -161,50 +155,50 @@ export class ObserverAgent extends Agent {
   }
 
   async processTask(task: string): Promise<void> {
-    if (!this.isRunning) {
-      this.isRunning = true;
+    this.isRunning = true;
 
-      this.eventBus.emit('agent-action', {
-        agent: this.name,
-        action: 'Analyzing task: ' + task
+    this.eventBus.emit('agent-action', {
+      agent: this.name,
+      action: 'Analyzing task: ' + task
+    });
+
+    try {
+      const response = await generateText({
+        model: openai(env.MODEL_NAME),
+        system: getObserverSystemPrompt(this.address!),
+        prompt: task,
+        tools: getObserverToolkit(this.address!),
+        maxSteps: 100,
+        onStepFinish: (data) => {
+          // Emit intermediate steps as messages
+          if (data.text) {
+            this.eventBus.emit('agent-response', {
+              agent: this.name,
+              message: data.text,
+              collaborationType: 'analysis'
+            });
+          }
+          this.onStepFinish(data);
+        },
       });
 
-      try {
-        const response = await generateText({
-          model: openai(env.MODEL_NAME),
-          system: getObserverSystemPrompt(this.address!),
-          prompt: task,
-          tools: getObserverToolkit(this.address!),
-          maxSteps: 100,
-          onStepFinish: this.onStepFinish,
-        });
+      // Emit final analysis
+      this.eventBus.emit('agent-response', {
+        agent: this.name,
+        message: response.text,
+        collaborationType: 'analysis'
+      });
 
-        // Only emit if response is different from last one
-        if (response.text !== this.lastResponse) {
-          this.lastResponse = response.text;
-
-          // Emit the analysis as a chat message
-          this.eventBus.emit('agent-response', {
-            agent: this.name,
-            message: response.text,
-            role: 'assistant',
-            collaborationType: 'analysis'
-          });
-
-          // Send to task manager for execution
-          this.eventBus.emit(`${this.name}-task-manager`, {
-            report: response.text,
-            task
-          });
-        }
-      } catch (error) {
-        this.eventBus.emit('agent-error', {
-          agent: this.name,
-          error: 'Analysis failed: ' + (error.message || 'Unknown error')
-        });
-      } finally {
-        this.isRunning = false;
-      }
+      // Send to task manager
+      this.eventBus.emit(`${this.name}-task-manager`, {
+        report: response.text,
+        task
+      });
+    } catch (error) {
+      this.eventBus.emit('agent-error', {
+        agent: this.name,
+        error: 'Failed to analyze task'
+      });
     }
   }
 
