@@ -1,4 +1,4 @@
-import type { EventBus } from "../types/event-bus";
+import { EventBus } from "./websocket-eventBus.types";
 
 export class WebSocketEventBus implements EventBus {
   public ws: WebSocket | null = null;
