@@ -127,8 +127,14 @@ const checkPortAvailable = (port: number): Promise<boolean> => {
 };
 
 const startAgents = async () => {
-  const directClient = new DirectClient();
-  let serverPort = parseInt(settings.SERVER_PORT || "3000");
+  const directClient = new DirectClient({
+    cors: {
+      origin: ['http://localhost:3000'], // Add your frontend URL
+      methods: ['GET', 'POST'],
+      allowedHeaders: ['Content-Type'],
+    }
+  });
+  let serverPort = parseInt(settings.SERVER_PORT || "3001");
   const args = parseArguments();
 
   let charactersArg = args.characters || args.character;
@@ -165,7 +171,7 @@ const startAgents = async () => {
   }
 
   const isDaemonProcess = process.env.DAEMON_PROCESS === "true";
-  if(!isDaemonProcess) {
+  if (!isDaemonProcess) {
     elizaLogger.log("Chat started. Type 'exit' to quit.");
     const chat = startChat(characters);
     chat();
