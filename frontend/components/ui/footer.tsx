@@ -31,10 +31,10 @@ export function Footer() {
   };
 
   return (
-    <footer className="border-t border-white/10 w-full fixed bottom-0 overflow-hidden">
+    <footer className="border-t border-white/10 w-full fixed bottom-0 overflow-hidden h-[200px]">
       <div className="absolute inset-0 bg-black/20 backdrop-blur-lg -z-10" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative py-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
           <div>
             <h3 className="gradient-text font-semibold mb-4">Ava the AI Agents</h3>
@@ -83,7 +83,7 @@ export function Footer() {
 
         <div className="border-t border-white/10 pt-8 text-center md:text-left">
           <div className="text-white/60 text-sm">
-            © {currentYear} Ava the AI Agent. All rights reserved.
+            {currentYear} Ava the AI Agent. All rights reserved.
           </div>
         </div>
       </div>
