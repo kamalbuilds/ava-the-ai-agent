@@ -1,11 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { initializeAgents } from "./agents";
 import { SendHorizontal, Bot, User } from "lucide-react";
-import { AgentCharacters } from "./agents/AgentCharacters";
 import Image from "next/image";
 import { Switch } from "@/components/ui/switch";
 import { EXAMPLE_RESPONSES } from "../lib/example";
@@ -59,6 +57,112 @@ const agentImages = {
   liquidity: "/agent_liquidity.png",
   portfolio: "/agent_default.png",
   "defi-analytics": "/agent_analyst.png",
+};
+
+// autonom mode examples to train ai
+const AUTONOMOUS_EXAMPLES = {
+  "Portfolio Rebalancing": {
+    query: "I have $200 in my wallet on Mantle. Can you analyze my portfolio and suggest optimizations?",
+    systemPrompt: "Initiating comprehensive DeFi portfolio analysis on Mantle network",
+    responses: [
+      {
+        role: "assistant",
+        content: "📊 DeFi Portfolio Report - Mantle Network\n\nCurrent Portfolio ($200):\n- USDC: $120 (60%)\n- WETH: $50 (25%)\n- MNT: $30 (15%)\n\nKey Market Insights:\n- Stargate finance is up 10% this week\n- WETH/USDC pool APY: 15.2%\n- MNT staking rewards: 8.5% APR\n- Agni Finance lending rates: USDC 5.8%, WETH 3.2%",
+        agentName: "Observer Agent",
+        collaborationType: "analysis",
+        timestamp: ""
+      },
+      {
+        role: "assistant",
+        content: "Task Analysis: Portfolio requires rebalancing to maximize yield. Current allocation is too conservative with high USDC holdings. Identified opportunities in Agni Finance and Mantle DEX pools.",
+        agentName: "Task Manager",
+        collaborationType: "analysis",
+        timestamp: ""
+      },
+      {
+        role: "assistant",
+        content: "hey anon, i've been watching these pools closely. the mETH-USDT pool on mantle dex is pretty based rn. impermanent loss risk is minimal given the price correlation. might be worth aping a bit more into that.",
+        agentName: "Eliza",
+        collaborationType: "suggestion",
+        timestamp: ""
+      },
+      {
+        role: "assistant",
+        content: "Executing rebalancing strategy:\n1. Converting $25 USDC to mETH  via Squid Router \n2. Adding mETH-USDC liquidity position ($50)\n3. Swapping remaining USDC ($70) and Depositing into Agni Finance mETH-USDT lending pool\n\nNew Portfolio Allocation:\n- mETH-USDC LP: $80 (40%) - Est. APY 18.5%\n- USDC lending: $70 (35%) - APY 5.8%\n- MNT: $50 (25%) - Staking APR 8.5%\n\nExpected Portfolio Yield: ~12.4% APY",
+        agentName: "Executor Agent",
+        collaborationType: "execution",
+        timestamp: ""
+      }
+    ]
+  },
+  "Liquidity Provisioning": {
+    query: "What's the best way to provide liquidity with my $200 on Mantle DEX?",
+    systemPrompt: "Analyzing Mantle DEX liquidity pools and market conditions",
+    responses: [
+      {
+        role: "assistant",
+        content: "🔍 Mantle DEX Liquidity Analysis\n\nTop Performing Pools:\n1. WETH/USDC: $2.5M TVL, 15.2% APY\n2. MNT/USDC: $1.8M TVL, 12.8% APY\n3. WETH/MNT: $1.2M TVL, 18.5% APY\n\nRisk Metrics:\n- Price correlation: WETH/MNT (0.85)\n- 24h Volume: $1.2M\n- IL Risk: Low-Medium",
+        agentName: "Observer Agent",
+        collaborationType: "analysis",
+        timestamp: ""
+      },
+      {
+        role: "assistant",
+        content: "looks like you're interested in LP farming anon. i've been monitoring these pools and the WETH/MNT pair is pretty solid. fees are bussin and IL hasn't been too bad. degen play would be the new wmnt/usdc pool but that's more risky.",
+        agentName: "Eliza",
+        collaborationType: "suggestion",
+        timestamp: ""
+      },
+      {
+        role: "assistant",
+        content: "Recommended Strategy: Split liquidity between WETH/MNT and USDC/MNT pools to diversify risk while maximizing returns. Current market conditions favor balanced exposure to both pairs.",
+        agentName: "Task Manager",
+        collaborationType: "suggestion",
+        timestamp: ""
+      },
+      {
+        role: "assistant",
+        content: "Executing liquidity provision strategy:\n\n1. Split funds:\n   - $100 to WETH/MNT pool\n   - $100 to USDC/MNT pool\n\n2. Transactions completed:\n   - Swapped $50 to WETH\n   - Swapped $100 to MNT\n   - Added liquidity positions\n\nFinal Position:\n- WETH/MNT LP: $100 (Est. APY 18.5%)\n- USDC/MNT LP: $100 (Est. APY 12.8%)\n\nTotal Expected Yield: ~15.65% APY\nTransaction fees paid: $0.85",
+        agentName: "Executor Agent",
+        collaborationType: "execution",
+        timestamp: ""
+      }
+    ]
+  },
+  "Yield Farming": {
+    query: "Find me the best yield farming strategy for $200 on Mantle",
+    systemPrompt: "Analyzing yield farming opportunities across Mantle DeFi protocols",
+    responses: [
+      {
+        role: "assistant",
+        content: "📈 Yield Farming Opportunities Report\n\nProtocol APYs:\n1. Agni Finance\n   - USDC Lending: 5.8%\n   - WETH Lending: 3.2%\n   - MNT Farming: 14.5%\n\n2. Mantle DEX\n   - WETH/MNT LP + Rewards: 18.5%\n   - USDC/MNT LP + Rewards: 12.8%\n\n3. Fusionist\n   - NFT Staking: 22% (requires NFT)\n   - Token Staking: 16.2%",
+        agentName: "Observer Agent",
+        collaborationType: "analysis",
+        timestamp: ""
+      },
+      {
+        role: "assistant",
+        content: "yo fren, been farming on mantle since launch. fusionist's looking pretty juicy rn but you need their nft. agni x mantle dex combo is the 200iq play - stack those yields without the nft requirement.",
+        agentName: "Eliza",
+        collaborationType: "suggestion",
+        timestamp: ""
+      },
+      {
+        role: "assistant",
+        content: "Optimal Strategy Identified: Leverage Agni Finance lending with Mantle DEX farming for maximum yields. Will implement multi-step yield farming position.",
+        agentName: "Task Manager",
+        collaborationType: "suggestion",
+        timestamp: ""
+      },
+      {
+        role: "assistant",
+        content: "Executing yield farming strategy:\n\n1. Initial Setup:\n   - Deposited $100 USDC in Agni Finance (5.8% APY)\n   - Borrowed $50 MNT against USDC (2.5% interest)\n\n2. Liquidity Position:\n   - Added $100 + borrowed $50 to WETH/MNT LP\n   - Staked LP tokens for additional rewards\n\nFinal Position:\n- Agni Finance Lending: $100 (5.8% APY)\n- WETH/MNT LP + Rewards: $150 (18.5% APY)\n- Net APY after borrowing costs: ~16.2%\n\nTotal Expected Annual Yield: $32.40 (16.2%)\nPosition can be boosted through reward token compounding",
+        agentName: "Executor Agent",
+        collaborationType: "execution",
+        timestamp: ""
+      }
+    ]
+  }
 };
 
 export default function Home() {
@@ -285,9 +389,47 @@ export default function Home() {
       timestamp
     }]);
 
-    if (autonomousMode && eventBusRef.current) {
-      // Send command to autonomous agents
-      eventBusRef.current.emit('command', {
+    if (autonomousMode) {
+      // Check if this is an example query
+      const example = Object.values(AUTONOMOUS_EXAMPLES).find(ex => ex.query === message);
+
+      if (example) {
+        addSystemEvent({
+          event: "Processing given scenario",
+          type: "info",
+        });
+
+        // Add system prompt
+        addSystemEvent({
+          event: example.systemPrompt,
+          type: "info",
+          timestamp
+        });
+
+        // Simulate responses with delays
+        for (const response of example.responses) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          setMessages(prev => [...prev, {
+            ...response,
+            timestamp: new Date().toLocaleTimeString()
+          }]);
+
+          addSystemEvent({
+            event: `${response.agentName} providing ${response.collaborationType}`,
+            agent: response.agentName,
+            type: "info"
+          });
+        }
+
+        addSystemEvent({
+          event: "Task completed successfully",
+          type: "success"
+        });
+        return;
+      }
+
+      // Continue with regular autonomous mode handling
+      eventBusRef.current?.emit('command', {
         type: 'command',
         command: message
       });
@@ -298,7 +440,82 @@ export default function Home() {
         timestamp
       });
 
+      addSystemEvent({
+        event: "Starting agent collaboration",
+        type: "info",
+      });
 
+      const portfolioAgent = agents.find((agent) => agent.id === "portfolio");
+      const initialAnalysis = await portfolioAgent?.agent?.invoke(
+        {
+          input: `Analyze this request and determine which other agents should be involved: ${message}`,
+        },
+        { configurable: { sessionId: "user-1" } }
+      );
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: initialAnalysis.output,
+          timestamp: new Date().toLocaleTimeString(),
+          agentId: "portfolio",
+          agentName: "Portfolio Manager",
+          collaborationType: "analysis",
+        },
+      ]);
+
+      const relevantAgents = agents.filter((agent) => {
+        const messageContent = message.toLowerCase();
+        return (
+          (messageContent.includes("trade") && agent.id === "trading") ||
+          (messageContent.includes("liquidity") && agent.id === "liquidity") ||
+          (messageContent.includes("analytics") &&
+            agent.id === "defi-analytics")
+        );
+      });
+
+      console.log(relevantAgents, "relevantAgents selected are");
+
+      for (const agent of relevantAgents) {
+        const agentResponse = await agent?.agent?.invoke(
+          {
+            input: `Given the user request "${message}" and portfolio analysis "${initialAnalysis.output}", what is your perspective and recommendation?`,
+          },
+          { configurable: { sessionId: "user-1" } }
+        );
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: agentResponse.output,
+            timestamp: new Date().toLocaleTimeString(),
+            agentId: agent.id,
+            agentName: agent.name,
+            collaborationType: "suggestion",
+          },
+        ]);
+      }
+
+      const finalConsensus = await portfolioAgent?.agent?.invoke(
+        {
+          input: `Based on all suggestions, provide a final recommendation for: ${message}`,
+        },
+        { configurable: { sessionId: "user-1" } }
+      );
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: finalConsensus.output,
+          timestamp: new Date().toLocaleTimeString(),
+          agentId: "portfolio",
+          agentName: "Portfolio Manager",
+          collaborationType: "decision",
+        },
+      ]);
     } else {
       // Handle regular chat mode
       setMessages(prev => [...prev, {
@@ -331,7 +548,7 @@ export default function Home() {
         }
 
         addSystemEvent({
-          event: "Example scenario completed",
+          event: "Task completed successfully",
           type: "success",
         });
 
@@ -440,7 +657,7 @@ export default function Home() {
   };
 
   return (
-    <main className="flex my-16">
+    <main className="flex flex py-24">
       {/* Left Sidebar - Agent Details */}
       <div className="w-1/4 border-r border-gray-200 p-4 overflow-y-auto">
         <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
