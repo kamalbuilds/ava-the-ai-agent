@@ -44,8 +44,9 @@ export const getTransactionDataTool = (account: Account) =>
             );
             try {
               const brianResponse = await fetch(
-                `${env.BRIAN_API_URL ||
-                "https://api.brianknows.org/api/v0/agent/transaction"
+                `${
+                  env.BRIAN_API_URL ||
+                  "https://api.brianknows.org/api/v0/agent/transaction"
                 }`,
                 {
                   method: "POST",
@@ -154,7 +155,7 @@ export const getExecutorToolkit = (account: Account) => {
       description:
         "A tool that simulates the output of all the tasks. It is useful to to check the outputs and to fix the inputs of other tasks. Always use this tool before the executeTransaction tool.",
       parameters: z.object({}),
-      execute: async ({ }) => {
+      execute: async ({}) => {
         console.log("======== simulateTasks Tool =========");
 
         const { data: taskIds } = await retrieveTasks();
@@ -263,5 +264,128 @@ export const getExecutorToolkit = (account: Account) => {
       },
     }),
 
+  };
+};
+
+export const getOdosSwapTransaction = (account: Account) => {
+  return {
+    generateQuote: tool({
+      description: `This will generate Quote for the swap. 
+       It takes the following inputs:
+        - The source chain ID
+        - The token on the source chain (address)
+        - The token on the destination chain (address)
+        - The amount to transfer (in the smallest unit of the token)
+        - The address from which the tokens are being transferred
+      `,
+      parameters: z.object({
+        chainId: z.number().describe("Chain Id of the Chain"),
+        fromToken: z.string().describe("Address of the source token"),
+        toToken: z.string().describe("Address of the destination token"),
+        fromAmount: z
+          .string()
+          .describe(
+            "The amount to be transferred from the source chain, specified in the smallest unit of the token (e.g., wei for ETH)."
+          ),
+      }),
+      execute: async ({ chainId, fromToken, toToken, fromAmount }) => {
+        console.log(
+          "======== Fetchin Quote for the Transaction Tool ========="
+        );
+        console.log(` Fetching Quote`);
+
+        const quoteConfig = {
+          chainId,
+          inputToken: [
+            {
+              tokenAddress: fromToken,
+              amount: fromAmount,
+            },
+          ],
+          outputTokens: [
+            {
+              tokenAddress: toToken, // checksummed output token address
+              proportion: 1,
+            },
+          ],
+          userAddr: account.address, // checksummed user address
+          slippageLimitPercent: 0.3, // set your slippage limit percentage (1 = 1%),
+          referralCode: 0, // referral code (recommended)
+          disableRFQs: true,
+          compact: true,
+        };
+
+        const quoteUrl = "https://api.odos.xyz/sor/quote/v2";
+
+        const response = await fetch(quoteUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(quoteConfig),
+        });
+        if (response.status === 200) {
+          const quote = await response.json();
+
+          console.log("Quote fetched successfully >>>", quote);
+
+          console.log("======== Assembling transaction =========");
+          console.log(` Fetching Quote`);
+
+          const assembleUrl = "https://api.odos.xyz/sor/assemble";
+
+          const assembleRequestBody = {
+            userAddr: account.address,
+            pathId: quote.pathId,
+            simulate: true,
+          };
+
+          try {
+            const assembledTransactionRaw = await fetch(assembleUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(assembleRequestBody),
+            });
+
+            const assembledTransaction = await assembledTransactionRaw.json();
+
+            console.log(
+              "Transaction fetched successfully",
+              assembledTransaction
+            );
+
+            console.log("======== Executing transaction =========");
+
+            const walletClient = createWalletClient({
+              account,
+              chain: getChain(parseInt(env.CHAIN_ID)),
+              transport: http(),
+            });
+            const publicClient = createPublicClient({
+              chain: getChain(parseInt(env.CHAIN_ID)),
+              transport: http(),
+            });
+
+            const hash = await walletClient.sendTransaction(
+              assembledTransaction.transaction
+            );
+
+            console.log(`[executeTransaction] transaction hash: ${hash}`);
+            const receipt = await publicClient.waitForTransactionReceipt({
+              hash,
+            });
+            console.log(
+              `[executeTransaction] transaction receipt: ${receipt.transactionHash}`
+            );
+
+            return `[${new Date().toISOString()}] Transaction executed successfully. Transaction hash: ${
+              receipt.transactionHash
+            }`;
+          } catch (error) {
+            console.log("Error in creating transaction", error);
+          }
+        } else {
+          console.log("Error in creating quote>>>", response);
+        }
+      },
+    }),
   };
 };
