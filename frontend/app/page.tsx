@@ -9,6 +9,8 @@ import { Switch } from "@/components/ui/switch";
 import { EXAMPLE_RESPONSES } from "../lib/example";
 import { EventBus } from "./types/event-bus";
 import { WebSocketEventBus } from "./services/websocket-event-bus";
+import {Navbar} from "@/components/ui/navbar";
+import {Footer} from "@/components/ui/footer";
 
 type CollaborationType =
   | "analysis"
@@ -657,159 +659,174 @@ export default function Home() {
   };
 
   return (
-    <main className="flex flex py-24">
-      {/* Left Sidebar - Agent Details */}
-      <div className="w-1/4 border-r border-gray-200 p-4 overflow-y-auto">
-        <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
-        {agents.map((agent) => (
-          <div
-            key={agent.id}
-            className={`p-4 mb-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id
-              ? "bg-blue-50 border border-blue-200"
-              : "bg-white border"
-              }`}
-          >
-            <div className="flex items-center mb-2">
-              <div className="relative w-12 h-12 mr-3">
-                <Image
-                  src={agentImages[agent.id as keyof typeof agentImages]}
-                  alt={agent.name}
-                  fill
-                  className="rounded-full object-cover"
-                  priority
-                />
-              </div>
-              <div>
-                <h3 className="font-medium text-gray-900">{agent.name}</h3>
-                <p className="text-xs text-gray-500">AI Assistant</p>
-              </div>
-            </div>
-            <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
-            {agentState.activeAgent === agent.id && (
-              <div className="mt-2 text-xs text-blue-600 flex items-center">
-                <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
-                Active
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Center - Chat Interface */}
-      <div className="flex-1 flex flex-col">
-        <div className="flex-1 overflow-y-auto p-4">
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`mb-4 flex ${message.role === "user" ? "justify-end" : "justify-start"
-                }`}
-            >
+    <div className="flex flex-col min-h-screen">
+      <Navbar />
+      
+      {/* Add pt-16 to account for fixed navbar height and pb-16 for footer */}
+      <main className="flex flex-1 overflow-hidden pt-16 pb-16">
+        {/* Left Sidebar - Agent Details */}
+        <div className="w-1/4 border-r border-white/10 overflow-y-auto">
+          <div className="p-4">
+            <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
+            {agents.map((agent) => (
               <div
-                className={`flex items-start max-w-[80%] ${message.role === "user" ? "flex-row-reverse" : "flex-row"
+                key={agent.id}
+                className={`p-4 mb-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id
+                  ? "bg-blue-50 border border-blue-200"
+                  : "bg-white border"
                   }`}
               >
-                {/* Agent/User Icon */}
-                <div
-                  className={`flex-shrink-0 ${message.role === "user" ? "ml-2" : "mr-2"}`}
-                >
-                  {message.role === "user" ? (
-                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
-                      <User className="w-5 h-5 text-white" />
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
-                        <Bot className="w-5 h-5 text-white" />
-                      </div>
-                      {message.collaborationType && (
-                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500" />
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Message Content */}
-                <div
-                  className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
-                >
-                  {message.agentName && (
-                    <span className="text-xs font-medium text-gray-500 mb-1">
-                      {message.agentName}
-                      {message.collaborationType &&
-                        ` • ${message.collaborationType}`}
-                    </span>
-                  )}
-                  <div
-                    className={`p-3 rounded-lg ${message.role === "user"
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-900"
-                      }`}
-                  >
-                    {message.content}
+                <div className="flex items-center mb-2">
+                  <div className="relative w-12 h-12 mr-3">
+                    <Image
+                      src={agentImages[agent.id as keyof typeof agentImages]}
+                      alt={agent.name}
+                      fill
+                      className="rounded-full object-cover"
+                      priority
+                    />
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {message.timestamp}
+                  <div>
+                    <h3 className="font-medium text-gray-900">{agent.name}</h3>
+                    <p className="text-xs text-gray-500">AI Assistant</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
+                {agentState.activeAgent === agent.id && (
+                  <div className="mt-2 text-xs text-blue-600 flex items-center">
+                    <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
+                    Active
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Center - Chat Interface */}
+        <div className="flex-1 flex flex-col h-full">
+          {/* Messages Container */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`mb-4 flex ${message.role === "user" ? "justify-end" : "justify-start"
+                  }`}
+              >
+                <div
+                  className={`flex items-start max-w-[80%] ${message.role === "user" ? "flex-row-reverse" : "flex-row"
+                    }`}
+                >
+                  {/* Agent/User Icon */}
+                  <div
+                    className={`flex-shrink-0 ${message.role === "user" ? "ml-2" : "mr-2"}`}
+                  >
+                    {message.role === "user" ? (
+                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                        <User className="w-5 h-5 text-white" />
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                          <Bot className="w-5 h-5 text-white" />
+                        </div>
+                        {message.collaborationType && (
+                          <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Message Content */}
+                  <div
+                    className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
+                  >
+                    {message.agentName && (
+                      <span className="text-xs font-medium text-gray-500 mb-1">
+                        {message.agentName}
+                        {message.collaborationType &&
+                          ` • ${message.collaborationType}`}
+                      </span>
+                    )}
+                    <div
+                      className={`p-3 rounded-lg ${message.role === "user"
+                        ? "bg-blue-500 text-white"
+                        : "bg-gray-100 text-gray-900"
+                        }`}
+                    >
+                      {message.content}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {message.timestamp}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Form - Fixed at bottom of chat area */}
+          <div className="border-t border-white/10 bg-black/20 backdrop-blur-sm">
+            <form onSubmit={handleSubmit} className="p-4">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-end gap-2">
+                  <label className="text-sm text-gray-600">Autonomous Mode</label>
+                  <Switch
+                    checked={autonomousMode}
+                    onCheckedChange={setAutonomousMode}
+                    className="data-[state=checked]:bg-blue-500"
+                  />
+                </div>
+
+                {/* Existing input field and button */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    className="flex-1 rounded-lg border p-2"
+                    placeholder="Type your message..."
+                  />
+                  <Button type="submit" disabled={agentState.isProcessing}>
+                    <SendHorizontal className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="border-t p-4">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-end gap-2">
-              <label className="text-sm text-gray-600">Autonomous Mode</label>
-              <Switch
-                checked={autonomousMode}
-                onCheckedChange={setAutonomousMode}
-                className="data-[state=checked]:bg-blue-500"
-              />
-            </div>
-
-            {/* Existing input field and button */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                className="flex-1 rounded-lg border p-2"
-                placeholder="Type your message..."
-              />
-              <Button type="submit" disabled={agentState.isProcessing}>
-                <SendHorizontal className="h-4 w-4" />
-              </Button>
-            </div>
+        {/* Right Sidebar - System Events */}
+        <div className="w-1/4 border-l border-white/10 overflow-y-auto">
+          <div className="p-4">
+            <h2 className="text-lg font-semibold mb-4">System Events</h2>
+            {agentState.systemEvents.map((event, index) => (
+              <div
+                key={index}
+                className={`p-3 mb-2 rounded-lg ${event.type === "error"
+                  ? "bg-red-100"
+                  : event.type === "success"
+                    ? "bg-green-100"
+                    : event.type === "warning"
+                      ? "bg-yellow-100"
+                      : "bg-blue-100"
+                  }`}
+              >
+                <div className="text-sm font-medium">
+                  {event.agent && (
+                    <span className="text-gray-600">[{event.agent}] </span>
+                  )}
+                  <span className="text-gray-900">{event.event}</span>
+                </div>
+                <div className="text-xs text-gray-500">{event.timestamp}</div>
+              </div>
+            ))}
           </div>
-        </form>
-      </div>
+        </div>
+      </main>
 
-      {/* Right Sidebar - System Events */}
-      <div className="w-1/4 border-l border-gray-200 p-4 overflow-y-auto">
-        <h2 className="text-lg font-semibold mb-4">System Events</h2>
-        {agentState.systemEvents.map((event, index) => (
-          <div
-            key={index}
-            className={`p-3 mb-2 rounded-lg ${event.type === "error"
-              ? "bg-red-100"
-              : event.type === "success"
-                ? "bg-green-100"
-                : event.type === "warning"
-                  ? "bg-yellow-100"
-                  : "bg-blue-100"
-              }`}
-          >
-            <div className="text-sm font-medium">
-              {event.agent && (
-                <span className="text-gray-600">[{event.agent}] </span>
-              )}
-              <span className="text-gray-900">{event.event}</span>
-            </div>
-            <div className="text-xs text-gray-500">{event.timestamp}</div>
-          </div>
-        ))}
-      </div>
-    </main>
+      <Footer />
+    </div>
   );
 }
