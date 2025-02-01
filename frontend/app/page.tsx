@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { initializeAgents } from "./agents";
-import { SendHorizontal, Bot, User } from "lucide-react";
+import { SendHorizontal, Bot, User, PanelRightClose, PanelRightOpen } from "lucide-react";
 import Image from "next/image";
 import { Switch } from "@/components/ui/switch";
 import { EXAMPLE_RESPONSES , AUTONOMOUS_EXAMPLES} from "../lib/example";
@@ -93,6 +93,7 @@ export default function Home() {
     systemEvents: [],
   });
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
 
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const clientRef = useRef<any>(null);
@@ -573,14 +574,14 @@ export default function Home() {
   };
 
   return (
+  <>
     <div className="flex flex-col min-h-screen">
       <style jsx global>{scrollbarStyles}</style>
       <Navbar />
       
-      {/* Add pt-16 to account for fixed navbar height and pb-16 for footer */}
       <main className="flex flex-1 overflow-hidden pt-16 pb-16">
         {/* Left Sidebar - Agent Details */}
-        <div className="w-1/4 border-r border-white/10 overflow-y-auto">
+        <div className="w-1/4 border-r border-white/10 overflow-y-auto custom-scrollbar">
           <div className="p-4">
             <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
             {agents.map((agent) => (
@@ -619,11 +620,14 @@ export default function Home() {
         </div>
 
         {/* Center - Chat Interface */}
-        <div className="flex-1 flex flex-col h-full">
+        <div className="flex-1 flex flex-col">
           {/* Messages Container */}
           <div 
             className="flex-1 overflow-y-auto p-4 custom-scrollbar"
-            style={{ maxHeight: 'calc(100vh - 280px)' }}
+            style={{ 
+              height: 'calc(100vh - 280px)',
+              maxHeight: 'calc(100vh - 280px)'
+            }}
           >
             {messages.map((message, index) => (
               <div
@@ -684,7 +688,7 @@ export default function Home() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Form - Fixed at bottom of chat area */}
+          {/* Input Form */}
           <div className="border-t border-white/10 bg-black/20 backdrop-blur-sm">
             <form onSubmit={handleSubmit} className="p-4">
               <div className="flex flex-col gap-4">
@@ -696,8 +700,6 @@ export default function Home() {
                     className="data-[state=checked]:bg-blue-500"
                   />
                 </div>
-
-                {/* Existing input field and button */}
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -716,35 +718,67 @@ export default function Home() {
         </div>
 
         {/* Right Sidebar - System Events */}
-        <div className="w-1/4 border-l border-white/10 overflow-y-auto">
-          <div className="p-4">
-            <h2 className="text-lg font-semibold mb-4">System Events</h2>
-            {agentState.systemEvents.map((event, index) => (
-              <div
-                key={index}
-                className={`p-3 mb-2 rounded-lg ${event.type === "error"
-                  ? "bg-red-100"
-                  : event.type === "success"
-                    ? "bg-green-100"
-                    : event.type === "warning"
-                      ? "bg-yellow-100"
-                      : "bg-blue-100"
-                  }`}
-              >
-                <div className="text-sm font-medium">
-                  {event.agent && (
-                    <span className="text-gray-600">[{event.agent}] </span>
-                  )}
-                  <span className="text-gray-900">{event.event}</span>
-                </div>
-                <div className="text-xs text-gray-500">{event.timestamp}</div>
-              </div>
-            ))}
+        <div 
+          className={`transition-all duration-300 flex flex-col border-l border-white/10 ${
+            isRightSidebarOpen ? 'w-1/4' : 'w-[40px]'
+          }`}
+        >
+          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+            {isRightSidebarOpen && (
+              <h2 className="text-lg font-semibold">System Events</h2>
+            )}
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+              className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+              title={isRightSidebarOpen ? "Close sidebar" : "Open sidebar"}
+            >
+              {isRightSidebarOpen ? (
+                <PanelRightClose className="h-5 w-5 text-gray-600 hover:text-gray-900" />
+              ) : (
+                <PanelRightOpen className="h-5 w-5 text-gray-600 hover:text-gray-900" />
+              )}
+            </Button>
           </div>
+          
+          {isRightSidebarOpen && (
+            <div 
+              className="flex-1 overflow-y-auto p-4 custom-scrollbar"
+              style={{ 
+                height: 'calc(100vh - 280px)',
+                maxHeight: 'calc(100vh - 280px)'
+              }}
+            >
+              {agentState.systemEvents.map((event, index) => (
+                <div
+                  key={index}
+                  className={`p-3 mb-2 rounded-lg ${
+                    event.type === "error"
+                      ? "bg-red-100"
+                      : event.type === "success"
+                        ? "bg-green-100"
+                        : event.type === "warning"
+                          ? "bg-yellow-100"
+                          : "bg-blue-100"
+                  }`}
+                >
+                  <div className="text-sm font-medium">
+                    {event.agent && (
+                      <span className="text-gray-600">[{event.agent}] </span>
+                    )}
+                    <span className="text-gray-900">{event.event}</span>
+                  </div>
+                  <div className="text-xs text-gray-500">{event.timestamp}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
 
       <Footer />
     </div>
+    </>
   );
 }
