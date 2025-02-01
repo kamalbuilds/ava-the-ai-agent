@@ -48,10 +48,9 @@ export class ExecutorAgent extends Agent {
 
   async onStepFinish({ text, toolCalls, toolResults }: any): Promise<void> {
     console.log(
-      `[executor] step finished. tools called: ${
-        toolCalls.length > 0
-          ? toolCalls.map((tool: any) => tool.toolName).join(", ")
-          : "none"
+      `[executor] step finished. tools called: ${toolCalls.length > 0
+        ? toolCalls.map((tool: any) => tool.toolName).join(", ")
+        : "none"
       }`
     );
     if (text) {

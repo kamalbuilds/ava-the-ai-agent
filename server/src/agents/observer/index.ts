@@ -3,7 +3,7 @@ import type { EventBus } from "../../comms";
 import { Agent } from "../agent";
 import { openai } from "@ai-sdk/openai";
 import { getObserverSystemPrompt } from "../../system-prompts";
-import type { Hex } from "viem";
+import type { Hex, Account } from "viem";
 import { getObserverToolkit } from "./toolkit";
 import { saveThought } from "../../memory";
 import env from "../../env";
@@ -17,14 +17,19 @@ const oldprompt = "Based on the current market data and the tokens that you hold
  */
 export class ObserverAgent extends Agent {
   address?: Hex;
+  private account: Account;
   private isRunning: boolean = false;
 
   /**
    * @param name - The name of the agent
    * @param eventBus - The event bus to emit events to other agents
+   * @param account - The account to observe
    */
-  constructor(name: string, eventBus: EventBus) {
+  constructor(name: string, eventBus: EventBus, account: Account) {
     super(name, eventBus);
+    this.account = account;
+    // Initialize with the account address
+    this.address = account.address;
   }
 
   /**
@@ -48,16 +53,17 @@ export class ObserverAgent extends Agent {
       );
     }
 
-    await this.start(this.address!, data);
+    await this.start(data);
   }
 
   /**
    * @dev Starts the observer agent
-   * @param address - The address of the account to observe
    * @param taskManagerData - The data from the task manager agent
    */
-  async start(address: Hex, taskManagerData?: any): Promise<any> {
-    this.address = address;
+  async start(taskManagerData?: any): Promise<any> {
+    if (!this.address) {
+      throw new Error("Observer agent not initialized with account address");
+    }
 
     // Emit event when starting
     this.eventBus.emit('agent-action', {
@@ -65,12 +71,12 @@ export class ObserverAgent extends Agent {
       action: 'Starting market analysis'
     });
 
-    const toolkit = getObserverToolkit(address);
+    const toolkit = getObserverToolkit(this.address);
 
     if (!taskManagerData) {
       const response = await generateText({
         model: openai(env.MODEL_NAME),
-        system: getObserverSystemPrompt(address),
+        system: getObserverSystemPrompt(this.address),
         prompt: OBSERVER_STARTING_PROMPT,
         tools: toolkit,
         maxSteps: 100,
@@ -83,7 +89,7 @@ export class ObserverAgent extends Agent {
     } else {
       const response = await generateText({
         model: openai(env.MODEL_NAME),
-        system: getObserverSystemPrompt(address),
+        system: getObserverSystemPrompt(this.address),
         messages: [
           {
             role: "assistant",
@@ -155,6 +161,10 @@ export class ObserverAgent extends Agent {
   }
 
   async processTask(task: string): Promise<void> {
+    if (!this.address) {
+      throw new Error("Observer agent not initialized with account address");
+    }
+
     this.isRunning = true;
 
     this.eventBus.emit('agent-action', {
@@ -165,9 +175,9 @@ export class ObserverAgent extends Agent {
     try {
       const response = await generateText({
         model: openai(env.MODEL_NAME),
-        system: getObserverSystemPrompt(this.address!),
+        system: getObserverSystemPrompt(this.address),
         prompt: task,
-        tools: getObserverToolkit(this.address!),
+        tools: getObserverToolkit(this.address),
         maxSteps: 100,
         onStepFinish: (data) => {
           // Emit intermediate steps as messages

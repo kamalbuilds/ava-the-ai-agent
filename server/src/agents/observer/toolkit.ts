@@ -5,6 +5,7 @@ import { z } from "zod";
 import { retrievePastReports } from "../../memory";
 
 export const getObserverToolkit = (address: Hex) => {
+  console.log("observer addr", address)
   return {
     getPastReports: tool({
       description:

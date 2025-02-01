@@ -5,6 +5,7 @@ import { z } from "zod";
 import { retrievePastReports } from "../../memory";
 
 export const getObserverToolkit = (address: Hex) => {
+  console.log(address, "observer addr")
   return {
     getPastReports: tool({
       description:
@@ -65,10 +66,8 @@ export const getObserverToolkit = (address: Hex) => {
           )
           .map(
             (balance: any) =>
-              `[${balance.symbol}] balance: ${balance.balance} $${
-                balance.balanceUSD
-              }) on protocol ${balance.platform.replace("-", " ")} with APY ${
-                balance.metrics.apy
+              `[${balance.symbol}] balance: ${balance.balance} $${balance.balanceUSD
+              }) on protocol ${balance.platform.replace("-", " ")} with APY ${balance.metrics.apy
               }%`
           )
           .join("\n");

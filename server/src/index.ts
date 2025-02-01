@@ -8,6 +8,7 @@
 // import { setupWebSocket } from "./websocket";
 // import figlet from "figlet";
 import { WebSocket, WebSocketServer } from "ws";
+import { eventBus, observerAgent } from "./setup";
 
 import { EventBus } from "./comms";
 import { registerAgents } from "./agents";
@@ -41,7 +42,6 @@ import env from "./env";
 //   }
 // );
 
-const eventBus = new EventBus();
 const WS_PORT = 3002;
 const wss = new WebSocketServer({ port: WS_PORT });
 const account = privateKeyToAccount(env.PRIVATE_KEY as `0x${string}`);
@@ -98,7 +98,7 @@ wss.on("connection", (ws: WebSocket) => {
         ws.send(JSON.stringify(messageData));
 
         if (data.command === "stop") {
-          agents.observerAgent.stop();
+          observerAgent.stop();
           eventBus.emit("agent-action", {
             agent: "system",
             action: "All agents stopped"
@@ -108,7 +108,7 @@ wss.on("connection", (ws: WebSocket) => {
             agent: "system",
             action: "Starting task processing"
           });
-          await agents.observerAgent.processTask(data.command);
+          await observerAgent.processTask(data.command);
         }
       }
     } catch (error) {

@@ -11,13 +11,14 @@ import { CdpAgent } from "./cdp-agent";
 export const registerAgents = (eventBus: EventBus, account: Account) => {
   console.log("======== Registering agents =========");
 
-  // Initialize agents
+  // Initialize agents with account
   const executorAgent = new ExecutorAgent("executor", eventBus, account);
   console.log(`[registerAgents] executor agent initialized.`);
+
   console.log(`[registerAgents] initializing observer agent...`);
-  const observerAgent = new ObserverAgent("observer", eventBus);
-  console.log(`[registerAgents] observer agent initialized.`);
-  console.log(`[registerAgents] initializing task manager agent...`);
+  const observerAgent = new ObserverAgent("observer", eventBus, account);
+  console.log(`[registerAgents] observer agent initialized with address: ${account.address}`);
+
   const taskManagerAgent = new TaskManagerAgent("task-manager", eventBus);
   console.log(`[registerAgents] task manager agent initialized.`);
 
