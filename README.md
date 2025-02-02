@@ -1,13 +1,12 @@
 # 🤖 Ava the Portfolio Manager AI Agent
 
+> Group of Multiple specialized autonomous AI agents with powerful tools that work together in collaberation to analyze, recommend, and execute the most optimal DeFi strategies while maintaining user-defined risk parameters and portfolio goals currently live on Avalanche , Mode , Arbitrium , Sei, powered by Brian AI and LangChain
 
-> Group of Multiple specialized autonomous AI agents with powerful tools that work together in collaberation to analyze, recommend, and execute optimal DeFi strategies while maintaining user-defined risk parameters and portfolio goals currently live on Avalanche , Mode , Base, powered by Brian AI and LangChain
-
-- risk parameters and portfolio balance
+- Users can manage their defi portfolio with their risk parameters and portfolio balance
 - Provides real-time feedback and execution status
 
 ## 🎯 Problem Statement
-Managing DeFi portfolios across multiple protocols on Avalanche can be complex and time-consuming. 
+Managing DeFi portfolios across multiple protocols across different chains can be complex and time-consuming.
 
 Users need to:
 - Monitor multiple positions across different protocols
@@ -17,16 +16,20 @@ Users need to:
 - React quickly to market changes
 
 ## 💡 Solution
-An autonomous AI agent that manages your Avalanche DeFi portfolio by:
+An autonomous group of AI agents that manages your Multichain DeFi portfolio by:
 - Understanding high-level goals in natural language
 - Breaking down complex operations into executable steps
 - Automatically executing transactions when needed
 - Providing real-time updates and progress tracking
 - Maintaining portfolio balance according to user preferences
 
+## Demo Vid
+
+https://youtu.be/gYtUwM4Azlc
+
 ## 🏗 Architecture
 
-<img alt="Screenshot 2024-12-01 at 11 15 43 AM" src="https://github.com/user-attachments/assets/30b63286-fd80-49ef-be7f-a0de1bd965a7">
+<img width="1203" alt="Screenshot 2025-02-09 at 10 12 54 AM" src="https://github.com/user-attachments/assets/4498edcb-7d54-4dfb-a0bb-6ba3510a88b6" />
 
 ## 🌟 Key Features
 
@@ -54,12 +57,6 @@ An autonomous AI agent that manages your Avalanche DeFi portfolio by:
 - Performance metrics
 
 
-This integration enables:
-
-- Workflow Orchestration: Agents can now trigger and monitor complex multi-step operations through Kestra workflows.
-- Error Handling: Built-in retry mechanisms and error handling through Kestra's execution engine
-- Monitoring: Track execution status and progress of complex operations
-- Scalability: Leverage Kestra's distributed execution capabilities for resource-intensive tasks.
 
 The agents can now handle complex operations like portfolio rebalancing by:
 
@@ -70,116 +67,6 @@ The agents can now handle complex operations like portfolio rebalancing by:
 
 This makes the agents more robust and capable of handling complex DeFi operations in a reliable, monitored way.
 
-
-## 🔗 AVS & Subgraph Integration
-
-### Eigenlayer AVS Integration
-
-The portfolio manager integrates with Eigenlayer's Actively Validated Service (AVS) to provide decentralized portfolio validation:
-
-#### Components:
-
-1. **PortfolioValidationServiceManager**
-   - Manages portfolio validation tasks
-   - Handles operator registrations and responses
-   - Validates operator signatures
-   - Maintains token registry and eligibility data
-
-2. **PortfolioTask**
-   - Defines portfolio validation task structure
-   - Tracks task status and responses
-   - Supports multiple validation strategies:
-     - TokenEligibility
-     - PortfolioBalance
-     - RiskAssessment
-
-#### Deployment & Setup:
-
-- **PortfolioDeployer**
-  - Deploys and initializes AVS contracts
-  - Sets up stake registry
-  - Configures operator quorum
-  - Manages token strategy deployment
-
-- **Deployment Library**
-  - Handles proxy deployment
-  - Manages contract upgrades
-  - Stores deployment configurations
-
-### Subgraph Integration
-
-The subgraph indexes and tracks portfolio validation events and data:
-
-#### Schema:
-
-```graphql
-type Portfolio @entity {
-  id: Bytes!
-  taskId: BigInt!
-  tokens: [Token!]!
-  amounts: [BigInt!]!
-  strategy: String!
-  validationType: Int!
-  status: Int!
-  createdAt: BigInt!
-  validations: [Validation!]!
-}
-
-type Token @entity {
-  id: Bytes!
-  chain: String!
-  address: Bytes!
-  isEligible: Boolean!
-  metadata: String
-  createdBlock: BigInt!
-  portfolios: [Portfolio!]!
-}
-
-type Validation @entity {
-  id: Bytes!
-  portfolio: Portfolio!
-  operator: Bytes!
-  validation: Bytes!
-  timestamp: BigInt!
-}
-```
-
-#### Event Handlers:
-
-- **NewPortfolioTask**: Indexes new portfolio validation requests
-- **ValidationSubmitted**: Tracks operator validations
-- **TokenDataUpdated**: Monitors token eligibility updates
-
-### Integration Flow
-
-1. **Portfolio Creation**
-   - User submits portfolio through Ava
-   - AVS creates validation task
-   - Event emitted and indexed by subgraph
-
-2. **Validation Process**
-   - Operators submit validations
-   - AVS verifies signatures
-   - Subgraph indexes validation responses
-
-3. **Data Analysis**
-   - Ava queries subgraph for validation data
-   - AI analyzes validation responses
-   - Generates recommendations based on consensus
-
-4. **Token Management**
-   - AVS maintains token registry
-   - Updates token eligibility
-   - Subgraph provides token analytics
-
-### Benefits
-
-- **Decentralized Validation**: Multiple operators validate portfolio decisions
-- **Transparent History**: All validations and updates are publicly trackable
-- **Real-time Analytics**: Quick access to historical validation data
-- **Scalable Architecture**: Handles multiple portfolios and validation strategies
-- **Secure Operations**: Cryptographic verification of operator responses
-
 ## 🛠 Technology Stack
 - **Frontend**: Next.js, TypeScript, TailwindCSS
 - **AI Engine**: Brian AI, LangChain, GPT-4
@@ -188,8 +75,6 @@ type Validation @entity {
 - **Indexing**: The Graph Protocol
 
 ## 📋 Example Use Cases
-
-I'll update the Example Use Cases section in the README.md based on the example scenarios from page.tsx:
 
 ```markdown
 ## 📋 Example Use Cases
@@ -302,7 +187,44 @@ Agent will:
 5. Deploy to best protocol
 ```
 
-### 8. Starknet Portfolio Management
+8. Yield Optimization
+```plaintext
+User: "Optimize my portfolio for maximum yield while maintaining 30% in 
+stablecoins"
+
+Agent will:
+1. Analyze current holdings
+2. Identify highest yield opportunities
+3. Calculate optimal allocations
+4. Execute required swaps
+5. Deploy capital to yield protocols
+6. Maintain stability ratio
+```
+
+### 9. Risk Management
+```plaintext
+User: "Reduce portfolio risk and move to defensive positions"
+
+Agent will:
+1. Evaluate current risk metrics
+2. Identify high-risk positions
+3. Plan exit strategies
+4. Execute position closures
+5. Reallocate to stable assets
+6. Confirm risk reduction
+```
+
+### 10. Market Opportunity
+```plaintext
+User: "Take advantage of AVAX price dip with 20% of portfolio"
+
+Agent will:
+1. Check current AVAX price
+2. Calculate optimal entry points
+3. Identify assets to swap
+4. Execute Defi Transactions
+
+### 11. Starknet Portfolio Management
 ```text
 User: "Deploy and manage my meme token portfolio on Starknet with unruggable features"
 
@@ -372,12 +294,7 @@ mod PortfolioManager {
 }
 ```
 
-Integration with Unruggable Standards:
-- Implements ERC-20 with additional safety features
-- Automated liquidity management
-- Token vesting mechanisms
-- DAO-governed parameters
-- STARK-verified operations
+
 
 Benefits:
 1. Provable security through STARK proofs
@@ -394,154 +311,13 @@ This example showcases how the AI agent can:
 - Execute STARK-verified transactions
 - Maintain optimal risk parameters
 
-The integration leverages key Starknet infrastructure:
-- Cairo 1.0 for smart contracts
-- Starknet.js for interactions
-- Argent X/Braavos for wallet management
-- Starkscan/Voyager for monitoring
-- Starkgate for bridging assets
 
-Resources:
-- [Awesome Starknet](https://github.com/keep-starknet-strange/awesome-starknet)
-- [Unruggable Meme Standard](https://github.com/keep-starknet-strange/unruggable.meme)
-- [Cairo Book](https://book.cairo-lang.org/)
-- [Starknet Documentation](https://docs.starknet.io/)
 
-## 🚀 Getting Started
 
-1. Clone the repository
-```bash
-git clone https://github.com/kamalbuilds/ava-portfolio-manager-ai-agent
-```
 
-2. Install dependencies
-```bash
-cd frontend
-npm install
-```
-
-3. Set up environment variables
-```env
-NEXT_PUBLIC_BRIAN_API_KEY=your_brian_api_key
-NEXT_PUBLIC_PRIVATE_KEY=your_private_key
-NEXT_PUBLIC_OPENAI_API_KEY=your_openai_api_key
-```
-
-4. Run the development server
-```bash
-npm run dev
-```
 
 ## 📄 License
 MIT
 
 ## 🤝 Contributing
 Contributions are welcome! Please read our contributing guidelines before submitting PRs.
-```
-## ⭐ Key Features
-
-### 🧠 Intelligent Portfolio Management
-- Natural language interaction
-- Autonomous strategy execution
-- Real-time portfolio analysis
-- Risk-aware decision making
-- Multi-protocol optimization
-
-### 💼 Portfolio Operations
-- Token swaps
-- Liquidity provision
-- Yield farming
-- Risk rebalancing
-- Position management
-
-### 📊 Monitoring & Feedback
-- Real-time execution status
-- Progress tracking
-- Transaction confirmations
-- Performance metrics
-- Risk alerts
-
-## 🏗️ Architecture
-
-```mermaid
-graph TD
-    A[User Interface] --> B[Next.js Frontend]
-    B --> C[Brian AI Agent]
-    C --> D[LangChain]
-    D --> E[OpenAI GPT-4]
-    C --> F[Brian Toolkit]
-    F --> G[Avalanche Network]
-    
-    subgraph "Core Components"
-        C
-        D
-        E
-        F
-    end
-    
-    subgraph "Blockchain Layer"
-        G --> H[TraderJoe]
-        G --> I[Other DEXs]
-        G --> J[Lending Protocols]
-    end
-    
-    subgraph "Monitoring"
-        C --> K[Status Updates]
-        C --> L[Progress Tracking]
-        C --> M[Transaction History]
-    end
-```
-
-## 🛠️ Built With
-
-- **Frontend**: Next.js, TypeScript, TailwindCSS
-- **AI/ML**: Brian AI, LangChain, GPT-4
-- **Blockchain**: Avalanche Network, TraderJoe DEX
-- **Development**: Node.js, Ethers.js
-
-## 📋 Prerequisites
-
-```bash
-# Required environment variables
-NEXT_PUBLIC_BRIAN_API_KEY=your_brian_api_key
-NEXT_PUBLIC_PRIVATE_KEY=your_private_key
-NEXT_PUBLIC_OPENAI_API_KEY=your_openai_api_key
-```
-
-## 💡 Example Use Cases
-
-### 1. Yield Optimization
-```plaintext
-User: "Optimize my portfolio for maximum yield while maintaining 30% in stablecoins"
-
-Agent will:
-1. Analyze current holdings
-2. Identify highest yield opportunities
-3. Calculate optimal allocations
-4. Execute required swaps
-5. Deploy capital to yield protocols
-6. Maintain stability ratio
-```
-
-### 2. Risk Management
-```plaintext
-User: "Reduce portfolio risk and move to defensive positions"
-
-Agent will:
-1. Evaluate current risk metrics
-2. Identify high-risk positions
-3. Plan exit strategies
-4. Execute position closures
-5. Reallocate to stable assets
-6. Confirm risk reduction
-```
-
-### 3. Market Opportunity
-```plaintext
-User: "Take advantage of AVAX price dip with 20% of portfolio"
-
-Agent will:
-1. Check current AVAX price
-2. Calculate optimal entry points
-3. Identify assets to swap
-4. Execute Defi Transactions
