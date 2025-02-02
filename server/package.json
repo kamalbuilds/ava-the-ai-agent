@@ -21,6 +21,7 @@
     "@langchain/langgraph": "^0.2.42",
     "@langchain/openai": "^0.4.2",
     "@supabase/supabase-js": "^2.47.0",
+    "agni-sdk": "^0.0.7",
     "ai": "^4.0.12",
     "dotenv": "^16.4.7",
     "figlet": "^1.8.0",

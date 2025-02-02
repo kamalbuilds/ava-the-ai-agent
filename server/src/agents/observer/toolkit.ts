@@ -1,10 +1,33 @@
 import { tool } from "ai";
-import type { Hex } from "viem";
+import {
+  createWalletClient,
+  http,
+  parseUnits,
+  type Account,
+  type Hex,
+} from "viem";
 import { getAccountBalances, getMarketData } from "../../data";
 import { z } from "zod";
 import { retrievePastReports } from "../../memory";
+import {
+  FeeAmount,
+  getCurrentAddressInfo,
+  initAddress,
+  PoolType,
+  PoolV3Api,
+  SwapConfig,
+  Token,
+  Trace,
+  WalletConnect,
+} from "agni-sdk";
+import { getChain } from "../../utils/chain";
+import env from "../../env";
 
-export const getObserverToolkit = (address: Hex) => {
+initAddress("prod_node");
+const agniFinanceAddressInfo = getCurrentAddressInfo();
+console.log("[agniFinanceAddressInfo] info", agniFinanceAddressInfo);
+
+export const getObserverToolkit = (address: Hex, account: Account) => {
   console.log("observer addr", address);
   return {
     getPastReports: tool({
@@ -217,6 +240,124 @@ export const getObserverToolkit = (address: Hex) => {
           return `
           Error in getting token balance for the wallet address: ${error}
           `;
+        }
+      },
+    }),
+    getAgniFinanceSwap: tool({
+      description: `Swap Tokens using Agni Finance. This is only available on mantle mainnet chainId:5000. 
+      This tool only supports followind tokens:
+      - MNT
+      - WMNT
+      - USDC
+      - USDT
+      - WETH
+      - mETH
+      `,
+      parameters: z.object({
+        fromToken: z
+          .string()
+          .describe("Enter from token which is spent by the user"),
+        toToken: z
+          .string()
+          .describe("Enter to token which is required as output token"),
+        fromAmount: z.string().describe("Enter Amount of the token"),
+      }),
+      execute: async ({ fromToken, toToken, fromAmount }) => {
+        const poolV3Api = agniFinanceAddressInfo.getApi().poolV3Api();
+        console.log("[getAgniFinanceLiquidity]: poolV3Api", poolV3Api);
+
+        const tokenManagerApi = agniFinanceAddressInfo
+          .getApi()
+          .tokenMangerApi();
+        console.log(
+          "[getAgniFinanceLiquidity]: tokenManagerApi >>>",
+          tokenManagerApi
+        );
+
+        const swapV3Api = agniFinanceAddressInfo.getApi().swapV3Api();
+        console.log("[getAgniFinanceLiquidity]: Swap V3 API", swapV3Api);
+
+        const deadline = 60 * 60 * 5;
+
+        const swapConfig = {
+          gasPriceWei: "100000000000",
+          allowedSlippage: "0.0001",
+          allowMultiHops: true,
+          allowSplitRouting: true,
+          allowedPoolTypes: [PoolType.V3],
+        } as SwapConfig;
+
+        const tokens = await agniFinanceAddressInfo
+          .getApi()
+          .tokenMangerApi()
+          .batchGetTokens([fromToken, toToken]);
+
+        const from_token = tokens[fromToken];
+        const to_token = tokens[toToken];
+
+        // Get trading pair information
+        const swapInfo = await swapV3Api.swapInfo(
+          from_token,
+          to_token,
+          address
+        );
+
+        console.log("[getAgniFinanceLiquidity]: Swap Info >>>>", swapInfo);
+
+        const updateInputResult = await swapInfo.updateInput(
+          from_token,
+          fromAmount,
+          swapConfig
+        );
+
+        Trace.log(
+          "[getAgniFinanceLiquidity]: Price Token1 / Token0 ",
+          updateInputResult.token0SwapPrice
+        );
+        Trace.log(
+          "[getAgniFinanceLiquidity]: Price Token0 / Token1",
+          updateInputResult.token1SwapPrice
+        );
+
+        const walletClient = createWalletClient({
+          account,
+          chain: getChain(parseInt(env.CHAIN_ID)),
+          transport: http(),
+        });
+
+        const walletConnect = new WalletConnect(walletClient);
+        const connectInfo = await walletConnect.connect();
+
+        if (updateInputResult.canSwap) {
+          // Whether you need to Approve
+          if (swapInfo.token0Balance.showApprove(fromAmount)) {
+            try {
+              console.log(
+                "Approving token",
+                swapInfo.token0Balance.token.address
+              );
+              const tx = await swapInfo.token0Balance.approve(connectInfo);
+              const hash = tx.hash();
+              console.log("Successfully approve the token", hash);
+            } catch (error) {
+              console.log("Error in approving the tokens", error);
+              return ` Encountered an error while approving the tokens: ${error}`;
+            }
+          }
+
+          try {
+            const transactionEvent = await swapInfo.swap(
+              connectInfo,
+              address,
+              deadline
+            );
+
+            const transactionhash = transactionEvent.hash();
+            return ` Transaction successful. Your transaction hash: ${transactionhash}`;
+          } catch (error) {
+            console.log("Error in approving the tokens", error);
+            return ` Encountered an error whila executing the swap: ${error}`;
+          }
         }
       },
     }),
