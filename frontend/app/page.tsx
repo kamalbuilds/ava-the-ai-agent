@@ -130,7 +130,7 @@ export default function Home() {
           {
             role: "assistant",
             content:
-              "Hello! I'm Ava, your AI portfolio manager. I can help you manage your DeFi portfolio on Avalanche. What would you like to do?",
+              "Hello! I'm Ava, your AI portfolio manager. I can help you manage your DeFi portfolio across Multiple Chains. What would you like to do?",
             timestamp: new Date().toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
