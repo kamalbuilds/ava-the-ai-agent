@@ -5,7 +5,7 @@ import { z } from "zod";
 import { retrievePastReports } from "../../memory";
 
 export const getObserverToolkit = (address: Hex) => {
-  console.log("observer addr", address)
+  console.log("observer addr", address);
   return {
     getPastReports: tool({
       description:
@@ -68,8 +68,10 @@ export const getObserverToolkit = (address: Hex) => {
           )
           .map(
             (balance: any) =>
-              `[${balance.symbol}] balance: ${balance.balance} $${balance.balanceUSD
-              }) on protocol ${balance.platform.replace("-", " ")} with APY ${balance.metrics.apy
+              `[${balance.symbol}] balance: ${balance.balance} $${
+                balance.balanceUSD
+              }) on protocol ${balance.platform.replace("-", " ")} with APY ${
+                balance.metrics.apy
               }%`
           )
           .join("\n");
@@ -145,6 +147,78 @@ export const getObserverToolkit = (address: Hex) => {
             "The time to wait before executing the next action. This number must be logical to the operations you've done."
           ),
       }),
+    }),
+    getPortfolioActivityCrossChain: tool({
+      description:
+        "A tool that will give activity of the wallet Address/portfolio acorss all the different chains",
+      parameters: z.object({}),
+      execute: async () => {
+        console.log(
+          "======== Getting Portfolio Activity Cross Chains ========="
+        );
+        console.log(
+          `[getPortfolioActivityCrossChain] fetching cross chain portfolio activity for: ${address}...`
+        );
+
+        try {
+          const response = await fetch(
+            `https://api.covalenthq.com/v1/address/${address}/activity/`
+          );
+          console.log("Activity fetched >>>", response);
+
+          const data = await response.json();
+
+          const activityItems = data.data.items;
+
+          return `
+        Sucessfully fetched the data from all the chains for the wallet address: ${address}. Got ${activityItems.length} of the data and the data is an array of objects: ${activityItems}
+        `;
+        } catch (error) {
+          console.log("Error in fetching data", error);
+          return `
+        Error in getting data for this wallet address: ${error}
+        `;
+        }
+      },
+    }),
+    getTokenBalanceForAddress: tool({
+      description: `A tool that will get the multi chain balance for the wallet address. Users must specify: 
+        - chainName: chain Name of the chain on which balance needs to be fetched
+        `,
+      parameters: z.object({
+        chainName: z.enum([
+          "eth",
+          "base",
+          "arbitrum",
+          "avalanche",
+          "btc",
+          "solana",
+          "mantle",
+        ]), // Updated to use z.enum for custom type
+      }),
+      execute: async ({ chainName }) => {
+        console.log("======== Getting Token balance for the address =========");
+        console.log(
+          `[getTokenBalanceForAddress] fetching token balance for address: ${address} on chain: ${chainName}...`
+        );
+
+        try {
+          const res = await fetch(
+            `https://api.covalenthq.com/v1/${chainName}-mainnet/address/${address}/balances_v2/`
+          );
+          const data = await res.json();
+
+          const items = data.data.items;
+          return `
+          Sucessfully fetched the data from all the chains for the wallet address: ${address}. Got ${items.length} of the data and the data is an array of objects: ${items}
+          `;
+        } catch (error) {
+          console.log("[getTokenBalanceForAddress]: Error", error);
+          return `
+          Error in getting token balance for the wallet address: ${error}
+          `;
+        }
+      },
     }),
   };
 };

@@ -20,6 +20,7 @@ const envSchema = z.object({
   CDP_API_KEY_NAME: z.string(),
   CDP_API_KEY_PRIVATE_KEY: z.string(),
   MNEMONIC_PHRASE: z.string(),
+  GOLDRUSH_API: z.string(),
 });
 
 export const env = envSchema.parse(process.env);
