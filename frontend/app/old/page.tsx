@@ -9,7 +9,7 @@ import { Client } from "@xmtp/xmtp-js";
 import { ethers } from "ethers";
 import { BrianToolkit } from "@brian-ai/langchain";
 import { AvalancheConfig } from "@brian-ai/langchain/chains";
-import { initializeAgents } from "./agents";
+import { initializeAgents } from "../agents";
 import { SendHorizontal, Bot, User } from "lucide-react";
 import { AgentCharacters } from "./agents/AgentCharacters";
 import Image from 'next/image';

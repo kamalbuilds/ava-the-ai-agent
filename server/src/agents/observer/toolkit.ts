@@ -9,6 +9,8 @@ import {
 import { getAccountBalances, getMarketData } from "../../data";
 import { z } from "zod";
 import { retrievePastReports } from "../../memory";
+import { CookieApiService } from '../../services/cookie-api';
+// agni finance
 import {
   FeeAmount,
   getCurrentAddressInfo,
@@ -28,6 +30,8 @@ const agniFinanceAddressInfo = getCurrentAddressInfo();
 console.log("[agniFinanceAddressInfo] info", agniFinanceAddressInfo);
 
 export const getObserverToolkit = (address: Hex, account: Account) => {
+  
+  const cookieApi = new CookieApiService();
   console.log("observer addr", address);
   return {
     getPastReports: tool({
@@ -361,5 +365,68 @@ export const getObserverToolkit = (address: Hex, account: Account) => {
         }
       },
     }),
+    getCookieAgentData: tool({
+      description: "Get detailed data about an AI agent from Cookie API",
+      parameters: z.object({
+        twitterUsername: z.string().optional().describe("Twitter username of the agent"),
+        contractAddress: z.string().optional().describe("Contract address of the agent"),
+        interval: z.enum(['_3Days', '_7Days']).default('_7Days')
+      }),
+      execute: async ({ twitterUsername, contractAddress, interval }) => {
+        console.log("======== Getting Cookie Agent Data =========");
+        
+        try {
+          if (twitterUsername) {
+            const data = await cookieApi.getAgentByTwitter(twitterUsername, interval);
+            return `Agent data for ${twitterUsername}: ${JSON.stringify(data.ok, null, 2)}`;
+          } else if (contractAddress) {
+            const data = await cookieApi.getAgentByContract(contractAddress, interval);
+            return `Agent data for contract ${contractAddress}: ${JSON.stringify(data.ok, null, 2)}`;
+          }
+          return "Please provide either twitterUsername or contractAddress";
+        } catch (error) {
+          console.error("Error fetching Cookie agent data:", error);
+          return `Error fetching agent data: ${error}`;
+        }
+      }
+    }),
+    searchCookieTweets: tool({
+      description: "Search tweets using Cookie API",
+      parameters: z.object({
+        query: z.string().describe("Search query"),
+        fromDate: z.string().describe("Start date (YYYY-MM-DD)"),
+        toDate: z.string().describe("End date (YYYY-MM-DD)")
+      }),
+      execute: async ({ query, fromDate, toDate }) => {
+        console.log("======== Searching Cookie Tweets =========");
+        
+        try {
+          const data = await cookieApi.searchTweets(query, fromDate, toDate);
+          return `Tweet search results for "${query}": ${JSON.stringify(data.ok, null, 2)}`;
+        } catch (error) {
+          console.error("Error searching tweets:", error);
+          return `Error searching tweets: ${error}`;
+        }
+      }
+    }),
+    getTopAgents: tool({
+      description: "Get list of top AI agents by mindshare",
+      parameters: z.object({
+        interval: z.enum(['_3Days', '_7Days']).default('_7Days'),
+        page: z.number().min(1).default(1),
+        pageSize: z.number().min(1).max(25).default(10)
+      }),
+      execute: async ({ interval, page, pageSize }) => {
+        console.log("======== Getting Top Agents =========");
+        
+        try {
+          const data = await cookieApi.getAgentsPaged(interval, page, pageSize);
+          return `Top agents data: ${JSON.stringify(data.ok, null, 2)}`;
+        } catch (error) {
+          console.error("Error fetching top agents:", error);
+          return `Error fetching top agents: ${error}`;
+        }
+      }
+    })
   };
 };
