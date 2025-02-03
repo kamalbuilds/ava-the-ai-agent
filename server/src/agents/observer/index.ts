@@ -8,7 +8,13 @@ import { getObserverToolkit } from "./toolkit";
 import { saveThought } from "../../memory";
 import env from "../../env";
 
-const OBSERVER_STARTING_PROMPT = "what is virtuals protocol on base chain"
+const OBSERVER_STARTING_PROMPT = `Analyze the current market situation using Cookie API data. 
+Focus on:
+1. Top agents by mindshare
+2. Recent relevant tweets and social sentiment
+3. Specific agent performance metrics
+
+Use this information to identify potential opportunities and risks.`;
 
 const oldprompt = "Based on the current market data and the tokens that you hold, generate a report explaining what steps could be taken.";
 
