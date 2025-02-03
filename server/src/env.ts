@@ -22,6 +22,7 @@ const envSchema = z.object({
   MNEMONIC_PHRASE: z.string(),
   GOLDRUSH_API: z.string(),
   PERPLEXITY_API_KEY: z.string(),
+  COOKIE_API_KEY: z.string(),
 });
 
 export const env = envSchema.parse(process.env);
