@@ -4,6 +4,11 @@ export interface AIResponse {
     name: string;
     args: Record<string, any>;
   }>;
+  toolResults?: Array<{
+    success: boolean;
+    result: any;
+    error?: string;
+  }>;
 }
 
 export interface AIProvider {
