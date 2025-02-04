@@ -52,7 +52,8 @@
     "thirdweb": "^5.71.0",
     "url": "^0.11.4",
     "viem": "^2.21.54",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.6.4",
