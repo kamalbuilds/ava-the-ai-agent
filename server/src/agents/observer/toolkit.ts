@@ -8,13 +8,15 @@ import { CookieApiService } from "../../services/cookie-api";
 // Updated Tool interface to match AI SDK requirements
 export interface Tool<TParams = any, TResult = any> {
   parameters: z.ZodObject<any>;
-  execute: (args: TParams) => Promise<TResult>;
+  execute: (args: TParams, options?: ToolExecutionOptions) => Promise<TResult>;
   description: string;
 }
 
 // Type for tool execution options
 interface ToolExecutionOptions {
-  signal?: AbortSignal;
+  toolCallId?: string;
+  messages?: any[];
+  severity?: 'info' | 'warning' | 'error';
 }
 
 // Type for tool result
@@ -35,7 +37,7 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
           "The question to retrieve past reports for. If you are thinking about performing operations with USDC for example, you could generate a question to ask to your memory."
         ),
       }),
-      execute: async (args: { question: string }) => {
+      execute: async (args: { question: string }, options?: ToolExecutionOptions) => {
         console.log("======== getPastReports Tool =========");
         console.log(`[getPastReports] retrieving past reports with question: ${args.question}`);
         const reports = await retrievePastReports(args.question);
@@ -57,7 +59,7 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
     getWalletBalances: {
       description: "A tool that returns the current balances of your wallet.",
       parameters: z.object({}),
-      execute: async () => {
+      execute: async (options?: ToolExecutionOptions) => {
         console.log("======== getWalletBalances Tool =========");
         console.log(`[getWalletBalances] fetching token balances for ${address}...`);
         const { balances } = await getAccountBalances(address);
@@ -97,7 +99,7 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
     getMarketData: {
       description: "A tool that returns the current market data for USDC and EURC.",
       parameters: z.object({}),
-      execute: async () => {
+      execute: async (options?: ToolExecutionOptions) => {
         console.log("======== getMarketData Tool =========");
         console.log(`[getMarketData] fetching market data...`);
         const marketData = await getMarketData();
@@ -125,7 +127,7 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
     getCurrentEurUsdRate: {
       description: "A tool that returns the current EUR/USD exchange rate.",
       parameters: z.object({}),
-      execute: async () => {
+      execute: async (options?: ToolExecutionOptions) => {
         console.log("======== getCurrentEurUsdRate Tool =========");
         console.log(`[getCurrentEurUsdRate] fetching EUR/USD rate...`);
 
@@ -152,14 +154,14 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
           "The time to wait before executing the next action. This number must be logical to the operations you've done."
         ),
       }),
-      execute: async (args: { reason: string; waitTime: number }) => {
+      execute: async (args: { reason: string; waitTime: number }, options?: ToolExecutionOptions) => {
         return { reason: args.reason, waitTime: args.waitTime };
       },
     },
     getPortfolioActivityCrossChain: {
       description: "A tool that will give activity of the wallet Address/portfolio across all the different chains",
       parameters: z.object({}),
-      execute: async () => {
+      execute: async (options?: ToolExecutionOptions) => {
         console.log("======== Getting Portfolio Activity Cross Chains =========");
         console.log(`[getPortfolioActivityCrossChain] fetching cross chain portfolio activity for: ${address}...`);
 
@@ -192,7 +194,7 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
           "mantle",
         ]),
       }),
-      execute: async (args: { chainName: string }) => {
+      execute: async (args: { chainName: string }, options?: ToolExecutionOptions) => {
         console.log("======== Getting Token balance for the address =========");
         console.log(`[getTokenBalanceForAddress] fetching token balance for address: ${address} on chain: ${args.chainName}...`);
 
@@ -221,7 +223,7 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
         twitterUsername?: string; 
         contractAddress?: string; 
         interval: '_3Days' | '_7Days' 
-      }): Promise<ToolResult> => {
+      }, options?: ToolExecutionOptions): Promise<ToolResult> => {
         console.log("======== Getting Cookie Agent Data =========");
 
         try {
@@ -250,7 +252,7 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
         query: string; 
         fromDate: string; 
         toDate: string 
-      }): Promise<ToolResult> => {
+      }, options?: ToolExecutionOptions): Promise<ToolResult> => {
         console.log("======== Searching Cookie Tweets =========");
 
         try {
@@ -273,7 +275,7 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
         interval: '_3Days' | '_7Days';
         page: number;
         pageSize: number;
-      }): Promise<ToolResult> => {
+      }, options?: ToolExecutionOptions): Promise<ToolResult> => {
         console.log("======== Getting Top Agents =========");
 
         try {

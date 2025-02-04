@@ -20,15 +20,19 @@ type CollaborationType =
   | "question"
   | "response"
   | "suggestion"
-  | "decision";
+  | "decision"
+  | "simulation"
+  | "transaction"
+  | "tool-result"
+  | "handoff"
+  | "task-creation";
 
 interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: string;
-  agentId?: string;
-  agentName?: string;
-  collaborationType?: CollaborationType;
+  agentName?: string | undefined;
+  collaborationType?: CollaborationType | undefined;
 }
 
 interface AgentState {
@@ -92,6 +96,26 @@ const deduplicateMessages = (messages: Message[]): Message[] => {
     return true;
   });
 };
+
+// Add this interface at the top with other interfaces
+interface SystemEvent {
+  timestamp: string;
+  event: string;
+  agent?: string | undefined;
+  type: "info" | "warning" | "error" | "success";
+}
+
+interface AgentMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp?: string;
+  agentName?: string;
+  collaborationType?: CollaborationType;
+  type?: string;
+  action?: string;
+  event?: string;
+  eventType?: "info" | "warning" | "error" | "success";
+}
 
 export default function Home() {
   const { settings } = useSettingsStore();
@@ -167,7 +191,7 @@ export default function Home() {
           {
             role: "assistant",
             content:
-              "Hello! I'm Ava, your AI portfolio manager. I can help you manage your DeFi portfolio on Avalanche. What would you like to do?",
+              "Hello! I'm Ava, your AI portfolio manager. I can help you manage your DeFi portfolio across multiple chains. What would you like to do?",
             timestamp: new Date().toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
@@ -636,55 +660,55 @@ export default function Home() {
     const eventBus = new WebSocketEventBus();
     setWsEventBus(eventBus);
 
-    // Subscribe to agent messages with improved deduplication
-    eventBus.subscribe('agent-message', (data) => {
+    // Subscribe to agent messages
+    eventBus.subscribe('agent-message', (data: AgentMessage) => {
+      const newMessage: Message = {
+        role: data.role,
+        content: data.content,
+        timestamp: data.timestamp || new Date().toLocaleTimeString(),
+        agentName: data.agentName,
+        collaborationType: data.collaborationType
+      };
+
       setMessages(prev => {
-        const newMessage = {
-          role: data.role,
-          content: data.content,
-          timestamp: data.timestamp,
-          agentName: data.agentName,
-          collaborationType: data.collaborationType
-        };
         const updatedMessages = [...prev, newMessage];
         return deduplicateMessages(updatedMessages);
       });
     });
 
-    // Subscribe to agent events with deduplication
-    const seenEvents = new Set<string>();
-    
-    eventBus.subscribe('agent-event', (data) => {
-      const eventKey = `${data.timestamp}-${data.action}`;
-      if (seenEvents.has(eventKey)) return;
-      
-      seenEvents.add(eventKey);
+    // Subscribe to system events
+    eventBus.subscribe('agent-event', (data: AgentMessage) => {
+      const newEvent: SystemEvent = {
+        timestamp: data.timestamp || new Date().toLocaleTimeString(),
+        event: data.action || data.event || '',
+        agent: data.agentName,
+        type: data.eventType || 'info'
+      };
+
       setAgentState(prev => ({
         ...prev,
-        systemEvents: [...prev.systemEvents, {
-          timestamp: data.timestamp,
-          event: data.action,
-          agent: data.agent,
-          type: data.eventType
-        }]
+        systemEvents: [...prev.systemEvents, newEvent]
       }));
     });
 
     // Subscribe to executor responses
-    eventBus.subscribe('executor-response', (data) => {
-      setMessages(prev => [...prev, {
+    eventBus.subscribe('executor-response', (data: { report?: string; result?: string }) => {
+      const newMessage: Message = {
         role: 'assistant',
-        content: data.report || data.result,
+        content: data.report || data.result || '',
         timestamp: new Date().toLocaleTimeString(),
-        agentName: 'executor',
+        agentName: 'Executor',
         collaborationType: 'execution'
-      }]);
+      };
+
+      setMessages(prev => {
+        const updatedMessages = [...prev, newMessage];
+        return deduplicateMessages(updatedMessages);
+      });
     });
 
     return () => {
-      eventBus.unsubscribe('agent-message', () => {});
-      eventBus.unsubscribe('agent-event', () => {});
-      eventBus.unsubscribe('executor-response', () => {});
+      eventBus.disconnect();
     };
   }, []);
 
@@ -746,18 +770,18 @@ export default function Home() {
           >
             {messages.map((message, index) => (
               <div
-                key={index}
-                className={`mb-4 flex ${message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
+                key={`${message.timestamp}-${index}`}
+                className={`mb-4 flex ${
+                  message.role === "user" ? "justify-end" : "justify-start"
+                }`}
               >
                 <div
-                  className={`flex items-start max-w-[80%] ${message.role === "user" ? "flex-row-reverse" : "flex-row"
-                    }`}
+                  className={`flex items-start max-w-[80%] ${
+                    message.role === "user" ? "flex-row-reverse" : "flex-row"
+                  }`}
                 >
                   {/* Agent/User Icon */}
-                  <div
-                    className={`flex-shrink-0 ${message.role === "user" ? "ml-2" : "mr-2"}`}
-                  >
+                  <div className={`flex-shrink-0 ${message.role === "user" ? "ml-2" : "mr-2"}`}>
                     {message.role === "user" ? (
                       <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
                         <User className="w-5 h-5 text-white" />
@@ -775,21 +799,19 @@ export default function Home() {
                   </div>
 
                   {/* Message Content */}
-                  <div
-                    className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
-                  >
+                  <div className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}>
                     {message.agentName && (
                       <span className="text-xs font-medium text-gray-500 mb-1">
                         {message.agentName}
-                        {message.collaborationType &&
-                          ` • ${message.collaborationType}`}
+                        {message.collaborationType && ` • ${message.collaborationType}`}
                       </span>
                     )}
                     <div
-                      className={`p-3 rounded-lg ${message.role === "user"
-                        ? "bg-blue-500 text-white"
-                        : "bg-gray-100 text-gray-900"
-                        }`}
+                      className={`p-3 rounded-lg ${
+                        message.role === "user"
+                          ? "bg-blue-500 text-white"
+                          : "bg-gray-100 text-gray-900"
+                      }`}
                     >
                       {message.content}
                     </div>

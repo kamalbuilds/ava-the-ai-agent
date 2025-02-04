@@ -13,6 +13,23 @@ export class ExecutorAgent extends Agent {
   constructor(name: string, eventBus: EventBus, account: Account) {
     super(name, eventBus);
     this.account = account;
+    this.setupEventHandlers();
+  }
+
+  private setupEventHandlers(): void {
+    // Listen for task manager events
+    this.eventBus.on(`task-manager-${this.name}`, async (data) => {
+      console.log(`[${this.name}] Received task from task-manager:`, data);
+      try {
+        await this.handleTaskManagerEvent(data);
+      } catch (error) {
+        console.error(`[${this.name}] Error handling task-manager event:`, error);
+        this.eventBus.emit('agent-error', {
+          agent: this.name,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    });
   }
 
   async handleEvent(event: string, data: any): Promise<void> {
@@ -23,27 +40,105 @@ export class ExecutorAgent extends Agent {
   }
 
   private async handleTaskManagerEvent(data: any): Promise<void> {
-    console.log(
-      `[${this.name}] received data from task-manager: ${data.result}.`
-    );
+    try {
+      console.log(`[${this.name}] ========== Starting Task Execution ==========`);
+      console.log(`[${this.name}] Received task from task-manager: ${data.result}`);
 
-    const executorTools = getExecutorToolkit(this.account);
+      const executorTools = getExecutorToolkit(this.account);
+      
+      // First simulate the tasks
+      console.log(`[${this.name}] Simulating tasks...`);
+      const simulationResult = await executorTools.simulateTasks.execute({}, {
+        toolCallId: `simulation-${data.taskId}`,
+        messages: [],
+        severity: 'info'
+      });
+      console.log(`[${this.name}] Simulation result:`, simulationResult);
+      
+      if (simulationResult.success) {
+        this.eventBus.emit('agent-message', {
+          role: 'assistant',
+          content: `Task Simulation:\n${simulationResult.result}`,
+          timestamp: new Date().toLocaleTimeString(),
+          agentName: this.name,
+          collaborationType: 'simulation'
+        });
+      } else {
+        console.error(`[${this.name}] Simulation failed:`, simulationResult.error);
+        throw new Error(simulationResult.error);
+      }
 
-    const response = await generateText({
-      model: openai("gpt-4o-mini", { parallelToolCalls: false }),
-      tools: executorTools,
-      system: getExecutorSystemPrompt(this.account.address),
-      prompt: `Generate the transactions and then execute the following tasks: ${data.result}`,
-      maxSteps: 100,
-      maxRetries: 10,
-      experimental_continueSteps: true,
-      onStepFinish: this.onStepFinish,
-    });
+      // Then get transaction data
+      console.log(`[${this.name}] Getting transaction data...`);
+      const transactionResult = await executorTools.getTransactionData.execute({
+        tasks: [{
+          task: data.result,
+          taskId: data.taskId
+        }]
+      }, {
+        toolCallId: `transaction-${data.taskId}`,
+        messages: [],
+        severity: 'info'
+      });
+      console.log(`[${this.name}] Transaction data:`, transactionResult);
+      
+      if (transactionResult.success && transactionResult.result) {
+        this.eventBus.emit('agent-message', {
+          role: 'assistant',
+          content: `Transaction Data:\n${JSON.stringify(transactionResult.result, null, 2)}`,
+          timestamp: new Date().toLocaleTimeString(),
+          agentName: this.name,
+          collaborationType: 'transaction'
+        });
 
-    this.eventBus.emit(`${this.name}-task-manager`, {
-      result: response.text,
-      report: data.report,
-    });
+        // Finally execute the transaction
+        if (transactionResult.result.length > 0) {
+          console.log(`[${this.name}] Executing transaction...`);
+          const executionResult = await executorTools.executeTransaction.execute({
+            task: data.result,
+            taskId: transactionResult.result[0].taskId
+          }, {
+            toolCallId: `execution-${data.taskId}`,
+            messages: [],
+            severity: 'info'
+          });
+          console.log(`[${this.name}] Execution result:`, executionResult);
+          
+          if (executionResult.success) {
+            this.eventBus.emit('agent-message', {
+              role: 'assistant',
+              content: executionResult.result,
+              timestamp: new Date().toLocaleTimeString(),
+              agentName: this.name,
+              collaborationType: 'execution'
+            });
+          } else {
+            console.error(`[${this.name}] Execution failed:`, executionResult.error);
+            throw new Error(executionResult.error);
+          }
+        }
+      } else {
+        console.error(`[${this.name}] Transaction data failed:`, transactionResult.error);
+        throw new Error(transactionResult.error);
+      }
+
+      console.log(`[${this.name}] ========== Task Execution Complete ==========`);
+
+      // Send final result back to task manager
+      this.eventBus.emit(`${this.name}-task-manager`, {
+        result: 'Task execution completed successfully',
+        report: data.report,
+        status: 'completed'
+      });
+
+    } catch (error) {
+      console.error(`[${this.name}] Error in handleTaskManagerEvent:`, error);
+      this.eventBus.emit(`${this.name}-task-manager`, {
+        result: `Error executing task: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        report: data.report,
+        status: 'failed'
+      });
+    }
   }
 
   async onStepFinish({ text, toolCalls, toolResults }: any): Promise<void> {
