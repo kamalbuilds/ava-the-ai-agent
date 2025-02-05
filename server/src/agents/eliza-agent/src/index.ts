@@ -13,16 +13,17 @@ import fs from "fs";
 import net from "net";
 import path from "path";
 import { fileURLToPath } from "url";
-import { initializeDbCache } from "./cache/index.ts";
-import { character } from "./character.ts";
-import { startChat } from "./chat/index.ts";
-import { initializeClients } from "./clients/index.ts";
+import { initializeDbCache } from "./cache/index.js";
+import { character } from "./character.js";
+import { startChat } from "./chat/index.js";
+import { initializeClients } from "./clients/index.js";
 import {
   getTokenForProvider,
   loadCharacters,
   parseArguments,
-} from "./config/index.ts";
-import { initializeDatabase } from "./database/index.ts";
+} from "./config/index.js";
+import { initializeDatabase } from "./database/index.js";
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -127,8 +128,11 @@ const checkPortAvailable = (port: number): Promise<boolean> => {
 };
 
 const startAgents = async () => {
+
   const directClient = new DirectClient();
-  let serverPort = parseInt(settings.SERVER_PORT || "3000");
+  directClient.start(3002);
+  let serverPort = parseInt(settings.SERVER_PORT || "3002");
+  console.log(serverPort, "server port")
   const args = parseArguments();
 
   let charactersArg = args.characters || args.character;
@@ -165,7 +169,7 @@ const startAgents = async () => {
   }
 
   const isDaemonProcess = process.env.DAEMON_PROCESS === "true";
-  if(!isDaemonProcess) {
+  if (!isDaemonProcess) {
     elizaLogger.log("Chat started. Type 'exit' to quit.");
     const chat = startChat(characters);
     chat();

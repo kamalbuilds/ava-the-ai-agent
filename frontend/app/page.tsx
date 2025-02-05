@@ -122,6 +122,36 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [autonomousMode, setAutonomousMode] = useState(false);
+  
+  // Sample prompts data
+  const samplePrompts = [
+    { icon: "💱", text: "Swap 1 USDC to WETH" },
+    { icon: "📈", text: "Create investment plan for 5 SOL to make 7 SOL" },
+    { icon: "🔄", text: "Bridge 2 ETH to Polygon" },
+    { icon: "💰", text: "Find best yield farming opportunities" },
+    { icon: "📊", text: "Analyze my portfolio performance" },
+    { icon: "📉", text: "Show price chart for PEPE" },
+    { icon: "🏦", text: "Deposit 100 USDC to Aave" },
+    { icon: "💎", text: "Find undervalued NFT collections" },
+    { icon: "🔍", text: "Check my wallet health" },
+    { icon: "⚡", text: "Find gas-optimized DEX route" }
+  ];
+
+  const [showAllPrompts, setShowAllPrompts] = useState(false);
+
+  const visiblePrompts = showAllPrompts ? samplePrompts : samplePrompts.slice(0, 4);
+
+  const handlePromptClick = (promptText: string) => {
+    setInput(promptText);
+  };
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim() || agentState.isProcessing) return;
+    handleMessage(input);
+    setInput("");
+  };
+
   const [agentState, setAgentState] = useState<AgentState>({
     isInitialized: false,
     isProcessing: false,
@@ -479,11 +509,6 @@ export default function Home() {
       ]);
     } else {
       // Handle regular chat mode
-      setMessages(prev => [...prev, {
-        role: 'user',
-        content: message,
-        timestamp: new Date().toLocaleTimeString()
-      }]);
       // Check if this is an example query
       if (message in EXAMPLE_RESPONSES) {
         addSystemEvent({
@@ -608,13 +633,6 @@ export default function Home() {
         },
       ],
     }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || agentState.isProcessing) return;
-    handleMessage(input);
-    setInput("");
   };
 
   const initializeAutonomousMode = async () => {
@@ -759,10 +777,10 @@ export default function Home() {
         </div>
 
         {/* Center - Chat Interface */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col bg-[#0A192F]">
           {/* Messages Container */}
           <div 
-            className="flex-1 overflow-y-auto p-4 custom-scrollbar"
+            className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#0A192F"
             style={{ 
               height: 'calc(100vh - 280px)',
               maxHeight: 'calc(100vh - 280px)'
@@ -826,11 +844,11 @@ export default function Home() {
           </div>
 
           {/* Input Form */}
-          <div className="border-t border-white/10 bg-black/20 backdrop-blur-sm">
+          <div className="border-t border-white/10">
             <form onSubmit={handleSubmit} className="p-4">
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-end gap-2">
-                  <label className="text-sm text-gray-600">Autonomous Mode</label>
+                  <label className="text-sm text-gray-400">Autonomous Mode</label>
                   <Switch
                     checked={autonomousMode}
                     onCheckedChange={setAutonomousMode}
@@ -842,7 +860,7 @@ export default function Home() {
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    className="flex-1 rounded-lg border p-2"
+                    className="flex-1 rounded-lg border border-white/10 bg-black/20 p-2 text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Type your message..."
                   />
                   <Button type="submit" disabled={agentState.isProcessing}>
@@ -851,6 +869,27 @@ export default function Home() {
                 </div>
               </div>
             </form>
+            
+            {/* Sample Prompts Section */}
+            <div className="flex flex-wrap gap-2 mb-4 p-4">
+              {visiblePrompts.map((prompt, index) => (
+                <button
+                  key={index}
+                  onClick={() => handlePromptClick(prompt.text)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
+                >
+                  <span>{prompt.icon}</span>
+                  <span>{prompt.text}</span>
+                </button>
+              ))}
+              <button
+                onClick={() => setShowAllPrompts(!showAllPrompts)}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
+              >
+                <span>ℹ️</span>
+                <span>{showAllPrompts ? 'Less' : 'More'}</span>
+              </button>
+            </div>
           </div>
         </div>
 

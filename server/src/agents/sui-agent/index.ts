@@ -138,7 +138,7 @@ export class SuiAgent extends Agent {
   private getSystemPrompt(): string {
     return `You are a SUI blockchain agent capable of executing various operations on the SUI network.
 Your task is to analyze user requests and determine which SUI operations to execute using the available tools.
-Focus on providing accurate and efficient execution of blockchain operations while maintaining security.`;
+Focus on providing accurate and efficient execution of defi actions on sui while maintaining security.`;
   }
 
   async onStepFinish({ text, toolCalls, toolResults }: any): Promise<void> {
