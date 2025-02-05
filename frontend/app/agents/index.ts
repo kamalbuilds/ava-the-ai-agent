@@ -1,7 +1,6 @@
 import {
     type BrianAgentOptions,
     BrianToolkit,
-    XMTPCallbackHandler,
 } from "@brian-ai/langchain";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { RunnableWithMessageHistory } from "@langchain/core/runnables";
@@ -170,52 +169,29 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
 };
 
 // Base Agent Creation Function
-const createAgent = async ({
+async function createAgent({
     apiKey,
     privateKeyOrAccount,
     llm,
     tools = [],
     instructions,
     apiUrl,
-    xmtpHandler,
-    xmtpHandlerOptions,
-}: BrianAgentOptions & { tools?: Array<DynamicStructuredTool<any>> }) => {
-
+}: BrianAgentOptions & { tools?: Array<DynamicStructuredTool<any>> }) {
     const brianToolkit = new BrianToolkit({
         apiKey,
         privateKeyOrAccount,
-        ...(apiUrl ? { apiUrl } : {})
+        apiUrl,
     });
 
+    const functorService = new FunctorService();
+    const functorTools = await functorService.getTools();
+
     const prompt = ChatPromptTemplate.fromMessages([
-        ["system", instructions || ""],
-        ["placeholder", "{chat_history}"],
+        ["system", instructions || "You are a helpful AI assistant."],
         ["human", "{input}"],
-        ["placeholder", "{agent_scratchpad}"],
     ]);
 
-    // Initialize Functor Network integration
-    const functorTools = [
-        new DynamicStructuredTool({
-            name: "create_smart_account",
-            description: "Create a smart account using Functor Network",
-            schema: z.object({
-                owner: z.string(),
-                recoveryMechanism: z.array(z.string()),
-                paymaster: z.string()
-            }),
-            func: async ({ owner, recoveryMechanism, paymaster }) => {
-                return await FunctorService.createSmartAccount({
-                    owner,
-                    recoveryMechanism,
-                    paymaster
-                });
-            }
-        }),
-        // Add more Functor-specific tools as needed
-    ];
-
-    const agent = createToolCallingAgent({
+    const agent = await createToolCallingAgent({
         llm,
         tools: [...tools, ...functorTools, ...brianToolkit.tools],
         prompt,
@@ -224,18 +200,15 @@ const createAgent = async ({
     const agentExecutor = new AgentExecutor({
         agent,
         tools: [...tools, ...functorTools, ...brianToolkit.tools],
-        callbacks: xmtpHandler
-            ? [new XMTPCallbackHandler(xmtpHandler, llm, instructions!, xmtpHandlerOptions)]
-            : [],
     });
 
     return new RunnableWithMessageHistory({
         runnable: agentExecutor,
-        getMessageHistory,
+        getMessageHistory: getMessageHistory,
         inputMessagesKey: "input",
         historyMessagesKey: "chat_history",
     });
-};
+}
 
 
 export const initializeAgents = async () => {
