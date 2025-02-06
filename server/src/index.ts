@@ -8,12 +8,11 @@
 // import { setupWebSocket } from "./websocket";
 // import figlet from "figlet";
 import { WebSocket, WebSocketServer } from "ws";
-import { eventBus, observerAgent } from "./setup";
-
 import { EventBus } from "./comms";
 import { registerAgents } from "./agents";
 import { privateKeyToAccount } from "viem/accounts";
 import env from "./env";
+import { AIFactory } from "./services/ai/factory";
 
 // console.log(figlet.textSync("AVA-2.0"));
 // console.log("======== Initializing Server =========");
@@ -42,10 +41,23 @@ import env from "./env";
 //   }
 // );
 
+// Initialize core services
+const eventBus = new EventBus();
+const account = privateKeyToAccount(env.PRIVATE_KEY as `0x${string}`);
+
+// Create default AI provider
+const defaultProvider = AIFactory.createProvider({
+  provider: 'openai',
+  apiKey: env.OPENAI_API_KEY!
+});
+
+// Initialize agents with default provider
+const agents = registerAgents(eventBus, account, defaultProvider);
+const { observerAgent } = agents;
+
+// Setup WebSocket server
 const WS_PORT = 3002;
 const wss = new WebSocketServer({ port: WS_PORT });
-const account = privateKeyToAccount(env.PRIVATE_KEY as `0x${string}`);
-export const agents = registerAgents(eventBus, account);
 
 wss.on("connection", (ws: WebSocket) => {
   console.log(`[WebSocket] Client connected on port ${WS_PORT}`);
@@ -77,7 +89,7 @@ wss.on("connection", (ws: WebSocket) => {
     ws.send(JSON.stringify(messageData));
   };
 
-  // Subscribe to all relevant events
+  // Subscribe to events
   eventBus.subscribe("agent-action", forwardEvent);
   eventBus.subscribe("agent-response", forwardMessage);
   eventBus.subscribe("agent-error", forwardEvent);
@@ -86,7 +98,12 @@ wss.on("connection", (ws: WebSocket) => {
     try {
       const data = JSON.parse(message.toString());
 
-      if (data.type === "command") {
+      if (data.type === "settings") {
+        // Update AI provider based on settings
+        const newProvider = AIFactory.createProvider(data.settings);
+        observerAgent.updateAIProvider(newProvider);
+      }
+      else if (data.type === "command") {
         // Add user message to chat
         const messageData = {
           type: "agent-message",
@@ -126,3 +143,5 @@ wss.on("connection", (ws: WebSocket) => {
     eventBus.unsubscribe("agent-error", forwardEvent);
   });
 });
+
+console.log(`[🔌] WebSocket Server running on ws://localhost:${WS_PORT}`);
