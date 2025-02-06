@@ -12,7 +12,8 @@ const envSchema = z.object({
   ZERION_API_KEY: z.string(),
   BRIAN_API_KEY: z.string(),
   PORTALS_API_KEY: z.string(),
-  OPENAI_API_KEY: z.string(),
+  OPENAI_API_KEY: z.string().optional(),
+  ATOMA_API_KEY: z.string().optional(),
   BRIAN_API_URL: z.string().default("https://api.brianknows.org"),
   CHAIN_ID: z.string().default("8453"),
   CHAIN_NAME: z.string().default("base"),
@@ -22,6 +23,8 @@ const envSchema = z.object({
   MNEMONIC_PHRASE: z.string(),
   GOLDRUSH_API: z.string(),
   PERPLEXITY_API_KEY: z.string(),
+  ENABLE_PRIVATE_COMPUTE: z.boolean().default(false),
+  DEFAULT_AI_PROVIDER: z.enum(['openai', 'atoma']).default('openai'),
 });
 
 export const env = envSchema.parse(process.env);

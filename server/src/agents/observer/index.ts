@@ -7,6 +7,7 @@ import type { Hex, Account } from "viem";
 import { getObserverToolkit } from "./toolkit";
 import { saveThought } from "../../memory";
 import env from "../../env";
+import type { AIProvider } from "../../services/ai/types";
 
 const OBSERVER_STARTING_PROMPT = "what is virtuals protocol on base chain"
 
@@ -19,17 +20,25 @@ export class ObserverAgent extends Agent {
   address?: Hex;
   private account: Account;
   private isRunning: boolean = false;
+  private aiProvider: AIProvider;
 
   /**
    * @param name - The name of the agent
    * @param eventBus - The event bus to emit events to other agents
    * @param account - The account to observe
+   * @param aiProvider - The AI provider to use for generating text
    */
-  constructor(name: string, eventBus: EventBus, account: Account) {
+  constructor(
+    name: string,
+    eventBus: EventBus,
+    account: Account,
+    aiProvider: AIProvider
+  ) {
     super(name, eventBus);
     this.account = account;
     // Initialize with the account address
     this.address = account.address;
+    this.aiProvider = aiProvider;
   }
 
   /**
@@ -220,5 +229,34 @@ export class ObserverAgent extends Agent {
     // This should use your existing AI tools to analyze the task
     // and determine the best course of action
     return "Task analysis result";
+  }
+
+  async processMessage(message: string) {
+    try {
+      const response = await this.aiProvider.generateText(
+        message,
+        getObserverSystemPrompt(this.address!)
+      );
+
+      await saveThought({
+        agent: this.name,
+        text: response.text,
+        toolCalls: response.toolCalls,
+        toolResults: response.toolResults,
+      });
+
+      return response.text;
+    } catch (error) {
+      console.error('Observer agent error:', error);
+      throw error;
+    }
+  }
+
+  updateAIProvider(newProvider: AIProvider) {
+    this.aiProvider = newProvider;
+    this.eventBus.emit('agent-action', {
+      agent: this.name,
+      action: 'Updated AI provider'
+    });
   }
 }

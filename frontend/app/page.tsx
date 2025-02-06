@@ -11,6 +11,7 @@ import { EventBus } from "./types/event-bus";
 import { WebSocketEventBus } from "./services/websocket-event-bus";
 import {Navbar} from "@/components/ui/navbar";
 import {Footer} from "@/components/ui/footer";
+import { useSettingsStore } from './stores/settingsStore';
 
 type CollaborationType =
   | "analysis"
@@ -82,6 +83,7 @@ const scrollbarStyles = `
 `;
 
 export default function Home() {
+  const { settings } = useSettingsStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [autonomousMode, setAutonomousMode] = useState(false);
@@ -571,6 +573,80 @@ export default function Home() {
     if (!input.trim() || agentState.isProcessing) return;
     handleMessage(input);
     setInput("");
+  };
+
+  const initializeAutonomousMode = async () => {
+    try {
+      setAgentState(prev => ({
+        ...prev,
+        isProcessing: true,
+        systemEvents: [
+          ...prev.systemEvents,
+          {
+            timestamp: new Date().toLocaleTimeString(),
+            event: "Initializing AI agents with user settings...",
+            type: "info"
+          }
+        ]
+      }));
+
+      // Pass user settings when initializing agents
+      const response = await fetch('/api/observer/initialize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          settings: {
+            aiProvider: settings.aiProvider,
+            enablePrivateCompute: settings.enablePrivateCompute,
+            additionalSettings: settings.additionalSettings
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to initialize agents');
+      }
+
+      const initializedAgents = await initializeAgents();
+      setAgents(initializedAgents);
+
+      setAgentState((prev) => ({
+        ...prev,
+        isInitialized: true,
+        systemEvents: [
+          ...prev.systemEvents,
+          {
+            timestamp: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            event: "AI agents initialized successfully",
+            type: "success",
+          },
+        ],
+      }));
+
+      setMessages([
+        {
+          role: "assistant",
+          content:
+            "Hello! I'm Ava, your AI portfolio manager. I can help you manage your DeFi portfolio on Avalanche. What would you like to do?",
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        },
+      ]);
+    } catch (error) {
+      console.error('Error initializing autonomous mode:', error);
+      setAgentState(prev => ({
+        ...prev,
+        error: 'Failed to initialize autonomous mode',
+        isProcessing: false
+      }));
+    }
   };
 
   return (

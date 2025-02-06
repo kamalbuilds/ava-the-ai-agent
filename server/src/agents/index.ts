@@ -4,11 +4,13 @@ import { ExecutorAgent } from "./executor";
 import { ObserverAgent } from "./observer";
 import { TaskManagerAgent } from "./task-manager";
 import { CdpAgent } from "./cdp-agent";
+import { AIProvider } from "../services/ai/types";
+
 /**
  * Registers the agents and returns them
  * @returns The registered agents
  */
-export const registerAgents = (eventBus: EventBus, account: Account) => {
+export const registerAgents = (eventBus: EventBus, account: Account, aiprovider : AIProvider) => {
   console.log("======== Registering agents =========");
 
   // Initialize agents with account
@@ -16,7 +18,7 @@ export const registerAgents = (eventBus: EventBus, account: Account) => {
   console.log(`[registerAgents] executor agent initialized.`);
 
   console.log(`[registerAgents] initializing observer agent...`);
-  const observerAgent = new ObserverAgent("observer", eventBus, account);
+  const observerAgent = new ObserverAgent("observer", eventBus , account , aiprovider);
   console.log(`[registerAgents] observer agent initialized with address: ${account.address}`);
 
   const taskManagerAgent = new TaskManagerAgent("task-manager", eventBus);
