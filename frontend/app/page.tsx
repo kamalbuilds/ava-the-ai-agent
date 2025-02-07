@@ -191,33 +191,71 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (autonomousMode && !eventBusRef.current) {
-      // Initialize WebSocket connection
-      const eventBus = new WebSocketEventBus();
-      eventBusRef.current = eventBus;
+    const fetchMessages = async () => {
+      try {
+        const response = await fetch('/api/messages');
+        if (!response.ok) throw new Error('Failed to fetch messages');
+        const data = await response.json();
+        setMessages(data);
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+      }
+    };
+    
+    fetchMessages();
+  }, []);
 
-      console.log("Event Bus Ref", eventBus, eventBusRef.current);
+  useEffect(() => {
+    const eventBus = new WebSocketEventBus();
+    eventBusRef.current = eventBus;
+    eventBus.connect("ws://localhost:3002");
+    subscribeToAgentEvents();
+  }, []);
 
-      // Connect to backend WebSocket
-      eventBus.connect("ws://localhost:3002");
+  const subscribeToAgentEvents = () => {
+    if (!eventBusRef.current) return;
 
-      subscribeToAgentEvents();
-
+    // Handle system events for right sidebar
+    eventBusRef.current.subscribe('agent-event', (data: any) => {
       addSystemEvent({
-        event: "Autonomous agents activated",
-        type: "success",
+        event: data.action,
+        agent: data.agent,
+        type: data.eventType || 'info',
+        timestamp: data.timestamp
       });
-    } else if (!autonomousMode && eventBusRef.current) {
-      // Send stop command and cleanup
-      eventBusRef.current.emit("command", {
-        type: "command",
-        command: "stop",
-      });
-      cleanupAutonomousAgents();
-    }
-  }, [autonomousMode]);
+    });
 
-  const [socket, setSocket] = useState(null);
+    // Handle agent messages for chat and persist to API
+    eventBusRef.current.subscribe('agent-message', async (data: any) => {
+      const message = {
+        role: data.role,
+        content: data.content,
+        timestamp: data.timestamp || new Date().toISOString(),
+        agentId: data.agentId,
+        agentName: data.agentName,
+        collaborationType: data.collaborationType
+      };
+
+      // Add message to UI state
+      setMessages(prev => [...prev, message]);
+
+      // Persist message to API
+      try {
+        const response = await fetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(message),
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Failed to persist message:', errorText);
+        }
+      } catch (error) {
+        console.error('Error persisting message:', error);
+      }
+    });
+  };
 
   const handleSendMessage = () => {
     console.log(
@@ -273,286 +311,56 @@ export default function Home() {
     });
   };
 
-  const subscribeToAgentEvents = () => {
-    if (!eventBusRef.current) return;
+  const handleSubmit = async () => {
+    if (!input.trim()) return;
 
-    // Handle system events for right sidebar
-    eventBusRef.current.subscribe('agent-event', (data: any) => {
-      console.log(data, "data received from agent event");
-      addSystemEvent({
-        event: data.action,
-        agent: data.agent,
-        type: data.eventType || 'info',
-        timestamp: data.timestamp
-      });
-    });
-
-    // Handle agent messages for chat
-    eventBusRef.current.subscribe('agent-message', (data: any) => {
-      setMessages(prev => [...prev, {
-        role: data.role,
-        content: data.content,
-        timestamp: data.timestamp,
-        agentName: data.agentName,
-        collaborationType: data.collaborationType
-      }]);
-    });
-  };
-
-  const handleMessage = async (message: string) => {
-    if (!message.trim()) return;
-
-    const timestamp = new Date().toLocaleTimeString();
-
-    // Add user message
-    setMessages(prev => [...prev, {
+    const userMessage: Message = {
       role: 'user',
-      content: message,
-      timestamp
-    }]);
+      content: input,
+      timestamp: new Date().toISOString(),
+    };
 
-    if (autonomousMode) {
-      // Check if this is an example query
-      const example = Object.values(AUTONOMOUS_EXAMPLES).find(ex => ex.query === message);
-
-      if (example) {
-        addSystemEvent({
-          event: "Processing given scenario",
-          type: "info",
-        });
-
-        // Add system prompt
-        addSystemEvent({
-          event: example.systemPrompt,
-          type: "info",
-          timestamp
-        });
-
-        // Simulate responses with delays
-        for (const response of example.responses) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          setMessages(prev => [...prev, {
-            ...response,
-            timestamp: new Date().toLocaleTimeString()
-          }]);
-
-          addSystemEvent({
-            event: `${response.agentName} providing ${response.collaborationType}`,
-            agent: response.agentName,
-            type: "info"
-          });
-        }
-
-        addSystemEvent({
-          event: "Task completed successfully",
-          type: "success"
-        });
-        return;
-      }
-
-      // Continue with regular autonomous mode handling
-      eventBusRef.current?.emit('command', {
-        type: 'command',
-        command: message
+    try {
+      // Save user message to MongoDB
+      await fetch('/api/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userMessage),
       });
 
-      addSystemEvent({
-        event: `Task received: ${message}`,
-        type: 'info',
-        timestamp
-      });
+      setMessages((prev) => [...prev, userMessage]);
+      setInput("");
 
-      addSystemEvent({
-        event: "Starting agent collaboration",
-        type: "info",
-      });
+      // Your existing agent processing logic here
+      if (agentRef.current) {
+        const response = await agentRef.current.processUserInput(input);
+        
+        if (response) {
+          const assistantMessage: Message = {
+            role: 'assistant',
+            content: response.content,
+            timestamp: new Date().toISOString(),
+            agentId: response.agentId,
+            agentName: response.agentName,
+            collaborationType: response.collaborationType,
+          };
 
-      const portfolioAgent = agents.find((agent) => agent.id === "portfolio");
-      const initialAnalysis = await portfolioAgent?.agent?.invoke(
-        {
-          input: `Analyze this request and determine which other agents should be involved: ${message}`,
-        },
-        { configurable: { sessionId: "user-1" } }
-      );
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: initialAnalysis.output,
-          timestamp: new Date().toLocaleTimeString(),
-          agentId: "portfolio",
-          agentName: "Portfolio Manager",
-          collaborationType: "analysis",
-        },
-      ]);
-
-      const relevantAgents = agents.filter((agent) => {
-        const messageContent = message.toLowerCase();
-        return (
-          (messageContent.includes("trade") && agent.id === "trading") ||
-          (messageContent.includes("liquidity") && agent.id === "liquidity") ||
-          (messageContent.includes("analytics") &&
-            agent.id === "defi-analytics")
-        );
-      });
-
-      console.log(relevantAgents, "relevantAgents selected are");
-
-      for (const agent of relevantAgents) {
-        const agentResponse = await agent?.agent?.invoke(
-          {
-            input: `Given the user request "${message}" and portfolio analysis "${initialAnalysis.output}", what is your perspective and recommendation?`,
-          },
-          { configurable: { sessionId: "user-1" } }
-        );
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: agentResponse.output,
-            timestamp: new Date().toLocaleTimeString(),
-            agentId: agent.id,
-            agentName: agent.name,
-            collaborationType: "suggestion",
-          },
-        ]);
-      }
-
-      const finalConsensus = await portfolioAgent?.agent?.invoke(
-        {
-          input: `Based on all suggestions, provide a final recommendation for: ${message}`,
-        },
-        { configurable: { sessionId: "user-1" } }
-      );
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: finalConsensus.output,
-          timestamp: new Date().toLocaleTimeString(),
-          agentId: "portfolio",
-          agentName: "Portfolio Manager",
-          collaborationType: "decision",
-        },
-      ]);
-    } else {
-      // Handle regular chat mode
-      setMessages(prev => [...prev, {
-        role: 'user',
-        content: message,
-        timestamp: new Date().toLocaleTimeString()
-      }]);
-      // Check if this is an example query
-      if (message in EXAMPLE_RESPONSES) {
-        addSystemEvent({
-          event: "Processing example scenario",
-          type: "info",
-        });
-
-        for (const response of EXAMPLE_RESPONSES[message]) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          setMessages((prev) => [
-            ...prev,
-            {
-              ...response,
-              timestamp: new Date().toLocaleTimeString(),
+          // Save assistant message to MongoDB
+          await fetch('/api/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
             },
-          ]);
-
-          addSystemEvent({
-            event: `${response.agentName} providing ${response.collaborationType}`,
-            agent: response.agentName,
-            type: "info",
+            body: JSON.stringify(assistantMessage),
           });
+
+          setMessages((prev) => [...prev, assistantMessage]);
         }
-
-        addSystemEvent({
-          event: "Task completed successfully",
-          type: "success",
-        });
-
-        return;
       }
-
-      addSystemEvent({
-        event: "Starting agent collaboration",
-        type: "info",
-      });
-
-      const portfolioAgent = agents.find((agent) => agent.id === "portfolio");
-      const initialAnalysis = await portfolioAgent?.agent?.invoke(
-        {
-          input: `Analyze this request and determine which other agents should be involved: ${message}`,
-        },
-        { configurable: { sessionId: "user-1" } }
-      );
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: initialAnalysis.output,
-          timestamp: new Date().toLocaleTimeString(),
-          agentId: "portfolio",
-          agentName: "Portfolio Manager",
-          collaborationType: "analysis",
-        },
-      ]);
-
-      const relevantAgents = agents.filter((agent) => {
-        const messageContent = message.toLowerCase();
-        return (
-          (messageContent.includes("trade") && agent.id === "trading") ||
-          (messageContent.includes("liquidity") && agent.id === "liquidity") ||
-          (messageContent.includes("analytics") &&
-            agent.id === "defi-analytics")
-        );
-      });
-
-      console.log(relevantAgents, "relevantAgents selected are");
-
-      for (const agent of relevantAgents) {
-        const agentResponse = await agent?.agent?.invoke(
-          {
-            input: `Given the user request "${message}" and portfolio analysis "${initialAnalysis.output}", what is your perspective and recommendation?`,
-          },
-          { configurable: { sessionId: "user-1" } }
-        );
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: agentResponse.output,
-            timestamp: new Date().toLocaleTimeString(),
-            agentId: agent.id,
-            agentName: agent.name,
-            collaborationType: "suggestion",
-          },
-        ]);
-      }
-
-      const finalConsensus = await portfolioAgent?.agent?.invoke(
-        {
-          input: `Based on all suggestions, provide a final recommendation for: ${message}`,
-        },
-        { configurable: { sessionId: "user-1" } }
-      );
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: finalConsensus.output,
-          timestamp: new Date().toLocaleTimeString(),
-          agentId: "portfolio",
-          agentName: "Portfolio Manager",
-          collaborationType: "decision",
-        },
-      ]);
+    } catch (error) {
+      console.error('Error processing message:', error);
     }
   };
 
@@ -570,6 +378,7 @@ export default function Home() {
       ],
     }));
   };
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -802,7 +611,7 @@ export default function Home() {
 
           {/* Input Form */}
           <div className="border-t border-white/10 bg-black/20 backdrop-blur-sm">
-            <form onSubmit={handleSubmit} className="p-4">
+            <form onSubmit={(e) => e.preventDefault()} className="p-4">
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-end gap-2">
                   <label className="text-sm text-gray-600">Autonomous Mode</label>
@@ -820,7 +629,7 @@ export default function Home() {
                     className="flex-1 rounded-lg border p-2"
                     placeholder="Type your message..."
                   />
-                  <Button type="submit" disabled={agentState.isProcessing}>
+                  <Button type="button" onClick={handleSubmit} disabled={agentState.isProcessing}>
                     <SendHorizontal className="h-4 w-4" />
                   </Button>
                 </div>

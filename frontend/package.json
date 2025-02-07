@@ -36,6 +36,7 @@
     "jsonwebtoken": "^9.0.2",
     "langchain": "^0.3.6",
     "lucide-react": "^0.474.0",
+    "mongoose": "^8.9.7",
     "next": "^15.0.3",
     "next-auth": "^4.24.10",
     "openai": "^4.76.1",
