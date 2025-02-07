@@ -75,9 +75,8 @@ wss.on("connection", (ws: WebSocket) => {
     ws.send(JSON.stringify(eventData));
   };
 
-  // Forward agent messages to chat
+  // Forward agent messages to chat with proper typing
   const forwardMessage = (data: any) => {
-    // Format chat messages for the center panel
     const messageData = {
       type: "agent-message",
       timestamp: new Date().toLocaleTimeString(),
@@ -89,10 +88,14 @@ wss.on("connection", (ws: WebSocket) => {
     ws.send(JSON.stringify(messageData));
   };
 
-  // Subscribe to events
+  // Subscribe to all agent events
   eventBus.subscribe("agent-action", forwardEvent);
   eventBus.subscribe("agent-response", forwardMessage);
   eventBus.subscribe("agent-error", forwardEvent);
+  eventBus.subscribe("task-manager-observer", forwardMessage);
+  eventBus.subscribe("observer-task-manager", forwardMessage);
+  eventBus.subscribe("task-manager-executor", forwardMessage);
+  eventBus.subscribe("executor-task-manager", forwardMessage);
 
   ws.on("message", async (message: string) => {
     try {
@@ -100,8 +103,20 @@ wss.on("connection", (ws: WebSocket) => {
 
       if (data.type === "settings") {
         // Update AI provider based on settings
-        const newProvider = AIFactory.createProvider(data.settings);
+        const newProvider = AIFactory.createProvider({
+          provider: data.settings.aiProvider.provider,
+          apiKey: data.settings.aiProvider.apiKey,
+          modelName: data.settings.aiProvider.modelName,
+          enablePrivateCompute: data.settings.enablePrivateCompute
+        });
+
+        // Update observer agent with new settings
         observerAgent.updateAIProvider(newProvider);
+        
+        eventBus.emit("agent-action", {
+          agent: "system",
+          action: "Updated AI provider settings"
+        });
       }
       else if (data.type === "command") {
         // Add user message to chat
@@ -141,6 +156,10 @@ wss.on("connection", (ws: WebSocket) => {
     eventBus.unsubscribe("agent-action", forwardEvent);
     eventBus.unsubscribe("agent-response", forwardMessage);
     eventBus.unsubscribe("agent-error", forwardEvent);
+    eventBus.unsubscribe("task-manager-observer", forwardMessage);
+    eventBus.unsubscribe("observer-task-manager", forwardMessage);
+    eventBus.unsubscribe("task-manager-executor", forwardMessage);
+    eventBus.unsubscribe("executor-task-manager", forwardMessage);
   });
 });
 

@@ -102,6 +102,8 @@ export default function Home() {
   const agentRef = useRef<any>(null);
   const eventBusRef = useRef<EventBus | null>(null);
   const agentsRef = useRef<any>(null);
+  const ws = useRef<WebSocket | null>(null);
+  const [wsEventBus, setWsEventBus] = useState<WebSocketEventBus | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -576,78 +578,77 @@ export default function Home() {
   };
 
   const initializeAutonomousMode = async () => {
+    if (!wsEventBus) return;
+
     try {
-      setAgentState(prev => ({
-        ...prev,
-        isProcessing: true,
-        systemEvents: [
-          ...prev.systemEvents,
-          {
-            timestamp: new Date().toLocaleTimeString(),
-            event: "Initializing AI agents with user settings...",
-            type: "info"
-          }
-        ]
-      }));
-
-      // Pass user settings when initializing agents
-      const response = await fetch('/api/observer/initialize', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          settings: {
-            aiProvider: settings.aiProvider,
-            enablePrivateCompute: settings.enablePrivateCompute,
-            additionalSettings: settings.additionalSettings
-          }
-        })
+      wsEventBus.emit('command', {
+        command: 'start',
+        settings: {
+          aiProvider: settings.aiProvider,
+          enablePrivateCompute: settings.enablePrivateCompute
+        }
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to initialize agents');
-      }
-
-      const initializedAgents = await initializeAgents();
-      setAgents(initializedAgents);
-
-      setAgentState((prev) => ({
-        ...prev,
-        isInitialized: true,
-        systemEvents: [
-          ...prev.systemEvents,
-          {
-            timestamp: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            event: "AI agents initialized successfully",
-            type: "success",
-          },
-        ],
-      }));
-
-      setMessages([
-        {
-          role: "assistant",
-          content:
-            "Hello! I'm Ava, your AI portfolio manager. I can help you manage your DeFi portfolio on Avalanche. What would you like to do?",
-          timestamp: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        },
-      ]);
     } catch (error) {
-      console.error('Error initializing autonomous mode:', error);
-      setAgentState(prev => ({
-        ...prev,
-        error: 'Failed to initialize autonomous mode',
-        isProcessing: false
-      }));
+      console.error('Failed to initialize autonomous mode:', error);
+      throw error;
     }
   };
+
+  const enableAutonomousMode = async () => {
+    if (!wsEventBus) return;
+
+    try {
+      // Send settings to server
+      wsEventBus.emit('settings', {
+        settings: {
+          aiProvider: settings.aiProvider,
+          enablePrivateCompute: settings.enablePrivateCompute
+        }
+      });
+
+      // Initialize agents
+      await initializeAutonomousMode();
+
+      // Enable autonomous mode
+      setAutonomousMode(true);
+    } catch (error) {
+      console.error('Failed to enable autonomous mode:', error);
+    }
+  };
+
+  useEffect(() => {
+    const eventBus = new WebSocketEventBus();
+    setWsEventBus(eventBus);
+
+    // Subscribe to agent messages
+    eventBus.subscribe('agent-message', (data) => {
+      setMessages(prev => [...prev, {
+        role: data.role,
+        content: data.content,
+        timestamp: data.timestamp,
+        agentName: data.agentName,
+        collaborationType: data.collaborationType
+      }]);
+    });
+
+    // Subscribe to agent events
+    eventBus.subscribe('agent-event', (data) => {
+      setAgentState(prev => ({
+        ...prev,
+        systemEvents: [...prev.systemEvents, {
+          timestamp: data.timestamp,
+          event: data.action,
+          agent: data.agent,
+          type: data.eventType
+        }]
+      }));
+    });
+
+    return () => {
+      eventBus.unsubscribe('agent-message', () => {});
+      eventBus.unsubscribe('agent-event', () => {});
+    };
+  }, []);
 
   return (
   <>

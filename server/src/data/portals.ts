@@ -7,15 +7,26 @@ import env from "../env";
  * @returns The balances of the account
  */
 export const getAccountBalances = async (owner: Hex) => {
-  const url = `https://api.portals.fi/v2/account?owner=${owner}&networks=${env.CHAIN_NAME}`;
-  const response = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.PORTALS_API_KEY}`,
-    },
-  });
+  try {
+    const url = `https://api.portals.fi/v2/account?owner=${owner}&networks=${env.CHAIN_NAME}`;
+    const response = await fetch(url, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.PORTALS_API_KEY}`,
+      },
+    });
 
-  return response.json();
+    if (!response.ok) {
+      throw new Error(`Portals API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("[Portals] Account balances:", data);
+    return data;
+  } catch (error) {
+    console.error("[Portals] Error fetching balances:", error);
+    return { balances: [] }; // Return empty balances on error
+  }
 };
 
 /**
@@ -39,6 +50,7 @@ export const getMarketData = async (
         Authorization: `Bearer ${env.PORTALS_API_KEY}`,
       },
     });
+    
     return response.json();
   };
 

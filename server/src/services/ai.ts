@@ -32,17 +32,22 @@ export class AIService {
   }
 
   async generateCompletion(prompt: string) {
+    console.log("[server] Generating completion with prompt:", prompt);
     switch (this.settings.provider) {
       case 'atoma':
-        return this.settings.enablePrivateCompute ? 
-          this.atomaSDK?.confidentialChat.create({
-            messages: [{ role: "user", content: prompt }],
-            model: "meta-llama/Llama-3.3-70B-Instruct"
-          }) :
-          this.atomaSDK?.chat.create({
-            messages: [{ role: "user", content: prompt }],
-            model: "meta-llama/Llama-3.3-70B-Instruct"
-          });
+
+        const response = await this.settings.enablePrivateCompute ? 
+            this.atomaSDK?.confidentialChat.create({
+                messages: [{ role: "user", content: prompt }],
+                model: "meta-llama/Llama-3.3-70B-Instruct"
+            }) :
+            this.atomaSDK?.chat.create({
+                messages: [{ role: "user", content: prompt }],
+                model: "meta-llama/Llama-3.3-70B-Instruct"
+            });
+
+            console.log("response from atoma ",response);
+        return response;
 
       case 'openai':
         return this.openai?.createChatCompletion({
