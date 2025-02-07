@@ -36,7 +36,8 @@ export default function SettingsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Only save xx
+    
+    console.log('Saving settings', settings);
     updateAIProvider({
       provider: settings.aiProvider.provider,
       apiKey: settings.aiProvider.apiKey,
@@ -78,6 +79,22 @@ export default function SettingsPage() {
                   })}
                   className="w-full border rounded-md p-2"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Model Name</label>
+              <select 
+                value={settings.aiProvider.modelName}
+                onChange={(e) => updateAIProvider({
+                  ...settings.aiProvider,
+                  modelName: e.target.value
+                })}
+                className="w-full border rounded-md p-2 bg-black"
+              >
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="deepseek-r1">DeepSeek-R1</option>
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+              </select>
               </div>
 
               {settings.aiProvider.provider === 'atoma' && (
