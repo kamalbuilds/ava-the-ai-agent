@@ -96,6 +96,7 @@ export default function Home() {
   });
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
+  const [systemEvents, setSystemEvents] = useState<SystemEvent[]>([]);
 
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const clientRef = useRef<any>(null);
@@ -620,8 +621,14 @@ export default function Home() {
     const eventBus = new WebSocketEventBus();
     setWsEventBus(eventBus);
 
-    // Subscribe to agent messages
+    // Subscribe to agent messages with deduplication
+    const seenMessages = new Set<string>();
+    
     eventBus.subscribe('agent-message', (data) => {
+      const messageKey = `${data.timestamp}-${data.content}`;
+      if (seenMessages.has(messageKey)) return;
+      
+      seenMessages.add(messageKey);
       setMessages(prev => [...prev, {
         role: data.role,
         content: data.content,
@@ -631,8 +638,14 @@ export default function Home() {
       }]);
     });
 
-    // Subscribe to agent events
+    // Subscribe to agent events with deduplication
+    const seenEvents = new Set<string>();
+    
     eventBus.subscribe('agent-event', (data) => {
+      const eventKey = `${data.timestamp}-${data.action}`;
+      if (seenEvents.has(eventKey)) return;
+      
+      seenEvents.add(eventKey);
       setAgentState(prev => ({
         ...prev,
         systemEvents: [...prev.systemEvents, {
@@ -644,9 +657,21 @@ export default function Home() {
       }));
     });
 
+    // Subscribe to executor responses
+    eventBus.subscribe('executor-response', (data) => {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.report || data.result,
+        timestamp: new Date().toLocaleTimeString(),
+        agentName: 'executor',
+        collaborationType: 'execution'
+      }]);
+    });
+
     return () => {
       eventBus.unsubscribe('agent-message', () => {});
       eventBus.unsubscribe('agent-event', () => {});
+      eventBus.unsubscribe('executor-response', () => {});
     };
   }, []);
 
