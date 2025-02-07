@@ -82,6 +82,17 @@ const scrollbarStyles = `
   }
 `;
 
+// Add this helper function at the top level
+const deduplicateMessages = (messages: Message[]): Message[] => {
+  const seen = new Set<string>();
+  return messages.filter(message => {
+    const key = `${message.timestamp}-${message.content}-${message.agentName || ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 export default function Home() {
   const { settings } = useSettingsStore();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -304,12 +315,16 @@ export default function Home() {
 
     const timestamp = new Date().toLocaleTimeString();
 
-    // Add user message
-    setMessages(prev => [...prev, {
-      role: 'user',
-      content: message,
-      timestamp
-    }]);
+    // Add user message with deduplication
+    setMessages(prev => {
+      const newMessage = {
+        role: 'user',
+        content: message,
+        timestamp
+      };
+      const updatedMessages = [...prev, newMessage];
+      return deduplicateMessages(updatedMessages);
+    });
 
     if (autonomousMode) {
       // Check if this is an example query
@@ -621,21 +636,19 @@ export default function Home() {
     const eventBus = new WebSocketEventBus();
     setWsEventBus(eventBus);
 
-    // Subscribe to agent messages with deduplication
-    const seenMessages = new Set<string>();
-    
+    // Subscribe to agent messages with improved deduplication
     eventBus.subscribe('agent-message', (data) => {
-      const messageKey = `${data.timestamp}-${data.content}`;
-      if (seenMessages.has(messageKey)) return;
-      
-      seenMessages.add(messageKey);
-      setMessages(prev => [...prev, {
-        role: data.role,
-        content: data.content,
-        timestamp: data.timestamp,
-        agentName: data.agentName,
-        collaborationType: data.collaborationType
-      }]);
+      setMessages(prev => {
+        const newMessage = {
+          role: data.role,
+          content: data.content,
+          timestamp: data.timestamp,
+          agentName: data.agentName,
+          collaborationType: data.collaborationType
+        };
+        const updatedMessages = [...prev, newMessage];
+        return deduplicateMessages(updatedMessages);
+      });
     });
 
     // Subscribe to agent events with deduplication
