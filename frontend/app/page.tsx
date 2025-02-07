@@ -578,42 +578,52 @@ export default function Home() {
     setInput("");
   };
 
-  const initializeAutonomousMode = async () => {
-    if (!wsEventBus) return;
-
-    try {
-      wsEventBus.emit('command', {
-        command: 'start',
-        settings: {
-          aiProvider: settings.aiProvider,
-          enablePrivateCompute: settings.enablePrivateCompute
-        }
-      });
-    } catch (error) {
-      console.error('Failed to initialize autonomous mode:', error);
-      throw error;
-    }
-  };
-
   const enableAutonomousMode = async () => {
-    if (!wsEventBus) return;
+    if (!wsEventBus || !settings.aiProvider.apiKey) {
+      console.error('WebSocket not connected or API key not set');
+      return;
+    }
 
     try {
-      // Send settings to server
+      // Send saved settings to server when autonomous mode is enabled
       wsEventBus.emit('settings', {
         settings: {
-          aiProvider: settings.aiProvider,
+          aiProvider: {
+            provider: settings.aiProvider.provider,
+            apiKey: settings.aiProvider.apiKey,
+            modelName: settings.aiProvider.modelName
+          },
           enablePrivateCompute: settings.enablePrivateCompute
         }
       });
 
-      // Initialize agents
-      await initializeAutonomousMode();
+      // Initialize autonomous mode
+      wsEventBus.emit('command', {
+        command: 'start',
+        settings: settings // Pass full settings context
+      });
 
-      // Enable autonomous mode
       setAutonomousMode(true);
+      
+      setAgentState(prev => ({
+        ...prev,
+        systemEvents: [...prev.systemEvents, {
+          timestamp: new Date().toLocaleTimeString(),
+          event: "Autonomous mode enabled",
+          type: "success"
+        }]
+      }));
+
     } catch (error) {
       console.error('Failed to enable autonomous mode:', error);
+      setAgentState(prev => ({
+        ...prev,
+        systemEvents: [...prev.systemEvents, {
+          timestamp: new Date().toLocaleTimeString(),
+          event: "Failed to enable autonomous mode",
+          type: "error"
+        }]
+      }));
     }
   };
 
@@ -798,8 +808,8 @@ export default function Home() {
                   <label className="text-sm text-gray-600">Autonomous Mode</label>
                   <Switch
                     checked={autonomousMode}
-                    onCheckedChange={setAutonomousMode}
-                    className="data-[state=checked]:bg-blue-500"
+                    onCheckedChange={enableAutonomousMode}
+                    disabled={!settings.aiProvider.apiKey}
                   />
                 </div>
                 <div className="flex gap-2">
