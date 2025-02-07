@@ -172,54 +172,40 @@ export class ObserverAgent extends Agent {
     });
   }
 
-  async processTask(task: string): Promise<void> {
-    if (!this.address) {
-      throw new Error("Observer agent not initialized with account address");
-    }
-
-    this.isRunning = true;
-
-    this.eventBus.emit('agent-action', {
-      agent: this.name,
-      action: 'Analyzing task: ' + task
-    });
-
+  async processTask(task: string) {
     try {
-      const response = await generateText({
-        model: openai(env.MODEL_NAME),
-        system: getObserverSystemPrompt(this.address),
-        prompt: task,
-        tools: getObserverToolkit(this.address),
-        maxSteps: 100,
-        onStepFinish: (data) => {
-          // Emit intermediate steps as messages
-          if (data.text) {
-            this.eventBus.emit('agent-response', {
+      const response = await this.aiProvider.generateText(task, getObserverSystemPrompt(this.address!));
+      
+      if (response.toolCalls && response.toolCalls.length > 0) {
+        for (const toolCall of response.toolCalls) {
+          const result = await this.tools[toolCall.name](...toolCall.args);
+          
+          if (!result.success) {
+            this.eventBus.emit('agent-error', {
               agent: this.name,
-              message: data.text,
-              collaborationType: 'analysis'
+              error: `Tool ${toolCall.name} failed: ${result.result}`
             });
+            continue;
           }
-          this.onStepFinish(data);
-        },
-      });
 
-      // Emit final analysis
-      this.eventBus.emit('agent-response', {
-        agent: this.name,
-        message: response.text,
-        collaborationType: 'analysis'
-      });
+          this.eventBus.emit('agent-response', {
+            agent: this.name,
+            message: `Tool ${toolCall.name} executed successfully`,
+            result: result.result
+          });
+        }
+      }
 
-      // Send to task manager
-      this.eventBus.emit(`${this.name}-task-manager`, {
-        report: response.text,
-        task
+      // Continue with task processing
+      this.eventBus.emit('observer-task-manager', {
+        type: 'task-result',
+        result: response.text
       });
     } catch (error) {
+      console.error('[Observer] Error processing task:', error);
       this.eventBus.emit('agent-error', {
         agent: this.name,
-        error: 'Failed to analyze task'
+        error: 'Failed to process task'
       });
     }
   }

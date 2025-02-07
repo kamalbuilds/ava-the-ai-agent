@@ -34,93 +34,112 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Only save xx
+    updateAIProvider({
+      provider: settings.aiProvider.provider,
+      apiKey: settings.aiProvider.apiKey,
+      modelName: settings.aiProvider.modelName
+    });
+  };
+
   return (
     <MainLayout>
       <div className="max-w-4xl mx-auto p-6">
         <h1 className="text-2xl font-bold mb-6">Agent Settings</h1>
 
-        {/* AI Provider Settings */}
-        <section className="rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">AI Provider Configuration</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Provider</label>
-              <select 
-                value={settings.aiProvider.provider}
-                onChange={handleProviderChange}
-                className="w-full border rounded-md p-2 bg-black"
-              >
-                <option value="openai">OpenAI</option>
-                <option value="atoma">Atoma (Private Compute)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">API Key</label>
-              <input
-                type="password"
-                value={settings.aiProvider.apiKey}
-                onChange={(e) => updateAIProvider({
-                  ...settings.aiProvider,
-                  apiKey: e.target.value
-                })}
-                className="w-full border rounded-md p-2"
-              />
-            </div>
-
-            {settings.aiProvider.provider === 'atoma' && (
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={settings.enablePrivateCompute}
-                  onChange={togglePrivateCompute}
-                  id="private-compute"
-                />
-                <label htmlFor="private-compute">
-                  Enable Private Compute (TEE Protection)
-                </label>
+        <form onSubmit={handleSubmit}>
+          {/* AI Provider Settings */}
+          <section className="rounded-lg shadow p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">AI Provider Configuration</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Provider</label>
+                <select 
+                  value={settings.aiProvider.provider}
+                  onChange={handleProviderChange}
+                  className="w-full border rounded-md p-2 bg-black"
+                >
+                  <option value="openai">OpenAI</option>
+                  <option value="atoma">Atoma (Private Compute)</option>
+                </select>
               </div>
-            )}
-          </div>
-        </section>
 
-        {/* Additional API Keys */}
-        <section className="rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Additional API Keys</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Wallet Private Key</label>
-              <input
-                type="password"
-                value={settings.walletKey}
-                onChange={(e) => updateWalletKey(e.target.value)}
-                className="w-full border rounded-md p-2"
-              />
-            </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">API Key</label>
+                <input
+                  type="password"
+                  value={settings.aiProvider.apiKey}
+                  onChange={(e) => updateAIProvider({
+                    ...settings.aiProvider,
+                    apiKey: e.target.value
+                  })}
+                  className="w-full border rounded-md p-2"
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Brian API Key</label>
-              <input
-                type="password"
-                value={settings.additionalSettings.brianApiKey || ''}
-                onChange={(e) => updateAdditionalSettings({ brianApiKey: e.target.value })}
-                className="w-full border rounded-md p-2"
-              />
+              {settings.aiProvider.provider === 'atoma' && (
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.enablePrivateCompute}
+                    onChange={togglePrivateCompute}
+                    id="private-compute"
+                  />
+                  <label htmlFor="private-compute">
+                    Enable Private Compute (TEE Protection)
+                  </label>
+                </div>
+              )}
             </div>
+          </section>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">CoinGecko API Key</label>
-              <input
-                type="password"
-                value={settings.additionalSettings.coingeckoApiKey || ''}
-                onChange={(e) => updateAdditionalSettings({ coingeckoApiKey: e.target.value })}
-                className="w-full border rounded-md p-2"
-              />
+          {/* Additional API Keys */}
+          <section className="rounded-lg shadow p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">Additional API Keys</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Wallet Private Key</label>
+                <input
+                  type="password"
+                  value={settings.walletKey}
+                  onChange={(e) => updateWalletKey(e.target.value)}
+                  className="w-full border rounded-md p-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Brian API Key</label>
+                <input
+                  type="password"
+                  value={settings.additionalSettings.brianApiKey || ''}
+                  onChange={(e) => updateAdditionalSettings({ brianApiKey: e.target.value })}
+                  className="w-full border rounded-md p-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">CoinGecko API Key</label>
+                <input
+                  type="password"
+                  value={settings.additionalSettings.coingeckoApiKey || ''}
+                  onChange={(e) => updateAdditionalSettings({ coingeckoApiKey: e.target.value })}
+                  className="w-full border rounded-md p-2"
+                />
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+
+          <button
+            type="submit"
+            className="bg-blue-500 text-white px-4 py-2 rounded"
+          >
+            Save Settings
+          </button>
+        </form>
 
         <button
           onClick={handleTestConnection}

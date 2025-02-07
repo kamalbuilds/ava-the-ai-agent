@@ -4,14 +4,16 @@ import type { AIProvider, AIResponse } from "../types";
 
 export class OpenAIProvider implements AIProvider {
   private apiKey: string;
+  private modelName: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, modelName: string = "gpt-3.5-turbo-instruct") {
     this.apiKey = apiKey;
+    this.modelName = modelName;
   }
 
   async generateText(prompt: string, systemPrompt?: string): Promise<AIResponse> {
     try {
-      const model = openai("gpt-3.5-turbo-instruct");
+      const model = openai(this.modelName);
       
       const response = await aiGenerateText({
         model,

@@ -96,12 +96,15 @@ export default function Home() {
   });
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
+  const [systemEvents, setSystemEvents] = useState<SystemEvent[]>([]);
 
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const clientRef = useRef<any>(null);
   const agentRef = useRef<any>(null);
   const eventBusRef = useRef<EventBus | null>(null);
   const agentsRef = useRef<any>(null);
+  const ws = useRef<WebSocket | null>(null);
+  const [wsEventBus, setWsEventBus] = useState<WebSocketEventBus | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -575,79 +578,112 @@ export default function Home() {
     setInput("");
   };
 
-  const initializeAutonomousMode = async () => {
-    try {
-      setAgentState(prev => ({
-        ...prev,
-        isProcessing: true,
-        systemEvents: [
-          ...prev.systemEvents,
-          {
-            timestamp: new Date().toLocaleTimeString(),
-            event: "Initializing AI agents with user settings...",
-            type: "info"
-          }
-        ]
-      }));
+  const enableAutonomousMode = async () => {
+    if (!wsEventBus || !settings.aiProvider.apiKey) {
+      console.error('WebSocket not connected or API key not set');
+      return;
+    }
 
-      // Pass user settings when initializing agents
-      const response = await fetch('/api/observer/initialize', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          settings: {
-            aiProvider: settings.aiProvider,
-            enablePrivateCompute: settings.enablePrivateCompute,
-            additionalSettings: settings.additionalSettings
-          }
-        })
+    try {
+      // Send saved settings to server when autonomous mode is enabled
+      wsEventBus.emit('settings', {
+        settings: {
+          aiProvider: {
+            provider: settings.aiProvider.provider,
+            apiKey: settings.aiProvider.apiKey,
+            modelName: settings.aiProvider.modelName
+          },
+          enablePrivateCompute: settings.enablePrivateCompute
+        }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to initialize agents');
-      }
+      // Initialize autonomous mode
+      wsEventBus.emit('command', {
+        command: 'start',
+        settings: settings // Pass full settings context
+      });
 
-      const initializedAgents = await initializeAgents();
-      setAgents(initializedAgents);
-
-      setAgentState((prev) => ({
-        ...prev,
-        isInitialized: true,
-        systemEvents: [
-          ...prev.systemEvents,
-          {
-            timestamp: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            event: "AI agents initialized successfully",
-            type: "success",
-          },
-        ],
-      }));
-
-      setMessages([
-        {
-          role: "assistant",
-          content:
-            "Hello! I'm Ava, your AI portfolio manager. I can help you manage your DeFi portfolio on Avalanche. What would you like to do?",
-          timestamp: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        },
-      ]);
-    } catch (error) {
-      console.error('Error initializing autonomous mode:', error);
+      setAutonomousMode(true);
+      
       setAgentState(prev => ({
         ...prev,
-        error: 'Failed to initialize autonomous mode',
-        isProcessing: false
+        systemEvents: [...prev.systemEvents, {
+          timestamp: new Date().toLocaleTimeString(),
+          event: "Autonomous mode enabled",
+          type: "success"
+        }]
+      }));
+
+    } catch (error) {
+      console.error('Failed to enable autonomous mode:', error);
+      setAgentState(prev => ({
+        ...prev,
+        systemEvents: [...prev.systemEvents, {
+          timestamp: new Date().toLocaleTimeString(),
+          event: "Failed to enable autonomous mode",
+          type: "error"
+        }]
       }));
     }
   };
+
+  useEffect(() => {
+    const eventBus = new WebSocketEventBus();
+    setWsEventBus(eventBus);
+
+    // Subscribe to agent messages with deduplication
+    const seenMessages = new Set<string>();
+    
+    eventBus.subscribe('agent-message', (data) => {
+      const messageKey = `${data.timestamp}-${data.content}`;
+      if (seenMessages.has(messageKey)) return;
+      
+      seenMessages.add(messageKey);
+      setMessages(prev => [...prev, {
+        role: data.role,
+        content: data.content,
+        timestamp: data.timestamp,
+        agentName: data.agentName,
+        collaborationType: data.collaborationType
+      }]);
+    });
+
+    // Subscribe to agent events with deduplication
+    const seenEvents = new Set<string>();
+    
+    eventBus.subscribe('agent-event', (data) => {
+      const eventKey = `${data.timestamp}-${data.action}`;
+      if (seenEvents.has(eventKey)) return;
+      
+      seenEvents.add(eventKey);
+      setAgentState(prev => ({
+        ...prev,
+        systemEvents: [...prev.systemEvents, {
+          timestamp: data.timestamp,
+          event: data.action,
+          agent: data.agent,
+          type: data.eventType
+        }]
+      }));
+    });
+
+    // Subscribe to executor responses
+    eventBus.subscribe('executor-response', (data) => {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.report || data.result,
+        timestamp: new Date().toLocaleTimeString(),
+        agentName: 'executor',
+        collaborationType: 'execution'
+      }]);
+    });
+
+    return () => {
+      eventBus.unsubscribe('agent-message', () => {});
+      eventBus.unsubscribe('agent-event', () => {});
+      eventBus.unsubscribe('executor-response', () => {});
+    };
+  }, []);
 
   return (
   <>
@@ -772,8 +808,8 @@ export default function Home() {
                   <label className="text-sm text-gray-600">Autonomous Mode</label>
                   <Switch
                     checked={autonomousMode}
-                    onCheckedChange={setAutonomousMode}
-                    className="data-[state=checked]:bg-blue-500"
+                    onCheckedChange={enableAutonomousMode}
+                    disabled={!settings.aiProvider.apiKey}
                   />
                 </div>
                 <div className="flex gap-2">
