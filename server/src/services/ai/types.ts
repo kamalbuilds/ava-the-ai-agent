@@ -1,17 +1,17 @@
 export interface AIResponse {
   text: string;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
-  toolCalls?: any[];
-  toolResults?: any[];
+  toolCalls?: Array<{
+    name: string;
+    args: Record<string, any>;
+  }>;
 }
 
 export interface AIProvider {
-  generateText(prompt: string, systemPrompt?: string): Promise<AIResponse>;
-  generateEmbeddings?(text: string): Promise<number[]>;
+  generateText: (
+    prompt: string, 
+    systemPrompt: string
+  ) => Promise<AIResponse>;
+  generateEmbeddings?: (text: string) => Promise<number[]>;
 }
 
 export interface AIConfig {
@@ -19,4 +19,16 @@ export interface AIConfig {
   apiKey: string;
   enablePrivateCompute?: boolean;
   modelName?: string;
+}
+
+export interface ToolResult {
+  success: boolean;
+  result: any;
+  error?: string;
+}
+
+export interface Tool {
+  execute: (args: Record<string, any>) => Promise<ToolResult>;
+  parameters: any;
+  description: string;
 } 

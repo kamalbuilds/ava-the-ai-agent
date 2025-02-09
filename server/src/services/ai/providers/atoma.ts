@@ -38,9 +38,9 @@ export class AtomaProvider implements AIProvider {
 
       return {
         text: response.choices[0].message.content,
-        usage,
+        // usage,
         toolCalls: [],
-        toolResults: []
+        // toolResults: []
       };
     } catch (error) {
       console.error("Atoma AI error:", error);
