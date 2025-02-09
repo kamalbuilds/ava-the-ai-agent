@@ -98,6 +98,38 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [autonomousMode, setAutonomousMode] = useState(false);
+  
+  // Sample prompts data
+  const samplePrompts = [
+    { icon: "💱", text: "Swap 1 USDC to WETH" },
+    { icon: "📈", text: "Create investment plan for 5 SOL to make 7 SOL" },
+    { icon: "🔄", text: "Bridge 2 ETH to Polygon" },
+    { icon: "💰", text: "Find best yield farming opportunities" },
+    { icon: "📊", text: "Analyze my portfolio performance" },
+    { icon: "📉", text: "Show price chart for PEPE" },
+    { icon: "🏦", text: "Deposit 100 USDC to Aave" },
+    { icon: "💎", text: "Find undervalued NFT collections" },
+    { icon: "🔍", text: "Check my wallet health" },
+    { icon: "⚡", text: "Find gas-optimized DEX route" }
+  ];
+
+  const [showAllPrompts, setShowAllPrompts] = useState(false);
+
+  const visiblePrompts = showAllPrompts ? samplePrompts : samplePrompts.slice(0, 4);
+
+  const handlePromptClick = (promptText: string) => {
+    setInput(promptText);
+    handleMessage(promptText);
+    setInput("");
+  };
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim() || agentState.isProcessing) return;
+    handleMessage(input);
+    setInput("");
+  };
+
   const [agentState, setAgentState] = useState<AgentState>({
     isInitialized: false,
     isProcessing: false,
@@ -586,13 +618,6 @@ export default function Home() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || agentState.isProcessing) return;
-    handleMessage(input);
-    setInput("");
-  };
-
   const initializeAutonomousMode = async () => {
     if (!wsEventBus) return;
 
@@ -829,6 +854,29 @@ export default function Home() {
                 </div>
               </div>
             </form>
+            
+            {/* Sample Prompts Section */}
+            <div className="mt-4 flex flex-wrap gap-2 justify-center items-center">
+              {visiblePrompts.map((prompt, index) => (
+                <button
+                  key={index}
+                  onClick={() => handlePromptClick(prompt.text)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#2A2A2A] hover:bg-[#3A3A3A] text-gray-300 text-sm transition-colors duration-200"
+                >
+                  <span>{prompt.icon}</span>
+                  <span>{prompt.text}</span>
+                </button>
+              ))}
+              {!showAllPrompts && (
+                <button
+                  onClick={() => setShowAllPrompts(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#2A2A2A] hover:bg-[#3A3A3A] text-gray-300 text-sm transition-colors duration-200"
+                >
+                  <span>🔽</span>
+                  <span>More</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
