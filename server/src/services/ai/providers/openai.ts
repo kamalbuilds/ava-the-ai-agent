@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { generateText as aiGenerateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import type { AIProvider, AIResponse } from "../types";

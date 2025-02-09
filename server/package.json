@@ -4,9 +4,10 @@
   "main": "src/index.ts",
   "scripts": {
     "build": "tsc",
-    "start": "npm run build && nodemon dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "start": "node dist/index.js",
     "start:wh": "ts-node src/websocket.ts",
-    "dev": "ts-node src/index.ts"
+    "vercel-build": "npm run build"
   },
   "keywords": [],
   "author": "",
