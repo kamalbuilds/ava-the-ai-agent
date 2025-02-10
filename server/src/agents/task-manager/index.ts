@@ -33,7 +33,7 @@ export class TaskManagerAgent extends Agent {
   constructor(eventBus: EventBus, aiProvider: AIProvider) {
     super("task-manager", eventBus, aiProvider);
     this.tasks = new Map();
-    this.tools = getTaskManagerToolkit();
+    this.tools = getTaskManagerToolkit(eventBus);
     this.setupEventHandlers();
   }
 
@@ -322,7 +322,38 @@ export class TaskManagerAgent extends Agent {
       console.log(`[${this.name}] ========== Starting Analysis Processing ==========`);
       console.log(`[${this.name}] Processing analysis for task: ${taskData.taskId}`);
 
-      // Execute tools from toolkit
+      // Check if this is a SUI-related task
+      const isSuiTask = taskData.task.toLowerCase().includes('sui');
+      
+      if (isSuiTask) {
+        console.log(`[${this.name}] Detected SUI-related task, forwarding to SUI agent...`);
+        
+        // Execute SUI agent tool
+        const suiResult = await this.tools.sendMessageToSuiAgent.execute({
+          message: taskData.task,
+          taskId: taskData.taskId
+        }, {
+          toolCallId: `sui-${taskData.taskId}`,
+          messages: [],
+          severity: 'info'
+        });
+
+        // Update task status
+        taskData.status = 'processed';
+        this.tasks.set(taskData.taskId, taskData);
+
+        // Save the thought
+        await saveThought({
+          agent: this.name,
+          text: `Forwarded SUI task to SUI agent: ${taskData.task}`,
+          toolCalls: [],
+          toolResults: [suiResult]
+        });
+
+        return `Task has been forwarded to the SUI agent for execution: ${taskData.task}`;
+      }
+
+      // Execute tools from toolkit for non-SUI tasks
       console.log(`[${this.name}] ========== Starting Tool Execution ==========`);
       const toolResults = [];
 
@@ -411,11 +442,60 @@ export class TaskManagerAgent extends Agent {
 
   private async handleExecutorResult(data: any): Promise<void> {
     try {
-      console.log(`[${this.name}] Processing executor result:`, data);
+      console.log(`[${this.name}] Processing executor/agent result:`, data);
       const task = this.tasks.get(data.taskId);
       
       if (!task) {
         console.error(`[${this.name}] No task found for ID: ${data.taskId}`);
+        return;
+      }
+
+      // Handle SUI agent responses
+      if (data.source === 'sui-agent') {
+        console.log(`[${this.name}] Processing SUI agent response`);
+        
+        if (data.status === 'completed') {
+          task.status = 'completed';
+          this.tasks.set(data.taskId, task);
+
+          // Store the report if available
+          if (data.result) {
+            await storeReport(data.result);
+          }
+
+          // System event for completion
+          this.eventBus.emit('agent-action', {
+            agent: this.name,
+            action: `SUI task ${data.taskId} completed successfully`
+          });
+
+          // Chat message for completion
+          this.eventBus.emit('agent-message', {
+            role: 'assistant',
+            content: `SUI task completed successfully:\n${JSON.stringify(data.result, null, 2)}`,
+            timestamp: new Date().toLocaleTimeString(),
+            agentName: this.name,
+            collaborationType: 'completion'
+          });
+        } else if (data.status === 'failed') {
+          task.status = 'failed';
+          this.tasks.set(data.taskId, task);
+
+          // System event for failure
+          this.eventBus.emit('agent-action', {
+            agent: this.name,
+            action: `SUI task ${data.taskId} failed: ${data.error || data.result}`
+          });
+
+          // Chat message for failure
+          this.eventBus.emit('agent-message', {
+            role: 'assistant',
+            content: `SUI task failed: ${data.error || data.result}`,
+            timestamp: new Date().toLocaleTimeString(),
+            agentName: this.name,
+            collaborationType: 'error'
+          });
+        }
         return;
       }
 
@@ -550,11 +630,13 @@ export class TaskManagerAgent extends Agent {
   private getSystemPrompt(): string {
     return `You are a task manager agent responsible for:
 1. Analyzing tasks from the observer agent
-2. Breaking down complex tasks into executable steps
-3. Coordinating with the executor agent
-4. Maintaining task state and progress
-5. Handling errors and retries
+2. Detecting and routing SUI blockchain tasks to the SUI agent
+3. Breaking down complex tasks into executable steps
+4. Coordinating with the executor agent
+5. Maintaining task state and progress
+6. Handling errors and retries
 
+For any tasks related to SUI blockchain operations, make sure to route them to the SUI agent.
 Please process the given task and provide clear, executable instructions.`;
   }
 

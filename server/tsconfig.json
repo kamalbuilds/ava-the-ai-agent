@@ -3,6 +3,9 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "moduleResolution": "NodeNext",
+    "paths": {
+      "@atoma-agents/*": ["./src/atoma-agents/packages/*"]
+    },
     /* Visit https://aka.ms/tsconfig to read more about this file */
 
     /* Projects */
