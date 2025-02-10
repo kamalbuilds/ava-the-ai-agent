@@ -24,8 +24,9 @@ const envSchema = z.object({
   GOLDRUSH_API: z.string(),
   PERPLEXITY_API_KEY: z.string(),
   ENABLE_PRIVATE_COMPUTE: z.boolean().default(false),
-  DEFAULT_AI_PROVIDER: z.enum(['openai', 'atoma']).default('openai'),
+  DEFAULT_AI_PROVIDER: z.enum(["openai", "atoma"]).default("openai"),
   COOKIE_API_KEY: z.string(),
+  SAFE_AGENT_PRIVATE_KEY: z.string(),
 });
 
 export const env = envSchema.parse(process.env);

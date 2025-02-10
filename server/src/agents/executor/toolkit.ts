@@ -17,6 +17,8 @@ import {
   http,
 } from "viem";
 import { getChain } from "../../utils/chain";
+import Safe from "@safe-global/protocol-kit";
+import SafeApiKit from "@safe-global/api-kit";
 
 export const getTransactionDataTool = (account: Account) =>
   tool({
@@ -217,33 +219,100 @@ export const getExecutorToolkit = (account: Account) => {
           return `Transaction not found for task: "${task}" [id: ${taskId}].`;
         }
 
-        const walletClient = createWalletClient({
-          account,
-          chain: getChain(parseInt(env.CHAIN_ID)),
-          transport: http(),
+        const chain = getChain(parseInt(env.CHAIN_ID));
+        if (!chain) return `Chain not supported`;
+
+        // const walletClient = createWalletClient({
+        //   account,
+        //   chain: getChain(parseInt(env.CHAIN_ID)),
+        //   transport: http(),
+        // });
+        // const publicClient = createPublicClient({
+        //   chain: getChain(parseInt(env.CHAIN_ID)),
+        //   transport: http(),
+        // });
+
+        const AGENT_ADDRESS = "0xE5A730337eaF120A7627AB7A3F083a7b4b865EB0";
+        const AGENT_PRIVATE_KEY = env.SAFE_AGENT_PRIVATE_KEY;
+        const HUMAN_SIGNER_1_ADDRESS =
+          "0x4e763f42227DF08696389d4fcA2Df0b5Fe33f246";
+        const HUMAN_SIGNER_2_ADDRESS =
+          "0x58dEe4Cd5d60ed92eC6e5d3b14788aF0819A3698";
+
+        const RPC_URL = chain.rpcUrls.default.http[0];
+
+        const safeClient = await Safe.init({
+          provider: RPC_URL,
+          signer: AGENT_PRIVATE_KEY,
+          predictedSafe: {
+            safeAccountConfig: {
+              owners: [
+                AGENT_ADDRESS,
+                HUMAN_SIGNER_1_ADDRESS,
+                HUMAN_SIGNER_2_ADDRESS,
+              ],
+              threshold: 2,
+            },
+          },
         });
-        const publicClient = createPublicClient({
-          chain: getChain(parseInt(env.CHAIN_ID)),
-          transport: http(),
+
+        console.log("Safe client created>>>>", safeClient);
+
+        const apiKit = new SafeApiKit({
+          chainId: BigInt(env.CHAIN_ID),
         });
 
         const hashes: string[] = [];
 
         for (const step of taskData[0].steps) {
           try {
-            const hash = await walletClient.sendTransaction({
-              to: step.to,
-              value: BigInt(step.value),
-              data: step.data,
+            // const hash = await walletClient.sendTransaction({
+            //   to: step.to,
+            //   value: BigInt(step.value),
+            //   data: step.data,
+            // });
+            // console.log(`[executeTransaction] transaction hash: ${hash}`);
+            // const receipt = await publicClient.waitForTransactionReceipt({
+            //   hash,
+            // });
+            // console.log(
+            //   `[executeTransaction] transaction receipt: ${receipt.transactionHash}`
+            // );
+
+            console.log("===== Creating Safe Transaction ======");
+
+            const tx = await safeClient.createTransaction({
+              transactions: [
+                {
+                  to: step.to,
+                  data: step.data,
+                  value: step.value,
+                },
+              ],
             });
-            console.log(`[executeTransaction] transaction hash: ${hash}`);
-            const receipt = await publicClient.waitForTransactionReceipt({
-              hash,
+
+            console.log("Transaction proposed >>>>", tx);
+
+            // Every transaction has a Safe (Smart Account) Transaction Hash different than the final transaction hash
+            const safeTxHash = await safeClient.getTransactionHash(tx);
+            // The AI agent signs this Safe (Smart Account) Transaction Hash
+            const signature = await safeClient.signHash(safeTxHash);
+
+            // Now the transaction with the signature is sent to the Transaction Service with the Api Kit:
+            await apiKit.proposeTransaction({
+              safeAddress: "0xF749111d4d007618B152aFDe8761C1A324434ec4", //safe Address
+              safeTransactionData: tx.data,
+              safeTxHash,
+              senderSignature: signature.data,
+              senderAddress: AGENT_ADDRESS,
             });
+
             console.log(
-              `[executeTransaction] transaction receipt: ${receipt.transactionHash}`
+              "Transaction processed check your safe wallet",
+              safeTxHash
             );
-            hashes.push(receipt.transactionHash);
+
+            hashes.push(safeTxHash);
           } catch (error) {
             console.log(
               `[executeTransaction] transaction for task "${task}" failed: ${error}`
@@ -263,7 +332,6 @@ export const getExecutorToolkit = (account: Account) => {
         )}`;
       },
     }),
-
   };
 };
 
