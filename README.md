@@ -311,13 +311,148 @@ This example showcases how the AI agent can:
 - Execute STARK-verified transactions
 - Maintain optimal risk parameters
 
+## Technology Integrations
+
+### Atoma Network
+Atoma Network provides the foundational privacy-preserving infrastructure for our autonomous agents. The integration enables:
+
+- **Private Compute Layer**
+  - Secure execution of agent strategies without exposing user portfolio data
+  - Zero-knowledge proofs for transaction verification
+  - Private state management across multiple DeFi protocols
+
+- **Cross-Protocol Privacy**
+  - Encrypted communication between agents using Atoma's privacy primitives
+  - Secure aggregation of portfolio data across Sui ecosystem
+  - Private order execution on DEXes without exposing user strategies
+
+- **Atoma Sage Integration**
+  - AI-powered insights branded as "Powered by Atoma Sage"
+  - Natural language processing for strategy explanation
+  - Risk assessment and portfolio recommendations
+  - Real-time market analysis with privacy guarantees
+
+### Eliza Agent
+Eliza serves as our conversational AI interface, providing human-like interaction while coordinating with other specialized agents:
+
+- **Multi-Agent Orchestration**
+  ```typescript
+  // Eliza coordinates with other agents through event-driven architecture
+  class ElizaAgent extends BaseAgent {
+    async generateInsight({
+      position,
+      analysis,
+      tone,
+      powered_by
+    }) {
+      // Natural language generation with personality
+      // Coordination with other agents
+    }
+  }
+  ```
+
+- **Protocol-Specific Adapters**
+  - Navi Protocol integration for leveraged positions
+  - Bluefin interface for perpetual trading
+  - Cetus integration for liquidity provision
+  - Aftermath connection for DCA and staking
+
+- **User Interaction Layer**
+  - Casual, friendly communication style
+  - Complex strategy simplification
+  - Real-time position monitoring
+  - Risk alerts and notifications
+
+### Navi Protocol Integration
+Navi Protocol powers our leveraged yield strategies with deep integration:
+
+- **Position Management**
+  ```typescript
+  // Example of Navi position handling
+  interface NaviPosition {
+    asset: string;
+    leverage: number;
+    healthFactor: number;
+    liquidationPrice: number;
+    collateralFactor: number;
+  }
+  ```
+
+- **Risk Management**
+  - Real-time health factor monitoring
+  - Automated position adjustment
+  - Liquidation prevention strategies
+  - Collateral optimization
+
+- **Yield Strategies**
+  - Leveraged yield farming
+  - Auto-compounding positions
+  - APY optimization
+  - Gas-efficient rebalancing
+
+### Protocol Integrations
+
+#### Bluefin Integration
+- **Perpetual Trading**
+  - Leverage up to 3x
+  - Stop-loss and take-profit automation
+  - Funding rate optimization
+  - Risk-adjusted position sizing
+
+#### Cetus Integration
+- **Liquidity Management**
+  - Concentrated liquidity positions
+  - Range order optimization
+  - Impermanent loss protection
+  - Yield farming strategies
+
+#### Aftermath Integration
+- **DCA & Staking**
+  - Automated DCA execution
+  - afSUI staking management
+  - Yield optimization
+  - Gas-efficient order splitting
+
+### Agent Collaboration Architecture
+Our multi-agent system enables complex DeFi operations through specialized agents:
+
+```typescript
+interface AgentCollaboration {
+  observer: Observer;      // Monitors positions and market conditions
+  executor: Executor;      // Handles transaction execution
+  taskManager: TaskManager;// Coordinates multi-step operations
+  suiAgent: SuiAgent;     // SUI-specific operations
+  elizaAgent: ElizaAgent; // User interaction and strategy explanation
+}
+```
+
+Each agent is powered by Atoma Sage for:
+- Strategy formulation
+- Risk assessment
+- Market analysis
+- Natural language insights
+
+The system maintains privacy through:
+- Encrypted agent communication
+- Private state channels
+- Zero-knowledge proofs for verification
+- Secure multi-party computation for collaborative decisions
+
+### Integration Benefits
+1. **Privacy-First Architecture**
+   - User data protection
+   - Strategy confidentiality
+   - Secure multi-protocol interaction
+
+2. **Intelligent Automation**
+   - AI-powered decision making
+   - Autonomous position management
+   - Risk-aware execution
+
+3. **User Experience**
+   - Natural language interaction
+   - Real-time updates
+   - Simplified complex strategies
+   - Clear risk communication
 
 
-
-
-
-## 📄 License
-MIT
-
-## 🤝 Contributing
-Contributions are welcome! Please read our contributing guidelines before submitting PRs.
