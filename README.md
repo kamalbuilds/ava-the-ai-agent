@@ -302,7 +302,7 @@ Benefits:
 3. Cross-L2 interoperability
 4. Transparent on-chain analytics
 5. Automated risk management
-```
+
 
 This example showcases how the AI agent can:
 - Deploy and manage portfolios on Starknet
@@ -338,6 +338,7 @@ Eliza serves as our conversational AI interface, providing human-like interactio
 - **Multi-Agent Orchestration**
   ```typescript
   // Eliza coordinates with other agents through event-driven architecture
+
   class ElizaAgent extends BaseAgent {
     async generateInsight({
       position,
