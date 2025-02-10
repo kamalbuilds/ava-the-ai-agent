@@ -1,0 +1,45 @@
+{
+  "name": "@atoma-agents/sui-agent",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "format": "prettier --write \"src/**/*.{js,ts,json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{js,ts,json,md}\"",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cetus": "jest src/tests/cetus.test.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@cetusprotocol/cetus-sui-clmm-sdk": "^5.2.0",
+    "@mysten/sui": "1.1.0",
+    "aftermath-ts-sdk": "^1.2.49",
+    "atoma-sdk": "github:atoma-network/atoma-sdk-typescript",
+    "axios": "^1.7.9",
+    "bn.js": "^5.2.1",
+    "dotenv": "^16.4.7",
+    "mongoose": "^8.10.0",
+    "navi-sdk": "^1.4.24",
+    "typescript": "^5.7.3"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.1.6",
+    "@types/dotenv": "^8.2.0",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.19",
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.4.2",
+    "ts-jest": "^29.1.2"
+  }
+}
