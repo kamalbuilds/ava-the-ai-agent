@@ -1,6 +1,6 @@
-import { AtomaSDK } from "atoma-ts-sdk";
+import { AtomaSDK } from "atoma-sdk";
 import type { AIProvider, AIResponse } from "../types";
-import type { CompletionUsage } from "atoma-ts-sdk/models/components/completionusage";
+import type { CompletionUsage } from "atoma-sdk/models/components/completionusage";
 
 export class AtomaProvider implements AIProvider {
   private sdk: AtomaSDK;

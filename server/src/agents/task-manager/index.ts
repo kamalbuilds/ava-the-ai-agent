@@ -33,7 +33,7 @@ export class TaskManagerAgent extends Agent {
   constructor(eventBus: EventBus, aiProvider: AIProvider) {
     super("task-manager", eventBus, aiProvider);
     this.tasks = new Map();
-    this.tools = getTaskManagerToolkit();
+    this.tools = getTaskManagerToolkit(eventBus);
     this.setupEventHandlers();
   }
 
