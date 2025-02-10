@@ -760,10 +760,10 @@ export default function Home() {
         </div>
 
         {/* Center - Chat Interface */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col bg-[#0A192F]">
           {/* Messages Container */}
           <div 
-            className="flex-1 overflow-y-auto p-4 custom-scrollbar"
+            className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#0A192F"
             style={{ 
               height: 'calc(100vh - 280px)',
               maxHeight: 'calc(100vh - 280px)'
@@ -829,11 +829,11 @@ export default function Home() {
           </div>
 
           {/* Input Form */}
-          <div className="border-t border-white/10 bg-black/20 backdrop-blur-sm">
+          <div className="border-t border-white/10">
             <form onSubmit={handleSubmit} className="p-4">
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-end gap-2">
-                  <label className="text-sm text-gray-600">Autonomous Mode</label>
+                  <label className="text-sm text-gray-400">Autonomous Mode</label>
                   <Switch
                     checked={autonomousMode}
                     onCheckedChange={setAutonomousMode}
@@ -845,7 +845,7 @@ export default function Home() {
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    className="flex-1 rounded-lg border p-2"
+                    className="flex-1 rounded-lg border border-white/10 bg-black/20 p-2 text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Type your message..."
                   />
                   <Button type="submit" disabled={agentState.isProcessing}>
@@ -856,26 +856,24 @@ export default function Home() {
             </form>
             
             {/* Sample Prompts Section */}
-            <div className="mt-4 flex flex-wrap gap-2 justify-center items-center">
+            <div className="flex flex-wrap gap-2 mb-4 p-4">
               {visiblePrompts.map((prompt, index) => (
                 <button
                   key={index}
                   onClick={() => handlePromptClick(prompt.text)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#2A2A2A] hover:bg-[#3A3A3A] text-gray-300 text-sm transition-colors duration-200"
+                  className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
                 >
                   <span>{prompt.icon}</span>
                   <span>{prompt.text}</span>
                 </button>
               ))}
-              {!showAllPrompts && (
-                <button
-                  onClick={() => setShowAllPrompts(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#2A2A2A] hover:bg-[#3A3A3A] text-gray-300 text-sm transition-colors duration-200"
-                >
-                  <span>🔽</span>
-                  <span>More</span>
-                </button>
-              )}
+              <button
+                onClick={() => setShowAllPrompts(!showAllPrompts)}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
+              >
+                <span>ℹ️</span>
+                <span>{showAllPrompts ? 'Less' : 'More'}</span>
+              </button>
             </div>
           </div>
         </div>
