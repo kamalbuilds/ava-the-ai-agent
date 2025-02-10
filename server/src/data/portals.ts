@@ -43,7 +43,7 @@ export const getMarketData = async (
 ) => {
   const fetchTokenData = async (search: string, minLiquidity: number) => {
     const url = `https://api.portals.fi/v2/tokens?networks=${env.CHAIN_NAME}&minLiquidity=${minLiquidity}&minApy=${minApy}&maxApy=${maxApy}&search=${search}`;
-    console.log("======== fetchTokenData =========");
+    console.log("======== fetchTokenData =========", url);
     const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
@@ -51,6 +51,7 @@ export const getMarketData = async (
       },
     });
     
+    console.log("response from portals api", response.json());
     return response.json();
   };
 

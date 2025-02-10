@@ -20,15 +20,19 @@ type CollaborationType =
   | "question"
   | "response"
   | "suggestion"
-  | "decision";
+  | "decision"
+  | "simulation"
+  | "transaction"
+  | "tool-result"
+  | "handoff"
+  | "task-creation";
 
 interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: string;
-  agentId?: string;
-  agentName?: string;
-  collaborationType?: CollaborationType;
+  agentName?: string | undefined;
+  collaborationType?: CollaborationType | undefined;
 }
 
 interface AgentState {
@@ -93,6 +97,26 @@ const deduplicateMessages = (messages: Message[]): Message[] => {
   });
 };
 
+// Add this interface at the top with other interfaces
+interface SystemEvent {
+  timestamp: string;
+  event: string;
+  agent?: string | undefined;
+  type: "info" | "warning" | "error" | "success";
+}
+
+interface AgentMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp?: string;
+  agentName?: string;
+  collaborationType?: CollaborationType;
+  type?: string;
+  action?: string;
+  event?: string;
+  eventType?: "info" | "warning" | "error" | "success";
+}
+
 export default function Home() {
   const { settings } = useSettingsStore();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -119,8 +143,6 @@ export default function Home() {
 
   const handlePromptClick = (promptText: string) => {
     setInput(promptText);
-    handleMessage(promptText);
-    setInput("");
   };
 
   const handleSubmit = (e?: React.FormEvent) => {
@@ -199,7 +221,7 @@ export default function Home() {
           {
             role: "assistant",
             content:
-              "Hello! I'm Ava, your AI portfolio manager. I can help you manage your DeFi portfolio on Avalanche. What would you like to do?",
+              "Hello! I'm Ava, your AI portfolio manager. I can help you manage your DeFi portfolio across multiple chains. What would you like to do?",
             timestamp: new Date().toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
@@ -487,11 +509,6 @@ export default function Home() {
       ]);
     } else {
       // Handle regular chat mode
-      setMessages(prev => [...prev, {
-        role: 'user',
-        content: message,
-        timestamp: new Date().toLocaleTimeString()
-      }]);
       // Check if this is an example query
       if (message in EXAMPLE_RESPONSES) {
         addSystemEvent({
@@ -661,55 +678,55 @@ export default function Home() {
     const eventBus = new WebSocketEventBus();
     setWsEventBus(eventBus);
 
-    // Subscribe to agent messages with improved deduplication
-    eventBus.subscribe('agent-message', (data) => {
+    // Subscribe to agent messages
+    eventBus.subscribe('agent-message', (data: AgentMessage) => {
+      const newMessage: Message = {
+        role: data.role,
+        content: data.content,
+        timestamp: data.timestamp || new Date().toLocaleTimeString(),
+        agentName: data.agentName,
+        collaborationType: data.collaborationType
+      };
+
       setMessages(prev => {
-        const newMessage = {
-          role: data.role,
-          content: data.content,
-          timestamp: data.timestamp,
-          agentName: data.agentName,
-          collaborationType: data.collaborationType
-        };
         const updatedMessages = [...prev, newMessage];
         return deduplicateMessages(updatedMessages);
       });
     });
 
-    // Subscribe to agent events with deduplication
-    const seenEvents = new Set<string>();
-    
-    eventBus.subscribe('agent-event', (data) => {
-      const eventKey = `${data.timestamp}-${data.action}`;
-      if (seenEvents.has(eventKey)) return;
-      
-      seenEvents.add(eventKey);
+    // Subscribe to system events
+    eventBus.subscribe('agent-event', (data: AgentMessage) => {
+      const newEvent: SystemEvent = {
+        timestamp: data.timestamp || new Date().toLocaleTimeString(),
+        event: data.action || data.event || '',
+        agent: data.agentName,
+        type: data.eventType || 'info'
+      };
+
       setAgentState(prev => ({
         ...prev,
-        systemEvents: [...prev.systemEvents, {
-          timestamp: data.timestamp,
-          event: data.action,
-          agent: data.agent,
-          type: data.eventType
-        }]
+        systemEvents: [...prev.systemEvents, newEvent]
       }));
     });
 
     // Subscribe to executor responses
-    eventBus.subscribe('executor-response', (data) => {
-      setMessages(prev => [...prev, {
+    eventBus.subscribe('executor-response', (data: { report?: string; result?: string }) => {
+      const newMessage: Message = {
         role: 'assistant',
-        content: data.report || data.result,
+        content: data.report || data.result || '',
         timestamp: new Date().toLocaleTimeString(),
-        agentName: 'executor',
+        agentName: 'Executor',
         collaborationType: 'execution'
-      }]);
+      };
+
+      setMessages(prev => {
+        const updatedMessages = [...prev, newMessage];
+        return deduplicateMessages(updatedMessages);
+      });
     });
 
     return () => {
-      eventBus.unsubscribe('agent-message', () => {});
-      eventBus.unsubscribe('agent-event', () => {});
-      eventBus.unsubscribe('executor-response', () => {});
+      eventBus.disconnect();
     };
   }, []);
 
@@ -760,10 +777,10 @@ export default function Home() {
         </div>
 
         {/* Center - Chat Interface */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col bg-[#0A192F]">
           {/* Messages Container */}
           <div 
-            className="flex-1 overflow-y-auto p-4 custom-scrollbar"
+            className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#0A192F"
             style={{ 
               height: 'calc(100vh - 280px)',
               maxHeight: 'calc(100vh - 280px)'
@@ -771,18 +788,18 @@ export default function Home() {
           >
             {messages.map((message, index) => (
               <div
-                key={index}
-                className={`mb-4 flex ${message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
+                key={`${message.timestamp}-${index}`}
+                className={`mb-4 flex ${
+                  message.role === "user" ? "justify-end" : "justify-start"
+                }`}
               >
                 <div
-                  className={`flex items-start max-w-[80%] ${message.role === "user" ? "flex-row-reverse" : "flex-row"
-                    }`}
+                  className={`flex items-start max-w-[80%] ${
+                    message.role === "user" ? "flex-row-reverse" : "flex-row"
+                  }`}
                 >
                   {/* Agent/User Icon */}
-                  <div
-                    className={`flex-shrink-0 ${message.role === "user" ? "ml-2" : "mr-2"}`}
-                  >
+                  <div className={`flex-shrink-0 ${message.role === "user" ? "ml-2" : "mr-2"}`}>
                     {message.role === "user" ? (
                       <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
                         <User className="w-5 h-5 text-white" />
@@ -800,21 +817,19 @@ export default function Home() {
                   </div>
 
                   {/* Message Content */}
-                  <div
-                    className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
-                  >
+                  <div className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}>
                     {message.agentName && (
                       <span className="text-xs font-medium text-gray-500 mb-1">
                         {message.agentName}
-                        {message.collaborationType &&
-                          ` • ${message.collaborationType}`}
+                        {message.collaborationType && ` • ${message.collaborationType}`}
                       </span>
                     )}
                     <div
-                      className={`p-3 rounded-lg ${message.role === "user"
-                        ? "bg-blue-500 text-white"
-                        : "bg-gray-100 text-gray-900"
-                        }`}
+                      className={`p-3 rounded-lg ${
+                        message.role === "user"
+                          ? "bg-blue-500 text-white"
+                          : "bg-gray-100 text-gray-900"
+                      }`}
                     >
                       {message.content}
                     </div>
@@ -829,11 +844,11 @@ export default function Home() {
           </div>
 
           {/* Input Form */}
-          <div className="border-t border-white/10 bg-black/20 backdrop-blur-sm">
+          <div className="border-t border-white/10">
             <form onSubmit={handleSubmit} className="p-4">
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-end gap-2">
-                  <label className="text-sm text-gray-600">Autonomous Mode</label>
+                  <label className="text-sm text-gray-400">Autonomous Mode</label>
                   <Switch
                     checked={autonomousMode}
                     onCheckedChange={setAutonomousMode}
@@ -845,7 +860,7 @@ export default function Home() {
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    className="flex-1 rounded-lg border p-2"
+                    className="flex-1 rounded-lg border border-white/10 bg-black/20 p-2 text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Type your message..."
                   />
                   <Button type="submit" disabled={agentState.isProcessing}>
@@ -856,26 +871,24 @@ export default function Home() {
             </form>
             
             {/* Sample Prompts Section */}
-            <div className="mt-4 flex flex-wrap gap-2 justify-center items-center">
+            <div className="flex flex-wrap gap-2 mb-4 p-4">
               {visiblePrompts.map((prompt, index) => (
                 <button
                   key={index}
                   onClick={() => handlePromptClick(prompt.text)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#2A2A2A] hover:bg-[#3A3A3A] text-gray-300 text-sm transition-colors duration-200"
+                  className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
                 >
                   <span>{prompt.icon}</span>
                   <span>{prompt.text}</span>
                 </button>
               ))}
-              {!showAllPrompts && (
-                <button
-                  onClick={() => setShowAllPrompts(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#2A2A2A] hover:bg-[#3A3A3A] text-gray-300 text-sm transition-colors duration-200"
-                >
-                  <span>🔽</span>
-                  <span>More</span>
-                </button>
-              )}
+              <button
+                onClick={() => setShowAllPrompts(!showAllPrompts)}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
+              >
+                <span>ℹ️</span>
+                <span>{showAllPrompts ? 'Less' : 'More'}</span>
+              </button>
             </div>
           </div>
         </div>

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { tool } from "ai";
 import type { Hex } from "viem";
 import { getAccountBalances, getMarketData } from "../../data";
@@ -6,32 +5,42 @@ import { z } from "zod";
 import { retrievePastReports } from "../../memory";
 import { CookieApiService } from "../../services/cookie-api";
 
-export interface Tool {
-  execute: (args: Record<string, any>) => Promise<any>;
+// Updated Tool interface to match AI SDK requirements
+export interface Tool<TParams = any, TResult = any> {
   parameters: z.ZodObject<any>;
+  execute: (args: TParams, options?: ToolExecutionOptions) => Promise<TResult>;
   description: string;
+}
+
+// Type for tool execution options
+interface ToolExecutionOptions {
+  toolCallId?: string;
+  messages?: any[];
+  severity?: 'info' | 'warning' | 'error';
+}
+
+// Type for tool result
+interface ToolResult {
+  success: boolean;
+  result: any;
+  error?: string;
 }
 
 export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
   const cookieApi = new CookieApiService();
   console.log("observer addr", address);
   return {
-    getPastReports: tool({
-      description:
-        "A tool that returns the past reports that contain information about previously executed actions.",
+    getPastReports: {
+      description: "A tool that returns the past reports that contain information about previously executed actions.",
       parameters: z.object({
-        question: z
-          .string()
-          .describe(
-            "The question to retrieve past reports for. If you are thinking about performing operations with USDC for example, you could generate a question to ask to your memory."
-          ),
+        question: z.string().describe(
+          "The question to retrieve past reports for. If you are thinking about performing operations with USDC for example, you could generate a question to ask to your memory."
+        ),
       }),
-      execute: async ({ question }) => {
+      execute: async (args: { question: string }, options?: ToolExecutionOptions) => {
         console.log("======== getPastReports Tool =========");
-        console.log(
-          `[getPastReports] retrieving past reports with question: ${question}`
-        );
-        const reports = await retrievePastReports(question);
+        console.log(`[getPastReports] retrieving past reports with question: ${args.question}`);
+        const reports = await retrievePastReports(args.question);
 
         if (!reports || reports.length === 0) {
           return "No past reports found. This is ok, it means that you're thinking about a new operation.";
@@ -46,15 +55,13 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
           )
           .join("\n");
       },
-    }),
-    getWalletBalances: tool({
+    },
+    getWalletBalances: {
       description: "A tool that returns the current balances of your wallet.",
       parameters: z.object({}),
-      execute: async () => {
+      execute: async (options?: ToolExecutionOptions) => {
         console.log("======== getWalletBalances Tool =========");
-        console.log(
-          `[getWalletBalances] fetching token balances for ${address}...`
-        );
+        console.log(`[getWalletBalances] fetching token balances for ${address}...`);
         const { balances } = await getAccountBalances(address);
 
         console.log(`[getWalletBalances] balances fetched: ${balances}`);
@@ -88,12 +95,11 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
         console.log(`[getWalletBalances] balances fetched correctly.`);
         return `This is the current status of the wallet with address ${address}:\nTokens:\n${tokenBalances}\nOpen positions:\n${formattedBalances}`;
       },
-    }),
-    getMarketData: tool({
-      description:
-        "A tool that returns the current market data for USDC and EURC.",
+    },
+    getMarketData: {
+      description: "A tool that returns the current market data for USDC and EURC.",
       parameters: z.object({}),
-      execute: async () => {
+      execute: async (options?: ToolExecutionOptions) => {
         console.log("======== getMarketData Tool =========");
         console.log(`[getMarketData] fetching market data...`);
         const marketData = await getMarketData();
@@ -117,11 +123,11 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
         console.log(`[getMarketData] market data fetched correctly.`);
         return `These are the current market opportunities:\n\nUSDC Opportunities:\n${usdcFormatted}\n\nEURC Opportunities:\n${eurcFormatted}`;
       },
-    }),
-    getCurrentEurUsdRate: tool({
+    },
+    getCurrentEurUsdRate: {
       description: "A tool that returns the current EUR/USD exchange rate.",
       parameters: z.object({}),
-      execute: async () => {
+      execute: async (options?: ToolExecutionOptions) => {
         console.log("======== getCurrentEurUsdRate Tool =========");
         console.log(`[getCurrentEurUsdRate] fetching EUR/USD rate...`);
 
@@ -132,42 +138,32 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
           const data = await response.json();
           const rate = data.rates.USD;
 
-          console.log(
-            `[getCurrentEurUsdRate] rate fetched successfully: ${rate}`
-          );
+          console.log(`[getCurrentEurUsdRate] rate fetched successfully: ${rate}`);
           return `Current EUR/USD exchange rate: 1 EUR = ${rate} USD (as of ${data.date})`;
         } catch (error: unknown) {
-          const errorMessage =
-            error instanceof Error ? error.message : "Unknown error";
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
           return `Error fetching EUR/USD rate: ${errorMessage}`;
         }
       },
-    }),
-    noFurtherActionsTool: tool({
-      description:
-        "A tool that you decide to use when no further actions are needed.",
+    },
+    noFurtherActionsTool: {
+      description: "A tool that you decide to use when no further actions are needed.",
       parameters: z.object({
-        reason: z
-          .string()
-          .describe("The reason why no further actions are needed."),
-        waitTime: z
-          .number()
-          .describe(
-            "The time to wait before executing the next action. This number must be logical to the operations you've done."
-          ),
+        reason: z.string().describe("The reason why no further actions are needed."),
+        waitTime: z.number().describe(
+          "The time to wait before executing the next action. This number must be logical to the operations you've done."
+        ),
       }),
-    }),
-    getPortfolioActivityCrossChain: tool({
-      description:
-        "A tool that will give activity of the wallet Address/portfolio acorss all the different chains",
+      execute: async (args: { reason: string; waitTime: number }, options?: ToolExecutionOptions) => {
+        return { reason: args.reason, waitTime: args.waitTime };
+      },
+    },
+    getPortfolioActivityCrossChain: {
+      description: "A tool that will give activity of the wallet Address/portfolio across all the different chains",
       parameters: z.object({}),
-      execute: async () => {
-        console.log(
-          "======== Getting Portfolio Activity Cross Chains ========="
-        );
-        console.log(
-          `[getPortfolioActivityCrossChain] fetching cross chain portfolio activity for: ${address}...`
-        );
+      execute: async (options?: ToolExecutionOptions) => {
+        console.log("======== Getting Portfolio Activity Cross Chains =========");
+        console.log(`[getPortfolioActivityCrossChain] fetching cross chain portfolio activity for: ${address}...`);
 
         try {
           const response = await fetch(
@@ -176,24 +172,17 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
           console.log("Activity fetched >>>", response);
 
           const data = await response.json();
-
           const activityItems = data.data.items;
 
-          return `
-        Sucessfully fetched the data from all the chains for the wallet address: ${address}. Got ${activityItems.length} of the data and the data is an array of objects: ${activityItems}
-        `;
+          return `Successfully fetched the data from all the chains for the wallet address: ${address}. Got ${activityItems.length} of the data and the data is an array of objects: ${activityItems}`;
         } catch (error) {
           console.log("Error in fetching data", error);
-          return `
-        Error in getting data for this wallet address: ${error}
-        `;
+          return `Error in getting data for this wallet address: ${error}`;
         }
       },
-    }),
-    getTokenBalanceForAddress: tool({
-      description: `A tool that will get the multi chain balance for the wallet address. Users must specify: 
-        - chainName: chain Name of the chain on which balance needs to be fetched
-        `,
+    },
+    getTokenBalanceForAddress: {
+      description: "A tool that will get the multi chain balance for the wallet address.",
       parameters: z.object({
         chainName: z.enum([
           "eth",
@@ -203,40 +192,38 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
           "btc",
           "solana",
           "mantle",
-        ]), // Updated to use z.enum for custom type
+        ]),
       }),
-      execute: async ({ chainName }) => {
+      execute: async (args: { chainName: string }, options?: ToolExecutionOptions) => {
         console.log("======== Getting Token balance for the address =========");
-        console.log(
-          `[getTokenBalanceForAddress] fetching token balance for address: ${address} on chain: ${chainName}...`
-        );
+        console.log(`[getTokenBalanceForAddress] fetching token balance for address: ${address} on chain: ${args.chainName}...`);
 
         try {
           const res = await fetch(
-            `https://api.covalenthq.com/v1/${chainName}-mainnet/address/${address}/balances_v2/`
+            `https://api.covalenthq.com/v1/${args.chainName}-mainnet/address/${address}/balances_v2/`
           );
           const data = await res.json();
-
           const items = data.data.items;
-          return `
-          Sucessfully fetched the data from all the chains for the wallet address: ${address}. Got ${items.length} of the data and the data is an array of objects: ${items}
-          `;
+          
+          return `Successfully fetched the data from all the chains for the wallet address: ${address}. Got ${items.length} of the data and the data is an array of objects: ${items}`;
         } catch (error) {
           console.log("[getTokenBalanceForAddress]: Error", error);
-          return `
-          Error in getting token balance for the wallet address: ${error}
-          `;
+          return `Error in getting token balance for the wallet address: ${error}`;
         }
       },
-    }),
-    getCookieAgentData: tool({
+    },
+    getCookieAgentData: {
       description: "Get detailed metrics about specific AI agents",
       parameters: z.object({
         twitterUsername: z.string().optional(),
         contractAddress: z.string().optional(),
         interval: z.enum(['_3Days', '_7Days']).default('_7Days')
       }),
-      execute: async (args) => {
+      execute: async (args: { 
+        twitterUsername?: string; 
+        contractAddress?: string; 
+        interval: '_3Days' | '_7Days' 
+      }, options?: ToolExecutionOptions): Promise<ToolResult> => {
         console.log("======== Getting Cookie Agent Data =========");
 
         try {
@@ -247,50 +234,58 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
             const data = await cookieApi.getAgentByContract(args.contractAddress, args.interval);
             return { success: true, result: data };
           }
-          return { success: false, error: "Please provide either twitterUsername or contractAddress" };
+          return { success: false, error: "Please provide either twitterUsername or contractAddress", result: null };
         } catch (error) {
           console.error("Error fetching Cookie agent data:", error);
-          return { success: false, error: `Error fetching agent data: ${error}` };
+          return { success: false, error: `Error fetching agent data: ${error}`, result: null };
         }
       }
-    }),
-    searchCookieTweets: tool({
+    },
+    searchCookieTweets: {
       description: "Search tweets using Cookie API",
       parameters: z.object({
         query: z.string().describe("Search query"),
         fromDate: z.string().describe("Start date (YYYY-MM-DD)"),
         toDate: z.string().describe("End date (YYYY-MM-DD)")
       }),
-      execute: async ({ query, fromDate, toDate }) => {
+      execute: async (args: { 
+        query: string; 
+        fromDate: string; 
+        toDate: string 
+      }, options?: ToolExecutionOptions): Promise<ToolResult> => {
         console.log("======== Searching Cookie Tweets =========");
 
         try {
-          const data = await cookieApi.searchTweets(query, fromDate, toDate);
+          const data = await cookieApi.searchTweets(args.query, args.fromDate, args.toDate);
           return { success: true, result: data };
         } catch (error) {
           console.error("Error searching tweets:", error);
-          return { success: false, error: `Error searching tweets: ${error}` };
+          return { success: false, error: `Error searching tweets: ${error}`, result: null };
         }
       }
-    }),
-    getTopAgents: tool({
+    },
+    getTopAgents: {
       description: "Get list of top AI agents by mindshare",
       parameters: z.object({
         interval: z.enum(['_3Days', '_7Days']).default('_7Days'),
         page: z.number().min(1).default(1),
         pageSize: z.number().min(1).max(25).default(10)
       }),
-      execute: async ({ interval, page, pageSize }) => {
+      execute: async (args: {
+        interval: '_3Days' | '_7Days';
+        page: number;
+        pageSize: number;
+      }, options?: ToolExecutionOptions): Promise<ToolResult> => {
         console.log("======== Getting Top Agents =========");
 
         try {
-          const data = await cookieApi.getAgentsPaged(interval, page, pageSize);
+          const data = await cookieApi.getAgentsPaged(args.interval, args.page, args.pageSize);
           return { success: true, result: data };
         } catch (error) {
           console.error("Error fetching top agents:", error);
-          return { success: false, error: `Error fetching top agents: ${error}` };
+          return { success: false, error: `Error fetching top agents: ${error}`, result: null };
         }
       }
-    })
+    }
   };
 };
