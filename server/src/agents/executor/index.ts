@@ -7,6 +7,9 @@ import { getExecutorSystemPrompt } from "../../system-prompts";
 import { saveThought } from "../../memory";
 import type { Account } from "viem";
 
+// Task types
+type TaskType = 'defi_execution' | 'observation' | 'analysis' | 'unknown';
+
 export class ExecutorAgent extends Agent {
   private account: Account;
 
@@ -18,12 +21,12 @@ export class ExecutorAgent extends Agent {
 
   private setupEventHandlers(): void {
     // Listen for task manager events
-    this.eventBus.on(`task-manager-${this.name}`, async (data) => {
+    this.eventBus.on('task-manager-executor', async (data) => {
       console.log(`[${this.name}] Received task from task-manager:`, data);
       try {
         await this.handleTaskManagerEvent(data);
       } catch (error) {
-        console.error(`[${this.name}] Error handling task-manager event:`, error);
+        console.error(`[${this.name}] Error handling task:`, error);
         this.eventBus.emit('agent-error', {
           agent: this.name,
           error: error instanceof Error ? error.message : 'Unknown error'
@@ -32,111 +35,183 @@ export class ExecutorAgent extends Agent {
     });
   }
 
+  private determineTaskType(task: string): TaskType {
+    // Keywords that indicate a DeFi execution task
+    const defiKeywords = [
+      'swap', 'bridge', 'transfer', 'send', 'buy', 'sell',
+      'deposit', 'withdraw', 'stake', 'unstake', 'provide liquidity',
+      'remove liquidity', 'borrow', 'repay', 'leverage', 'long', 'short'
+    ];
+
+    // Keywords that indicate an observation task
+    const observationKeywords = [
+      'monitor', 'check', 'analyze', 'observe', 'track',
+      'get market data', 'get price', 'get balance', 'fetch',
+      'retrieve', 'watch', 'review'
+    ];
+
+    // Check if task contains DeFi execution keywords
+    if (defiKeywords.some(keyword => task.toLowerCase().includes(keyword))) {
+      return 'defi_execution';
+    }
+
+    // Check if task contains observation keywords
+    if (observationKeywords.some(keyword => task.toLowerCase().includes(keyword))) {
+      return 'observation';
+    }
+
+    // If task contains analysis-related terms
+    if (task.toLowerCase().includes('analysis') || task.toLowerCase().includes('report')) {
+      return 'analysis';
+    }
+
+    return 'unknown';
+  }
+
   async handleEvent(event: string, data: any): Promise<void> {
-    switch (event) {
-      case `task-manager-${this.name}`:
-        return this.handleTaskManagerEvent(data);
+    try {
+      switch (event) {
+        case 'task-manager-executor':
+          return this.handleTaskManagerEvent(data);
+        default:
+          console.log(`[${this.name}] Unhandled event: ${event}`);
+      }
+    } catch (error) {
+      console.error(`[${this.name}] Error in handleEvent:`, error);
+      this.eventBus.emit('agent-error', {
+        agent: this.name,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 
   private async handleTaskManagerEvent(data: any): Promise<void> {
     try {
       console.log(`[${this.name}] ========== Starting Task Execution ==========`);
-      console.log(`[${this.name}] Received task from task-manager: ${data.result}`);
+      console.log(`[${this.name}] Processing task:`, data);
 
-      const executorTools = getExecutorToolkit(this.account);
-      
-      // First simulate the tasks
-      console.log(`[${this.name}] Simulating tasks...`);
-      const simulationResult = await executorTools.simulateTasks.execute({}, {
-        toolCallId: `simulation-${data.taskId}`,
-        messages: [],
-        severity: 'info'
-      });
-      console.log(`[${this.name}] Simulation result:`, simulationResult);
-      
-      if (simulationResult.success) {
-        this.eventBus.emit('agent-message', {
-          role: 'assistant',
-          content: `Task Simulation:\n${simulationResult.result}`,
-          timestamp: new Date().toLocaleTimeString(),
-          agentName: this.name,
-          collaborationType: 'simulation'
-        });
-      } else {
-        console.error(`[${this.name}] Simulation failed:`, simulationResult.error);
-        throw new Error(simulationResult.error);
+      if (!data.taskId || !data.task) {
+        throw new Error('Invalid task data: missing taskId or task');
       }
 
-      // Then get transaction data
-      console.log(`[${this.name}] Getting transaction data...`);
-      const transactionResult = await executorTools.getTransactionData.execute({
-        tasks: [{
-          task: data.result,
-          taskId: data.taskId
-        }]
-      }, {
-        toolCallId: `transaction-${data.taskId}`,
-        messages: [],
-        severity: 'info'
-      });
-      console.log(`[${this.name}] Transaction data:`, transactionResult);
-      
-      if (transactionResult.success && transactionResult.result) {
-        this.eventBus.emit('agent-message', {
-          role: 'assistant',
-          content: `Transaction Data:\n${JSON.stringify(transactionResult.result, null, 2)}`,
-          timestamp: new Date().toLocaleTimeString(),
-          agentName: this.name,
-          collaborationType: 'transaction'
-        });
+      // Determine task type
+      const taskType = this.determineTaskType(data.task);
+      console.log(`[${this.name}] Determined task type: ${taskType}`);
 
-        // Finally execute the transaction
-        if (transactionResult.result.length > 0) {
-          console.log(`[${this.name}] Executing transaction...`);
-          const executionResult = await executorTools.executeTransaction.execute({
-            task: data.result,
-            taskId: transactionResult.result[0].taskId
-          }, {
-            toolCallId: `execution-${data.taskId}`,
-            messages: [],
-            severity: 'info'
-          });
-          console.log(`[${this.name}] Execution result:`, executionResult);
+      // System event for task start
+      this.eventBus.emit('agent-action', {
+        agent: this.name,
+        action: `Starting execution of task: ${data.taskId} (Type: ${taskType})`
+      });
+
+      // Handle task based on type
+      switch (taskType) {
+        case 'defi_execution': {
+          const executorTools = getExecutorToolkit(this.account);
           
-          if (executionResult.success) {
+          // Process DeFi execution task
+          console.log(`[${this.name}] Processing DeFi execution task...`);
+          
+          const storeResult = await executorTools.getTransactionData.execute({
+            tasks: [{
+              task: data.task,
+              taskId: data.taskId
+            }]
+          });
+
+          if (!storeResult.success) {
+            throw new Error(`Failed to process DeFi task: ${storeResult.error}`);
+          }
+
+          // Simulate the transaction
+          const simulationResult = await executorTools.simulateTasks.execute({});
+          
+          if (simulationResult.success) {
+            // Emit simulation result
             this.eventBus.emit('agent-message', {
               role: 'assistant',
-              content: executionResult.result,
+              content: `DeFi Task Simulation:\n${JSON.stringify(simulationResult.result, null, 2)}`,
               timestamp: new Date().toLocaleTimeString(),
               agentName: this.name,
-              collaborationType: 'execution'
+              collaborationType: 'simulation'
+            });
+
+            // Send result back to task manager
+            this.eventBus.emit('executor-task-manager', {
+              taskId: data.taskId,
+              result: simulationResult.result,
+              status: 'completed',
+              timestamp: new Date().toISOString()
             });
           } else {
-            console.error(`[${this.name}] Execution failed:`, executionResult.error);
-            throw new Error(executionResult.error);
+            throw new Error(simulationResult.error || 'Simulation failed');
           }
+          break;
         }
-      } else {
-        console.error(`[${this.name}] Transaction data failed:`, transactionResult.error);
-        throw new Error(transactionResult.error);
+
+        case 'observation': {
+          // Route observation tasks back to task manager for observer
+          console.log(`[${this.name}] Routing observation task to observer...`);
+          this.eventBus.emit('executor-task-manager', {
+            taskId: data.taskId,
+            result: 'Task requires observation. Routing to observer.',
+            status: 'routing',
+            type: 'observation',
+            timestamp: new Date().toISOString()
+          });
+          break;
+        }
+
+        case 'analysis': {
+          // Route analysis tasks back to task manager
+          console.log(`[${this.name}] Routing analysis task to task manager...`);
+          this.eventBus.emit('executor-task-manager', {
+            taskId: data.taskId,
+            result: 'Task requires analysis. Routing back to task manager.',
+            status: 'routing',
+            type: 'analysis',
+            timestamp: new Date().toISOString()
+          });
+          break;
+        }
+
+        default: {
+          // For unknown task types, route back to task manager for clarification
+          console.log(`[${this.name}] Unknown task type. Routing back to task manager...`);
+          this.eventBus.emit('executor-task-manager', {
+            taskId: data.taskId,
+            result: 'Task type unclear. Please clarify the required action.',
+            status: 'routing',
+            type: 'unknown',
+            timestamp: new Date().toISOString()
+          });
+        }
       }
-
-      console.log(`[${this.name}] ========== Task Execution Complete ==========`);
-
-      // Send final result back to task manager
-      this.eventBus.emit(`${this.name}-task-manager`, {
-        result: 'Task execution completed successfully',
-        report: data.report,
-        status: 'completed'
-      });
 
     } catch (error) {
       console.error(`[${this.name}] Error in handleTaskManagerEvent:`, error);
-      this.eventBus.emit(`${this.name}-task-manager`, {
-        result: `Error executing task: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        report: data.report,
-        status: 'failed'
+      
+      // Send error back to task manager
+      this.eventBus.emit('executor-task-manager', {
+        taskId: data.taskId,
+        result: error instanceof Error ? error.message : 'Unknown error',
+        status: 'failed',
+        timestamp: new Date().toISOString()
+      });
+
+      // System event for task failure
+      this.eventBus.emit('agent-action', {
+        agent: this.name,
+        action: `Failed to execute task: ${data.taskId}`
+      });
+
+      // Emit error message
+      this.eventBus.emit('agent-message', {
+        role: 'assistant',
+        content: `Failed to execute task: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timestamp: new Date().toLocaleTimeString(),
+        agentName: this.name,
+        collaborationType: 'error'
       });
     }
   }

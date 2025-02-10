@@ -93,7 +93,25 @@ export class TaskManagerAgent extends Agent {
               });
             }
 
-            // Process the analysis
+            // Handle partial data case
+            if (data.status === 'partial' || data.partialData) {
+              console.log(`[${this.name}] Received partial data for task: ${taskId}`);
+              
+              // Update task status
+              task.status = 'processing';
+              this.tasks.set(taskId, task);
+
+              // Emit status message
+              this.eventBus.emit('agent-message', {
+                role: 'assistant',
+                content: `Received partial data. Some tools failed but continuing with available information.`,
+                timestamp: new Date().toLocaleTimeString(),
+                agentName: this.name,
+                collaborationType: 'status'
+              });
+            }
+
+            // Process the analysis regardless of partial data
             console.log(`[${this.name}] Processing analysis to generate actions`);
             const processedTask = await this.processAnalysis(task);
 
@@ -131,10 +149,17 @@ export class TaskManagerAgent extends Agent {
                 collaborationType: 'handoff'
               });
 
-              this.eventBus.emit(`${this.name}-executor`, {
+              // Update task status
+              task.status = 'processing';
+              this.tasks.set(taskId, task);
+
+              // Forward to executor with proper format
+              this.eventBus.emit('task-manager-executor', {
                 taskId,
                 task: processedTask,
-                type: 'execute'
+                type: 'execute',
+                timestamp: new Date().toISOString(),
+                partialData: data.partialData || data.status === 'partial'
               });
             }
           }
@@ -148,12 +173,29 @@ export class TaskManagerAgent extends Agent {
         default:
           console.log(`[${this.name}] Unhandled event: ${event}`);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`[${this.name}] Error handling event:`, error);
       this.eventBus.emit('agent-error', {
         agent: this.name,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
+
+      // Try to continue processing even if there's an error
+      if (data?.taskId) {
+        const task = this.tasks.get(data.taskId);
+        if (task) {
+          task.status = 'processing';
+          this.tasks.set(data.taskId, task);
+          
+          // Request a retry from observer
+          this.eventBus.emit('task-manager-observer', {
+            taskId: data.taskId,
+            task: task.task,
+            type: 'analyze',
+            isRetry: true
+          });
+        }
+      }
     }
   }
 
@@ -367,28 +409,135 @@ export class TaskManagerAgent extends Agent {
     }
   }
 
-  private async handleExecutorResult(data: {
-    taskId: string;
-    result: string;
-    status: 'completed' | 'failed';
-  }): Promise<void> {
+  private async handleExecutorResult(data: any): Promise<void> {
     try {
+      console.log(`[${this.name}] Processing executor result:`, data);
       const task = this.tasks.get(data.taskId);
+      
       if (!task) {
-        throw new Error(`Task ${data.taskId} not found`);
+        console.error(`[${this.name}] No task found for ID: ${data.taskId}`);
+        return;
       }
 
-      // Update task status
-      task.status = data.status;
-      this.tasks.set(data.taskId, task);
+      // Handle routing responses from executor
+      if (data.status === 'routing') {
+        console.log(`[${this.name}] Handling routing request from executor`);
+        
+        switch (data.type) {
+          case 'observation': {
+            console.log(`[${this.name}] Routing task to observer for observation`);
+            // Update task status
+            task.status = 'processing';
+            this.tasks.set(data.taskId, task);
+            
+            // Forward to observer
+            this.eventBus.emit('task-manager-observer', {
+              taskId: data.taskId,
+              task: task.task,
+              type: 'analyze'
+            });
 
-      // Notify observer of the result
-      this.eventBus.emit(`${this.name}-observer`, {
-        taskId: data.taskId,
-        result: data.result,
-        status: data.status
-      });
+            // System event for routing
+            this.eventBus.emit('agent-action', {
+              agent: this.name,
+              action: `Routed task ${data.taskId} to observer for analysis`
+            });
+            break;
+          }
 
+          case 'analysis': {
+            console.log(`[${this.name}] Processing analysis request`);
+            // Update task status
+            task.status = 'processing';
+            this.tasks.set(data.taskId, task);
+            
+            // Process the analysis
+            const processedTask = await this.processAnalysis(task);
+            
+            // System event for analysis
+            this.eventBus.emit('agent-action', {
+              agent: this.name,
+              action: `Processed analysis for task ${data.taskId}`
+            });
+
+            // Chat message for analysis result
+            this.eventBus.emit('agent-message', {
+              role: 'assistant',
+              content: processedTask,
+              timestamp: new Date().toLocaleTimeString(),
+              agentName: this.name,
+              collaborationType: 'analysis'
+            });
+            break;
+          }
+
+          case 'unknown': {
+            console.log(`[${this.name}] Task type unclear, requesting clarification`);
+            // Update task status
+            task.status = 'pending';
+            this.tasks.set(data.taskId, task);
+            
+            // Request clarification from observer
+            this.eventBus.emit('task-manager-observer', {
+              taskId: data.taskId,
+              task: task.task,
+              type: 'clarify'
+            });
+
+            // System event for clarification request
+            this.eventBus.emit('agent-action', {
+              agent: this.name,
+              action: `Requested clarification for task ${data.taskId}`
+            });
+            break;
+          }
+        }
+        return;
+      }
+
+      // Handle completion and failure cases
+      if (data.status === 'completed') {
+        task.status = 'completed';
+        this.tasks.set(data.taskId, task);
+        
+        // Store the report if available
+        if (data.result) {
+          await storeReport(data.result);
+        }
+
+        // System event for completion
+        this.eventBus.emit('agent-action', {
+          agent: this.name,
+          action: `Task ${data.taskId} completed successfully`
+        });
+
+        // Chat message for completion
+        this.eventBus.emit('agent-message', {
+          role: 'assistant',
+          content: `Task completed successfully:\n${JSON.stringify(data.result, null, 2)}`,
+          timestamp: new Date().toLocaleTimeString(),
+          agentName: this.name,
+          collaborationType: 'completion'
+        });
+      } else if (data.status === 'failed') {
+        task.status = 'failed';
+        this.tasks.set(data.taskId, task);
+
+        // System event for failure
+        this.eventBus.emit('agent-action', {
+          agent: this.name,
+          action: `Task ${data.taskId} failed: ${data.result}`
+        });
+
+        // Chat message for failure
+        this.eventBus.emit('agent-message', {
+          role: 'assistant',
+          content: `Task failed: ${data.result}`,
+          timestamp: new Date().toLocaleTimeString(),
+          agentName: this.name,
+          collaborationType: 'error'
+        });
+      }
     } catch (error) {
       console.error(`[${this.name}] Error handling executor result:`, error);
       this.eventBus.emit('agent-error', {

@@ -25,9 +25,18 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
       execute: async (args: Record<string, any>, options?: ToolExecutionOptions): Promise<ToolResult> => {
         try {
           console.log("======== simulateTasks Tool =========");
-          const { data: taskIds } = await retrieveTasks();
+          const { data: tasks, error } = await retrieveTasks();
 
-          if (!taskIds) {
+          if (error) {
+            console.error(`[simulateTasks] Error retrieving tasks:`, error);
+            return {
+              success: false,
+              result: null,
+              error: `Failed to retrieve tasks: ${error.message}`
+            };
+          }
+
+          if (!tasks || tasks.length === 0) {
             return {
               success: false,
               result: null,
@@ -35,28 +44,28 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
             };
           }
 
-          const tasks = await Promise.all(
-            taskIds.map(async ({ id: taskId }) => {
-              const { data: taskData } = await retrieveTaskById(taskId);
-
-              if (!taskData || !taskData[0].steps) {
-                return `Transaction not found for task [id: ${taskId}].`;
+          const simulations = await Promise.all(
+            tasks.map(async (taskData) => {
+              if (!taskData || !taskData.steps) {
+                return `Task [id: ${taskData?.id}] is invalid or missing steps.`;
               }
 
               return [
-                `[taskId: ${taskId}] "${taskData[0].task}"`,
-                `The transaction is from ${taskData[0].to_token.symbol} to ${taskData[0].from_token.symbol}.`,
-                `The amount is ${taskData[0].from_amount} ${taskData[0].from_token.symbol} and the output amount is ${taskData[0].to_amount} ${taskData[0].to_token.symbol}.`,
-                `Fix the task accordingly and return just the updated task.`,
+                `[taskId: ${taskData.id}] "${taskData.task}"`,
+                `Transaction: ${taskData.from_token?.symbol || 'Unknown'} -> ${taskData.to_token?.symbol || 'Unknown'}`,
+                `Amount: ${taskData.from_amount || '0'} ${taskData.from_token?.symbol || ''} -> ${taskData.to_amount || '0'} ${taskData.to_token?.symbol || ''}`,
+                `Status: ${taskData.status || 'pending'}`,
+                `Steps: ${JSON.stringify(taskData.steps, null, 2)}`,
               ].join("\n");
             })
           );
 
           return {
             success: true,
-            result: tasks.join("\n")
+            result: simulations.join("\n\n")
           };
         } catch (error) {
+          console.error(`[simulateTasks] Unexpected error:`, error);
           return {
             success: false,
             result: null,
@@ -86,7 +95,8 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
           }
 
           console.log("======== getTransactionData Tool =========");
-          console.log(`[getTransactionData] fetching transactions data from Brian`);
+          console.log(`[getTransactionData] Processing ${args.tasks.length} tasks`);
+          
           const transactions = await Promise.all(
             args.tasks.map(async ({ task, taskId }: { task: string; taskId: string | null }) => {
               if (!task) {
@@ -94,9 +104,7 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
                 return null;
               }
 
-              console.log(
-                `[getTransactionData] fetching transaction data for task: "${task}"`
-              );
+              console.log(`[getTransactionData] Fetching transaction data for task: "${task.substring(0, 100)}..."`);
               try {
                 const brianResponse = await fetch(
                   `${env.BRIAN_API_URL || "https://api.brianknows.org/api/v0/agent/transaction"}`,
@@ -114,8 +122,14 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
                   }
                 );
 
+                if (!brianResponse.ok) {
+                  throw new Error(`Brian API returned ${brianResponse.status}: ${await brianResponse.text()}`);
+                }
+
                 const { result } = await brianResponse.json();
-                if (!result) return null;
+                if (!result || !result[0]?.data) {
+                  throw new Error('Invalid response from Brian API');
+                }
 
                 const data = result[0].data;
                 console.log(`[getTransactionData] Brian says: ${data.description}`);
@@ -132,63 +146,82 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
                   outputAmount: formatUnits(data.toAmountMin, data.toToken.decimals),
                 };
               } catch (error) {
-                console.error(error);
+                console.error(`[getTransactionData] Error processing task:`, error);
                 return null;
               }
             })
           );
 
-          if (transactions.length !== args.tasks.length) {
+          const validTransactions = transactions.filter(t => t !== null);
+          if (validTransactions.length === 0) {
             return {
               success: false,
               result: null,
-              error: "Some transactions failed to fetch, please rewrite the tasks."
+              error: "Failed to process any transactions. Please check the task format and try again."
             };
           }
 
-          const validTransactions = transactions.filter(t => t !== null);
-          const taskIds = [];
+          const taskResults = [];
 
           for (const transaction of validTransactions) {
             if (!transaction) continue;
 
-            if (transaction.taskId) {
-              const { data: taskData } = await updateTask(
-                transaction.taskId,
-                transaction.task,
-                transaction.steps,
-                transaction.fromToken,
-                transaction.toToken,
-                transaction.fromAmount,
-                transaction.outputAmount
-              );
-              taskIds.push({
-                taskId: taskData![0].id,
-                task: transaction.task,
-                createdAt: taskData![0].created_at,
-              });
-            } else {
-              const { data: taskData } = await storeTask(
-                transaction.task,
-                transaction.steps,
-                transaction.fromToken,
-                transaction.toToken,
-                transaction.fromAmount,
-                transaction.outputAmount
-              );
-              taskIds.push({
-                taskId: taskData![0].id,
-                task: transaction.task,
-                createdAt: taskData![0].created_at,
-              });
+            try {
+              let result;
+              if (transaction.taskId) {
+                result = await updateTask(
+                  transaction.taskId,
+                  transaction.task,
+                  transaction.steps,
+                  transaction.fromToken,
+                  transaction.toToken,
+                  transaction.fromAmount,
+                  transaction.outputAmount
+                );
+              } else {
+                result = await storeTask(
+                  transaction.task,
+                  transaction.steps,
+                  transaction.fromToken,
+                  transaction.toToken,
+                  transaction.fromAmount,
+                  transaction.outputAmount
+                );
+              }
+
+              if (result.error) {
+                console.error(`[getTransactionData] Error storing/updating task:`, result.error);
+                continue;
+              }
+
+              const taskData = result.data?.[0];
+              if (taskData) {
+                taskResults.push({
+                  taskId: taskData.id,
+                  task: transaction.task,
+                  createdAt: taskData.created_at,
+                  status: taskData.status
+                });
+              }
+            } catch (error) {
+              console.error(`[getTransactionData] Error storing task:`, error);
             }
+          }
+
+          if (taskResults.length === 0) {
+            return {
+              success: false,
+              result: null,
+              error: "Failed to store any tasks. Please try again."
+            };
           }
 
           return {
             success: true,
-            result: taskIds
+            result: taskResults
           };
         } catch (error) {
+          console.error(`[getTransactionData] Unexpected error:`, error);
           return {
             success: false,
             result: null,

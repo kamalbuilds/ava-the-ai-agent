@@ -31,6 +31,13 @@ interface TweetData {
   smartEngagementPoints: number;
 }
 
+interface ToolResult {
+  tool: string;
+  result?: any;
+  error?: string;
+  status: 'success' | 'error';
+}
+
 /**
  * @dev The observer agent is responsible for generating a report about the best opportunities to make money.
  */
@@ -147,10 +154,13 @@ export class ObserverAgent extends Agent {
    * @param data - The data to handle
    */
   private async handleTaskManagerEvent(data: any): Promise<void> {
+    // Initialize toolResults outside try block so it's accessible in catch
+    const toolResults: ToolResult[] = [];
+    
     try {
       console.log(`[${this.name}] Processing task manager event:`, data);
       
-      // System event for sidebar
+      // System event for task start
       this.eventBus.emit('agent-action', {
         agent: this.name,
         action: `Starting analysis of task: ${data.taskId}`
@@ -158,114 +168,89 @@ export class ObserverAgent extends Agent {
 
       // Execute tools from toolkit
       console.log(`[${this.name}] ========== Starting Tool Execution ==========`);
-      const toolResults = [];
+      let hasAllToolsFailed = true;
 
-      // Get market data
-      console.log(`[${this.name}] Executing getMarketData tool...`);
-      const marketDataResult = await this.tools.getMarketData.execute({}, {
-        toolCallId: `market-data-${data.taskId}`,
-        messages: [],
-        severity: 'info'
-      });
-      toolResults.push({
-        tool: 'getMarketData',
-        result: marketDataResult
-      });
-      
-      if (marketDataResult.success) {
-        this.eventBus.emit('agent-message', {
-          role: 'assistant',
-          content: `Market Analysis:\n${JSON.stringify(marketDataResult.result, null, 2)}`,
-          timestamp: new Date().toLocaleTimeString(),
-          agentName: this.name,
-          collaborationType: 'tool-result'
-        });
-      }
+      // Helper function to execute tool with error handling
+      const executeTool = async (toolName: string, args: any = {}) => {
+        try {
+          console.log(`[${this.name}] Executing ${toolName} tool...`);
+          const result = await this.tools[toolName].execute(args, {
+            toolCallId: `${toolName}-${data.taskId}`,
+            messages: [],
+            severity: 'info'
+          });
+          
+          if (result.success) {
+            hasAllToolsFailed = false;
+            toolResults.push({
+              tool: toolName,
+              result: result.result,
+              status: 'success'
+            });
 
-      // Get wallet balances
-      console.log(`[${this.name}] Executing getWalletBalances tool...`);
-      const balancesResult = await this.tools.getWalletBalances.execute({}, {
-        toolCallId: `balances-${data.taskId}`,
-        messages: [],
-        severity: 'info'
-      });
-      toolResults.push({
-        tool: 'getWalletBalances',
-        result: balancesResult
-      });
+            // Emit successful tool result
+            this.eventBus.emit('agent-message', {
+              role: 'assistant',
+              content: `${toolName} Analysis:\n${JSON.stringify(result.result, null, 2)}`,
+              timestamp: new Date().toLocaleTimeString(),
+              agentName: this.name,
+              collaborationType: 'tool-result'
+            });
+          } else {
+            console.warn(`[${this.name}] ${toolName} tool execution failed:`, result.error || 'Unknown error');
+            toolResults.push({
+              tool: toolName,
+              error: result.error || 'Unknown error',
+              status: 'error'
+            });
+          }
+        } catch (error) {
+          console.error(`[${this.name}] Error executing ${toolName}:`, error);
+          toolResults.push({
+            tool: toolName,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            status: 'error'
+          });
+        }
+      };
 
-      if (balancesResult.success) {
-        this.eventBus.emit('agent-message', {
-          role: 'assistant',
-          content: `Wallet Balances:\n${JSON.stringify(balancesResult.result, null, 2)}`,
-          timestamp: new Date().toLocaleTimeString(),
-          agentName: this.name,
-          collaborationType: 'tool-result'
-        });
-      }
+      // Execute market data tool
+      await executeTool('getMarketData');
 
-      // Get top agents data
-      console.log(`[${this.name}] Executing getTopAgents tool...`);
-      const topAgentsResult = await this.tools.getTopAgents.execute({
+      // Execute wallet balances tool
+      await executeTool('getWalletBalances');
+
+      // Execute top agents tool
+      await executeTool('getTopAgents', {
         interval: '_7Days',
         page: 1,
-        pageSize: 5
-      }, {
-        toolCallId: `top-agents-${data.taskId}`,
-        messages: [],
-        severity: 'info'
-      });
-      toolResults.push({
-        tool: 'getTopAgents',
-        result: topAgentsResult
+        pageSize: 3
       });
 
-      if (topAgentsResult.success) {
-        this.eventBus.emit('agent-message', {
-          role: 'assistant',
-          content: `Top Agents Analysis:\n${JSON.stringify(topAgentsResult.result, null, 2)}`,
-          timestamp: new Date().toLocaleTimeString(),
-          agentName: this.name,
-          collaborationType: 'tool-result'
-        });
-      }
-
-      // Search relevant tweets
-      console.log(`[${this.name}] Executing searchCookieTweets tool...`);
+      // Execute tweets tool
       const today = new Date();
       const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const tweetsResult = await this.tools.searchCookieTweets.execute({
+      await executeTool('searchCookieTweets', {
         query: "crypto trading strategy",
         fromDate: lastWeek.toISOString().split('T')[0],
         toDate: today.toISOString().split('T')[0]
-      }, {
-        toolCallId: `tweets-${data.taskId}`,
-        messages: [],
-        severity: 'info'
       });
-      toolResults.push({
-        tool: 'searchCookieTweets',
-        result: tweetsResult
-      });
-
-      if (tweetsResult.success) {
-        this.eventBus.emit('agent-message', {
-          role: 'assistant',
-          content: `Social Sentiment Analysis:\n${JSON.stringify(tweetsResult.result, null, 2)}`,
-          timestamp: new Date().toLocaleTimeString(),
-          agentName: this.name,
-          collaborationType: 'tool-result'
-        });
-      }
 
       console.log(`[${this.name}] ========== Tool Execution Complete ==========`);
-      console.log(`[${this.name}] Tool Results:`, JSON.stringify(toolResults, null, 2));
+      
+      if (hasAllToolsFailed) {
+        throw new Error('All tools failed to execute. Unable to generate analysis.');
+      }
 
-      // Generate final analysis using AI
-      console.log(`[${this.name}] Generating final analysis...`);
+      // Generate analysis even with partial data
+      console.log(`[${this.name}] Generating analysis with available data...`);
       const systemPrompt = getObserverSystemPrompt(this.address);
+      
+      // Prepare context based on available results
+      const context = `Here's the available market data and social sentiment analysis. Note that some tools may have failed:\n${JSON.stringify(toolResults, null, 2)}\n\nPlease provide analysis based on the available data, and indicate what additional data would be helpful.`;
+      
       const response = await this.aiProvider.generateText(
-        `Based on the following data, provide a comprehensive analysis and recommendations:\n${JSON.stringify(toolResults, null, 2)}`,
+        context,
         systemPrompt.content
       );
 
@@ -275,7 +260,9 @@ export class ObserverAgent extends Agent {
         type: 'analysis',
         result: response.text,
         toolResults,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        status: 'completed',
+        partialData: toolResults.some(r => r.status === 'error')
       });
 
       // Save the thought
@@ -286,10 +273,17 @@ export class ObserverAgent extends Agent {
         toolResults
       });
 
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(`[${this.name}] Error handling task manager event:`, error);
-      this.eventBus.emit('agent-error', {
-        agent: this.name,
+      
+      // Even if we have an error, try to send any collected data back
+      this.eventBus.emit('observer-task-manager', {
+        taskId: data.taskId,
+        type: 'analysis',
+        result: `Analysis failed but collected partial data: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        toolResults,
+        timestamp: new Date().toISOString(),
+        status: 'partial',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -387,84 +381,75 @@ export class ObserverAgent extends Agent {
       
       // Execute tools from toolkit
       console.log(`[${this.name}] ========== Starting Tool Execution ==========`);
-      const toolResults = [];
+      const toolResults: ToolResult[] = [];
 
-      // Get market data (focus on key metrics)
-      console.log(`[${this.name}] Executing getMarketData tool...`);
-      const marketDataResult = await this.tools.getMarketData.execute({}, {
-        toolCallId: taskId,
-        messages: [],
-        severity: 'info'
-      });
-      if (marketDataResult.success) {
-        toolResults.push({
-          tool: 'getMarketData',
-          result: marketDataResult.result
-        });
-      }
+      // Helper function to execute tool with error handling
+      const executeTool = async (toolName: string, args: any = {}) => {
+        try {
+          console.log(`[${this.name}] Executing ${toolName} tool...`);
+          const result = await this.tools[toolName].execute(args, {
+            toolCallId: taskId,
+            messages: [],
+            severity: 'info'
+          });
+          
+          if (result.success) {
+            toolResults.push({
+              tool: toolName,
+              result: result.result,
+              status: 'success'
+            });
+            return result;
+          } else {
+            console.warn(`[${this.name}] ${toolName} tool execution failed:`, result.error || 'Unknown error');
+            toolResults.push({
+              tool: toolName,
+              error: result.error || 'Unknown error',
+              status: 'error'
+            });
+            return null;
+          }
+        } catch (error) {
+          console.error(`[${this.name}] Error executing ${toolName}:`, error);
+          toolResults.push({
+            tool: toolName,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            status: 'error'
+          });
+          return null;
+        }
+      };
 
-      // Get top agents data (limit to top 3)
-      console.log(`[${this.name}] Executing getTopAgents tool...`);
-      const topAgentsResult = await this.tools.getTopAgents.execute({
+      // Execute market data tool
+      const marketDataResult = await executeTool('getMarketData');
+
+      // Execute top agents tool
+      const topAgentsResult = await executeTool('getTopAgents', {
         interval: '_7Days',
         page: 1,
         pageSize: 3
-      }, {
-        toolCallId: taskId,
-        messages: [],
-        severity: 'info'
       });
-      if (topAgentsResult.success) {
-        toolResults.push({
-          tool: 'getTopAgents',
-          result: {
-            topAgents: topAgentsResult.result.ok.data.slice(0, 3).map((agent: AgentData) => ({
-              name: agent.agentName,
-              mindshare: agent.mindshare,
-              marketCap: agent.marketCap,
-              volume24Hours: agent.volume24Hours
-            }))
-          }
-        });
-      }
 
-      // Search relevant tweets (limit to most relevant)
-      console.log(`[${this.name}] Executing searchCookieTweets tool...`);
+      // Execute tweets tool
       const today = new Date();
       const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const tweetsResult = await this.tools.searchCookieTweets.execute({
+      const tweetsResult = await executeTool('searchCookieTweets', {
         query: "crypto trading strategy",
         fromDate: lastWeek.toISOString().split('T')[0],
         toDate: today.toISOString().split('T')[0]
-      }, {
-        toolCallId: taskId,
-        messages: [],
-        severity: 'info'
       });
-      if (tweetsResult.success && tweetsResult.result) {
-        // Ensure we have an array of tweets and safely access it
-        const tweets = Array.isArray(tweetsResult.result) ? tweetsResult.result : 
-                      tweetsResult.result.data ? tweetsResult.result.data : [];
-        
-        toolResults.push({
-          tool: 'searchCookieTweets',
-          result: {
-            topTweets: tweets.slice(0, 3).map((tweet: TweetData) => ({
-              text: tweet.text.substring(0, 200) + '...',
-              engagements: tweet.engagementsCount,
-              sentiment: tweet.smartEngagementPoints
-            }))
-          }
-        });
-      }
 
       console.log(`[${this.name}] ========== Tool Execution Complete ==========`);
-
-      // Generate final analysis using AI
+      
+      // Generate analysis even if some tools failed
       console.log(`[${this.name}] Generating final analysis...`);
       const systemPrompt = getObserverSystemPrompt(this.address);
+      
+      // Prepare context for AI based on available results
+      const context = `Here's the available market data and social sentiment analysis. Note that some tools may have failed:\n${JSON.stringify(toolResults, null, 2)}`;
+      
       const response = await this.aiProvider.generateText(
-        `Based on the following market data and social sentiment analysis, provide a comprehensive analysis and actionable recommendations:\n${JSON.stringify(toolResults, null, 2)}`,
+        context,
         systemPrompt.content
       );
 
