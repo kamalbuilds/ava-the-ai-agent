@@ -143,8 +143,6 @@ export default function Home() {
 
   const handlePromptClick = (promptText: string) => {
     setInput(promptText);
-    handleMessage(promptText);
-    setInput("");
   };
 
   const handleSubmit = (e?: React.FormEvent) => {
@@ -511,11 +509,6 @@ export default function Home() {
       ]);
     } else {
       // Handle regular chat mode
-      setMessages(prev => [...prev, {
-        role: 'user',
-        content: message,
-        timestamp: new Date().toLocaleTimeString()
-      }]);
       // Check if this is an example query
       if (message in EXAMPLE_RESPONSES) {
         addSystemEvent({
