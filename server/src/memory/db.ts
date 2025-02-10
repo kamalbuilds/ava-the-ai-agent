@@ -54,10 +54,10 @@ export const retrieveThoughtsByAgent = async (agent: string) =>
 
 /**
  * @dev Retrieves all tasks from the database
- * @returns All tasks
+ * @returns All tasks with their full data
  */
 export const retrieveTasks = async () =>
-  supabase.from("tasks").select("id").order("created_at", { ascending: false });
+  supabase.from("tasks").select("*").order("created_at", { ascending: false });
 
 /**
  * @dev Stores a task in the database
@@ -75,19 +75,33 @@ export const storeTask = async (
   toToken: any,
   fromAmount?: string,
   toAmount?: string
-) =>
-  supabase
-    .from("tasks")
-    .insert({
-      task,
-      steps,
-      from_token: fromToken,
-      to_token: toToken,
-      from_amount: fromAmount,
-      to_amount: toAmount,
-    })
-    .select("*")
-    .limit(1);
+) => {
+  try {
+    const { data, error } = await supabase
+      .from("tasks")
+      .insert({
+        task,
+        steps,
+        from_token: fromToken,
+        to_token: toToken,
+        from_amount: fromAmount,
+        to_amount: toAmount,
+        status: 'pending'
+      })
+      .select("*")
+      .limit(1);
+
+    if (error) {
+      console.error(`[storeTask] Error storing task:`, error);
+      throw error;
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    console.error(`[storeTask] Unexpected error:`, error);
+    return { data: null, error };
+  }
+};
 
 /**
  * @dev Updates a task in the database
@@ -108,28 +122,59 @@ export const updateTask = async (
   toToken: any,
   fromAmount?: string,
   toAmount?: string
-) =>
-  supabase
-    .from("tasks")
-    .update({
-      task,
-      steps,
-      from_token: fromToken,
-      to_token: toToken,
-      from_amount: fromAmount,
-      to_amount: toAmount,
-    })
-    .eq("id", taskId)
-    .select("*")
-    .limit(1);
+) => {
+  try {
+    const { data, error } = await supabase
+      .from("tasks")
+      .update({
+        task,
+        steps,
+        from_token: fromToken,
+        to_token: toToken,
+        from_amount: fromAmount,
+        to_amount: toAmount,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", taskId)
+      .select("*")
+      .limit(1);
+
+    if (error) {
+      console.error(`[updateTask] Error updating task:`, error);
+      throw error;
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    console.error(`[updateTask] Unexpected error:`, error);
+    return { data: null, error };
+  }
+};
 
 /**
  * @dev Retrieves a task from the database by its id
  * @param taskId - The id of the task to retrieve
  * @returns The task
  */
-export const retrieveTaskById = async (taskId: string) =>
-  supabase.from("tasks").select("*").eq("id", taskId).limit(1);
+export const retrieveTaskById = async (taskId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("id", taskId)
+      .limit(1);
+
+    if (error) {
+      console.error(`[retrieveTaskById] Error retrieving task:`, error);
+      throw error;
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    console.error(`[retrieveTaskById] Unexpected error:`, error);
+    return { data: null, error };
+  }
+};
 
 /**
  * @dev Deletes a task from the database

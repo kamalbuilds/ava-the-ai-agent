@@ -4,6 +4,11 @@ export interface AIResponse {
     name: string;
     args: Record<string, any>;
   }>;
+  toolResults?: Array<{
+    success: boolean;
+    result: any;
+    error?: string;
+  }>;
 }
 
 export interface AIProvider {
@@ -27,8 +32,14 @@ export interface ToolResult {
   error?: string;
 }
 
+export interface ToolExecutionOptions {
+  toolCallId?: string;
+  messages?: any[];
+  severity?: 'info' | 'warning' | 'error';
+}
+
 export interface Tool {
-  execute: (args: Record<string, any>) => Promise<ToolResult>;
+  execute: (args: Record<string, any>, options?: ToolExecutionOptions) => Promise<ToolResult>;
   parameters: any;
   description: string;
 } 

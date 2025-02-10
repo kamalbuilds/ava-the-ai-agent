@@ -8,11 +8,14 @@
 // import { setupWebSocket } from "./websocket";
 // import figlet from "figlet";
 import { WebSocket, WebSocketServer } from "ws";
-import { EventBus } from "./comms";
-import { registerAgents } from "./agents";
-import { privateKeyToAccount } from "viem/accounts";
-import env from "./env";
+import { EventBus } from "./comms/event-bus";
+import { ObserverAgent } from "./agents/observer";
+import { TaskManagerAgent } from "./agents/task-manager";
+import { ExecutorAgent } from "./agents/executor";
 import { AIFactory } from "./services/ai/factory";
+import env from "./env";
+import { privateKeyToAccount } from "viem/accounts";
+import { mainnet } from "viem/chains";
 
 // console.log(figlet.textSync("AVA-2.0"));
 // console.log("======== Initializing Server =========");
@@ -43,17 +46,31 @@ import { AIFactory } from "./services/ai/factory";
 
 // Initialize core services
 const eventBus = new EventBus();
-const account = privateKeyToAccount(env.PRIVATE_KEY as `0x${string}`);
 
-// Create default AI provider
-const defaultProvider = AIFactory.createProvider({
+// Initialize AI provider
+const aiProvider = AIFactory.createProvider({
   provider: 'openai',
-  apiKey: env.OPENAI_API_KEY!
+  apiKey: env.OPENAI_API_KEY,
+  modelName: 'gpt-4'
 });
 
-// Initialize agents with default provider
-const agents = registerAgents(eventBus, account, defaultProvider);
-const { observerAgent } = agents;
+// Initialize agents
+console.log("======== Registering agents =========");
+
+// Create account from private key
+const account = privateKeyToAccount(env.WALLET_PRIVATE_KEY as `0x${string}`);
+
+const executorAgent = new ExecutorAgent("executor", eventBus, account);
+console.log("[registerAgents] executor agent initialized.");
+
+console.log("[registerAgents] initializing observer agent...");
+const observerAgent = new ObserverAgent("observer", eventBus, account, aiProvider);
+console.log("[registerAgents] observer agent initialized with address:", account.address);
+
+const taskManagerAgent = new TaskManagerAgent(eventBus, aiProvider);
+console.log("[registerAgents] task manager agent initialized.");
+
+console.log("all events registered");
 
 // Setup WebSocket server
 const WS_PORT = 3002;
@@ -62,40 +79,36 @@ const wss = new WebSocketServer({ port: WS_PORT });
 wss.on("connection", (ws: WebSocket) => {
   console.log(`[WebSocket] Client connected on port ${WS_PORT}`);
 
-  // Forward agent events to the client
-  const forwardEvent = (data: any) => {
-    // Format system events for the right sidebar
-    const eventData = {
-      type: "agent-event",
-      timestamp: new Date().toLocaleTimeString(),
-      agent: data.agent || "system",
-      action: data.action || data.error || "Unknown event",
-      eventType: data.error ? "error" : "info"
-    };
-    ws.send(JSON.stringify(eventData));
-  };
-
-  // Forward agent messages to chat with proper typing
-  const forwardMessage = (data: any) => {
-    const messageData = {
+  // Forward events from event bus to WebSocket clients
+  eventBus.on("agent-action", async (data: { agent: string; action: string }) => {
+    ws.send(JSON.stringify({
       type: "agent-message",
       timestamp: new Date().toLocaleTimeString(),
       role: "assistant",
-      content: data.message || data.report || data.result,
-      agentName: data.agent,
-      collaborationType: data.collaborationType || "analysis"
-    };
-    ws.send(JSON.stringify(messageData));
-  };
+      content: `[${data.agent}] ${data.action}`,
+      agentName: data.agent
+    }));
+  });
 
-  // Subscribe to all agent events
-  eventBus.subscribe("agent-action", forwardEvent);
-  eventBus.subscribe("agent-response", forwardMessage);
-  eventBus.subscribe("agent-error", forwardEvent);
-  eventBus.subscribe("task-manager-observer", forwardMessage);
-  eventBus.subscribe("observer-task-manager", forwardMessage);
-  eventBus.subscribe("task-manager-executor", forwardMessage);
-  eventBus.subscribe("executor-task-manager", forwardMessage);
+  eventBus.on("agent-response", async (data: { agent: string; message: string }) => {
+    ws.send(JSON.stringify({
+      type: "agent-message",
+      timestamp: new Date().toLocaleTimeString(),
+      role: "assistant",
+      content: data.message,
+      agentName: data.agent
+    }));
+  });
+
+  eventBus.on("agent-error", async (data: { agent: string; error: string }) => {
+    ws.send(JSON.stringify({
+      type: "agent-message",
+      timestamp: new Date().toLocaleTimeString(),
+      role: "error",
+      content: `Error in ${data.agent}: ${data.error}`,
+      agentName: data.agent
+    }));
+  });
 
   ws.on("message", async (message: string) => {
     try {
@@ -110,8 +123,9 @@ wss.on("connection", (ws: WebSocket) => {
           enablePrivateCompute: data.settings.enablePrivateCompute
         });
 
-        // Update observer agent with new settings
+        // Update agents with new settings
         observerAgent.updateAIProvider(newProvider);
+        taskManagerAgent.updateAIProvider(newProvider);
         
         eventBus.emit("agent-action", {
           agent: "system",
@@ -144,22 +158,45 @@ wss.on("connection", (ws: WebSocket) => {
         }
       }
     } catch (error) {
-      console.error("Error processing WebSocket message:", error);
-      eventBus.emit("agent-error", {
-        agent: "system",
-        error: "Failed to process command"
-      });
+      console.error("[WebSocket] Error processing message:", error);
+      ws.send(JSON.stringify({
+        type: "agent-message",
+        timestamp: new Date().toLocaleTimeString(),
+        role: "error",
+        content: "Error processing command",
+        agentName: "system"
+      }));
     }
   });
 
   ws.on("close", () => {
-    eventBus.unsubscribe("agent-action", forwardEvent);
-    eventBus.unsubscribe("agent-response", forwardMessage);
-    eventBus.unsubscribe("agent-error", forwardEvent);
-    eventBus.unsubscribe("task-manager-observer", forwardMessage);
-    eventBus.unsubscribe("observer-task-manager", forwardMessage);
-    eventBus.unsubscribe("task-manager-executor", forwardMessage);
-    eventBus.unsubscribe("executor-task-manager", forwardMessage);
+    eventBus.unsubscribe("agent-action", async (data) => {
+      ws.send(JSON.stringify({
+        type: "agent-message",
+        timestamp: new Date().toLocaleTimeString(),
+        role: "assistant",
+        content: `[${data.agent}] ${data.action}`,
+        agentName: data.agent
+      }));
+    });
+    eventBus.unsubscribe("agent-response", async (data) => {
+      ws.send(JSON.stringify({
+        type: "agent-message",
+        timestamp: new Date().toLocaleTimeString(),
+        role: "assistant",
+        content: data.message,
+        agentName: data.agent
+      }));
+    });
+    eventBus.unsubscribe("agent-error", async (data) => {
+      ws.send(JSON.stringify({
+        type: "agent-message",
+        timestamp: new Date().toLocaleTimeString(),
+        role: "error",
+        content: `Error in ${data.agent}: ${data.error}`,
+        agentName: data.agent
+      }));
+    });
   });
 });
 

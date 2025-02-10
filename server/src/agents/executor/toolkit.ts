@@ -1,7 +1,6 @@
-import { generateText, tool } from "ai";
-import { openai } from "@ai-sdk/openai";
-import type { Account } from "viem";
 import { z } from "zod";
+import type { Tool, ToolExecutionOptions, ToolResult } from "../../services/ai/types";
+import type { Account } from "viem";
 import env from "../../env";
 import {
   deleteTask,
@@ -18,258 +17,302 @@ import {
 } from "viem";
 import { getChain } from "../../utils/chain";
 
-export const getTransactionDataTool = (account: Account) =>
-  tool({
-    description: "A tool that transforms the tasks into transactions.",
-    parameters: z.object({
-      tasks: z.array(
-        z.object({
-          task: z.string(),
-          taskId: z.string().nullable(),
-        })
-      ),
-    }),
-    execute: async ({
-      tasks,
-    }: {
-      tasks: { task: string; taskId: string | null }[];
-    }) => {
-      console.log("======== getTransactionData Tool =========");
-      console.log(`[getTransactionData] fetching transactions data from Brian`);
-      const transactions = await Promise.all(
-        tasks.map(
-          async ({ task, taskId }: { task: string; taskId: string | null }) => {
-            console.log(
-              `[getTransactionData] fetching transaction data for task: "${task}"`
-            );
-            try {
-              const brianResponse = await fetch(
-                `${
-                  env.BRIAN_API_URL ||
-                  "https://api.brianknows.org/api/v0/agent/transaction"
-                }`,
-                {
-                  method: "POST",
-                  body: JSON.stringify({
-                    prompt: task,
-                    chainId: env.CHAIN_ID,
-                    address: account.address,
-                  }),
-                  headers: {
-                    "Content-Type": "application/json",
-                    "x-brian-api-key": env.BRIAN_API_KEY,
-                  },
-                }
-              );
+export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
+  return {
+    simulateTasks: {
+      description: "A tool that simulates the output of all the tasks. It is useful to check the outputs and to fix the inputs of other tasks. Always use this tool before the executeTransaction tool.",
+      parameters: z.object({}),
+      execute: async (args: Record<string, any>, options?: ToolExecutionOptions): Promise<ToolResult> => {
+        try {
+          console.log("======== simulateTasks Tool =========");
+          const { data: tasks, error } = await retrieveTasks();
 
-              console.log(brianResponse);
-              const { result } = await brianResponse.json();
+          if (error) {
+            console.error(`[simulateTasks] Error retrieving tasks:`, error);
+            return {
+              success: false,
+              result: null,
+              error: `Failed to retrieve tasks: ${error.message}`
+            };
+          }
 
-              if (!result) {
+          if (!tasks || tasks.length === 0) {
+            return {
+              success: false,
+              result: null,
+              error: "No tasks found."
+            };
+          }
+
+          const simulations = await Promise.all(
+            tasks.map(async (taskData) => {
+              if (!taskData || !taskData.steps) {
+                return `Task [id: ${taskData?.id}] is invalid or missing steps.`;
+              }
+
+              return [
+                `[taskId: ${taskData.id}] "${taskData.task}"`,
+                `Transaction: ${taskData.from_token?.symbol || 'Unknown'} -> ${taskData.to_token?.symbol || 'Unknown'}`,
+                `Amount: ${taskData.from_amount || '0'} ${taskData.from_token?.symbol || ''} -> ${taskData.to_amount || '0'} ${taskData.to_token?.symbol || ''}`,
+                `Status: ${taskData.status || 'pending'}`,
+                `Steps: ${JSON.stringify(taskData.steps, null, 2)}`,
+              ].join("\n");
+            })
+          );
+
+          return {
+            success: true,
+            result: simulations.join("\n\n")
+          };
+        } catch (error) {
+          console.error(`[simulateTasks] Unexpected error:`, error);
+          return {
+            success: false,
+            result: null,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      }
+    },
+    getTransactionData: {
+      description: "A tool that transforms the tasks into transactions.",
+      parameters: z.object({
+        tasks: z.array(
+          z.object({
+            task: z.string(),
+            taskId: z.string().nullable(),
+          })
+        ),
+      }),
+      execute: async (args: Record<string, any>, options?: ToolExecutionOptions): Promise<ToolResult> => {
+        try {
+          if (!args.tasks || !Array.isArray(args.tasks)) {
+            return {
+              success: false,
+              result: null,
+              error: "Invalid tasks parameter. Expected array of tasks."
+            };
+          }
+
+          console.log("======== getTransactionData Tool =========");
+          console.log(`[getTransactionData] Processing ${args.tasks.length} tasks`);
+          
+          const transactions = await Promise.all(
+            args.tasks.map(async ({ task, taskId }: { task: string; taskId: string | null }) => {
+              if (!task) {
+                console.error(`[getTransactionData] Invalid task object:`, { task, taskId });
                 return null;
               }
 
-              const data = result[0].data;
-              console.log(
-                `[getTransactionData] Brian says: ${data.description}`
-              );
-              const steps = data.steps;
+              console.log(`[getTransactionData] Fetching transaction data for task: "${task.substring(0, 100)}..."`);
+              try {
+                const brianResponse = await fetch(
+                  `${env.BRIAN_API_URL || "https://api.brianknows.org/api/v0/agent/transaction"}`,
+                  {
+                    method: "POST",
+                    body: JSON.stringify({
+                      prompt: task,
+                      chainId: env.CHAIN_ID,
+                      address: account.address,
+                    }),
+                    headers: {
+                      "Content-Type": "application/json",
+                      "x-brian-api-key": env.BRIAN_API_KEY,
+                    },
+                  }
+                );
 
-              return {
-                task,
-                steps,
-                taskId,
-                fromToken: data.fromToken,
-                fromAmountUSD: `$${data.fromAmountUSD}`,
-                toToken: data.toToken,
-                toAmountUSD: `$${data.toAmountUSD}`,
-                fromAmount: formatUnits(
-                  data.fromAmount,
-                  data.fromToken.decimals
-                ),
-                outputAmount: formatUnits(
-                  data.toAmountMin,
-                  data.toToken.decimals
-                ),
-              };
+                if (!brianResponse.ok) {
+                  throw new Error(`Brian API returned ${brianResponse.status}: ${await brianResponse.text()}`);
+                }
+
+                const { result } = await brianResponse.json();
+                if (!result || !result[0]?.data) {
+                  throw new Error('Invalid response from Brian API');
+                }
+
+                const data = result[0].data;
+                console.log(`[getTransactionData] Brian says: ${data.description}`);
+                
+                return {
+                  task,
+                  steps: data.steps,
+                  taskId,
+                  fromToken: data.fromToken,
+                  fromAmountUSD: `$${data.fromAmountUSD}`,
+                  toToken: data.toToken,
+                  toAmountUSD: `$${data.toAmountUSD}`,
+                  fromAmount: formatUnits(data.fromAmount, data.fromToken.decimals),
+                  outputAmount: formatUnits(data.toAmountMin, data.toToken.decimals),
+                };
+              } catch (error) {
+                console.error(`[getTransactionData] Error processing task:`, error);
+                return null;
+              }
+            })
+          );
+
+          const validTransactions = transactions.filter(t => t !== null);
+          if (validTransactions.length === 0) {
+            return {
+              success: false,
+              result: null,
+              error: "Failed to process any transactions. Please check the task format and try again."
+            };
+          }
+
+          const taskResults = [];
+
+          for (const transaction of validTransactions) {
+            if (!transaction) continue;
+
+            try {
+              let result;
+              if (transaction.taskId) {
+                result = await updateTask(
+                  transaction.taskId,
+                  transaction.task,
+                  transaction.steps,
+                  transaction.fromToken,
+                  transaction.toToken,
+                  transaction.fromAmount,
+                  transaction.outputAmount
+                );
+              } else {
+                result = await storeTask(
+                  transaction.task,
+                  transaction.steps,
+                  transaction.fromToken,
+                  transaction.toToken,
+                  transaction.fromAmount,
+                  transaction.outputAmount
+                );
+              }
+
+              if (result.error) {
+                console.error(`[getTransactionData] Error storing/updating task:`, result.error);
+                continue;
+              }
+
+              const taskData = result.data?.[0];
+              if (taskData) {
+                taskResults.push({
+                  taskId: taskData.id,
+                  task: transaction.task,
+                  createdAt: taskData.created_at,
+                  status: taskData.status
+                });
+              }
             } catch (error) {
-              console.error(error);
-              return null;
+              console.error(`[getTransactionData] Error storing task:`, error);
             }
           }
-        )
-      );
 
-      if (transactions.length !== tasks.length) {
-        return `Some transactions failed to fetch, please rewrite the tasks.`;
-      }
+          if (taskResults.length === 0) {
+            return {
+              success: false,
+              result: null,
+              error: "Failed to store any tasks. Please try again."
+            };
+          }
 
-      const validTransactions = transactions.filter(
-        (transaction) => transaction !== null
-      );
-
-      const taskIds: any[] = [];
-      for (const transaction of validTransactions) {
-        if (transaction.taskId) {
-          const { data: taskData } = await updateTask(
-            transaction.taskId,
-            transaction.task,
-            transaction.steps,
-            transaction.fromToken,
-            transaction.toToken,
-            transaction.fromAmount,
-            transaction.outputAmount
-          );
-          taskIds.push({
-            taskId: taskData![0].id,
-            task: transaction.task,
-            createdAt: taskData![0].created_at,
-          });
-        } else {
-          const { data: taskData } = await storeTask(
-            transaction.task,
-            transaction.steps,
-            transaction.fromToken,
-            transaction.toToken,
-            transaction.fromAmount,
-            transaction.outputAmount
-          );
-          taskIds.push({
-            taskId: taskData![0].id,
-            task: transaction.task,
-            createdAt: taskData![0].created_at,
-          });
+          return {
+            success: true,
+            result: taskResults
+          };
+        } catch (error) {
+          console.error(`[getTransactionData] Unexpected error:`, error);
+          return {
+            success: false,
+            result: null,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
         }
       }
-
-      console.log(`[getTransactionData] transactions fetched correctly.`);
-
-      return taskIds;
     },
-  });
-
-export const getExecutorToolkit = (account: Account) => {
-  return {
-    getTransactionData: getTransactionDataTool(account),
-    simulateTasks: tool({
-      description:
-        "A tool that simulates the output of all the tasks. It is useful to to check the outputs and to fix the inputs of other tasks. Always use this tool before the executeTransaction tool.",
-      parameters: z.object({}),
-      execute: async ({}) => {
-        console.log("======== simulateTasks Tool =========");
-
-        const { data: taskIds } = await retrieveTasks();
-
-        if (!taskIds) {
-          return `No tasks found.`;
-        }
-
-        const tasks = await Promise.all(
-          taskIds.map(async ({ id: taskId }) => {
-            const { data: taskData } = await retrieveTaskById(taskId);
-
-            if (!taskData) {
-              return `Transaction not found for task [id: ${taskId}].`;
-            }
-
-            if (!taskData[0].steps) {
-              return `Transaction not found for task [id: ${taskId}].`;
-            }
-
-            return [
-              `[taskId: ${taskId}] "${taskData[0].task}"`,
-              `The transaction is from ${taskData[0].to_token.symbol} to ${taskData[0].from_token.symbol}.`,
-              `The amount is ${taskData[0].from_amount} ${taskData[0].from_token.symbol} and the output amount is ${taskData[0].to_amount} ${taskData[0].to_token.symbol}.`,
-              `Fix the task accordingly and return just the updated task.`,
-            ].join("\n");
-          })
-        );
-
-        const response = await generateText({
-          model: openai("gpt-4o-mini"),
-          prompt: [
-            `You have simulated all the tasks you need to execute. This is the output of the simulation:`,
-            tasks.join("\n"),
-            `Fix the tasks accordingly and return just the updated tasks.`,
-            `When the tasks are updated, remind yourself to get the updated transaction data and then execute the tasks.`,
-          ].join("\n"),
-        });
-
-        return response.text;
-      },
-    }),
-    executeTransaction: tool({
-      description:
-        "A tool that executes a transaction. Execute transactions in chronological order.",
+    executeTransaction: {
+      description: "A tool that executes a transaction. Execute transactions in chronological order.",
       parameters: z.object({
         task: z.string(),
         taskId: z.string(),
       }),
-      execute: async ({ task, taskId }) => {
-        console.log("======== executeTransaction Tool =========");
-        console.log(
-          `[executeTransaction] executing transaction with task id: ${taskId}`
-        );
-
-        const { data: taskData } = await retrieveTaskById(taskId);
-
-        if (!taskData) {
-          return `Transaction not found for task: "${task}" [id: ${taskId}].`;
-        }
-
-        const walletClient = createWalletClient({
-          account,
-          chain: getChain(parseInt(env.CHAIN_ID)),
-          transport: http(),
-        });
-        const publicClient = createPublicClient({
-          chain: getChain(parseInt(env.CHAIN_ID)),
-          transport: http(),
-        });
-
-        const hashes: string[] = [];
-
-        for (const step of taskData[0].steps) {
-          try {
-            const hash = await walletClient.sendTransaction({
-              to: step.to,
-              value: BigInt(step.value),
-              data: step.data,
-            });
-            console.log(`[executeTransaction] transaction hash: ${hash}`);
-            const receipt = await publicClient.waitForTransactionReceipt({
-              hash,
-            });
-            console.log(
-              `[executeTransaction] transaction receipt: ${receipt.transactionHash}`
-            );
-            hashes.push(receipt.transactionHash);
-          } catch (error) {
-            console.log(
-              `[executeTransaction] transaction for task "${task}" failed: ${error}`
-            );
-            return `[${new Date().toISOString()}] Transaction errored for task: "${task}". The error is: ${JSON.stringify(
-              error,
-              null,
-              2
-            )}`;
+      execute: async (args: Record<string, any>, options?: ToolExecutionOptions): Promise<ToolResult> => {
+        try {
+          if (!args.task || !args.taskId) {
+            return {
+              success: false,
+              result: null,
+              error: "Missing required parameters: task and taskId"
+            };
           }
+
+          console.log("======== executeTransaction Tool =========");
+          console.log(`[executeTransaction] executing transaction with task id: ${args.taskId}`);
+
+          const { data: taskData } = await retrieveTaskById(args.taskId);
+
+          if (!taskData) {
+            return {
+              success: false,
+              result: null,
+              error: `Transaction not found for task: "${args.task}" [id: ${args.taskId}].`
+            };
+          }
+
+          const walletClient = createWalletClient({
+            account,
+            chain: getChain(parseInt(env.CHAIN_ID)),
+            transport: http(),
+          });
+          const publicClient = createPublicClient({
+            chain: getChain(parseInt(env.CHAIN_ID)),
+            transport: http(),
+          });
+
+          const hashes: string[] = [];
+
+          for (const step of taskData[0].steps) {
+            try {
+              const hash = await walletClient.sendTransaction({
+                to: step.to,
+                value: BigInt(step.value),
+                data: step.data,
+              });
+              console.log(`[executeTransaction] transaction hash: ${hash}`);
+              const receipt = await publicClient.waitForTransactionReceipt({ hash });
+              console.log(`[executeTransaction] transaction receipt: ${receipt.transactionHash}`);
+              hashes.push(receipt.transactionHash);
+            } catch (error) {
+              console.log(`[executeTransaction] transaction for task "${args.task}" failed: ${error}`);
+              return {
+                success: false,
+                result: null,
+                error: `Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+              };
+            }
+          }
+
+          await deleteTask(args.taskId);
+
+          return {
+            success: true,
+            result: `Transaction executed successfully. Transaction hashes: ${hashes.join(", ")}`
+          };
+        } catch (error) {
+          return {
+            success: false,
+            result: null,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
         }
-
-        await deleteTask(taskId);
-
-        return `[${new Date().toISOString()}] Transaction executed successfully for task: "${task}". Transaction hashes: ${hashes.join(
-          ", "
-        )}`;
-      },
-    }),
-
+      }
+    }
   };
 };
 
 export const getOdosSwapTransaction = (account: Account) => {
   return {
-    generateQuote: tool({
+    generateQuote: {
       description: `This will generate Quote for the swap. 
        It takes the following inputs:
         - The source chain ID
@@ -282,63 +325,60 @@ export const getOdosSwapTransaction = (account: Account) => {
         chainId: z.number().describe("Chain Id of the Chain"),
         fromToken: z.string().describe("Address of the source token"),
         toToken: z.string().describe("Address of the destination token"),
-        fromAmount: z
-          .string()
-          .describe(
-            "The amount to be transferred from the source chain, specified in the smallest unit of the token (e.g., wei for ETH)."
-          ),
+        fromAmount: z.string().describe(
+          "The amount to be transferred from the source chain, specified in the smallest unit of the token (e.g., wei for ETH)."
+        ),
       }),
-      execute: async ({ chainId, fromToken, toToken, fromAmount }) => {
-        console.log(
-          "======== Fetchin Quote for the Transaction Tool ========="
-        );
-        console.log(` Fetching Quote`);
-
-        const quoteConfig = {
-          chainId,
-          inputToken: [
-            {
-              tokenAddress: fromToken,
-              amount: fromAmount,
-            },
-          ],
-          outputTokens: [
-            {
-              tokenAddress: toToken, // checksummed output token address
-              proportion: 1,
-            },
-          ],
-          userAddr: account.address, // checksummed user address
-          slippageLimitPercent: 0.3, // set your slippage limit percentage (1 = 1%),
-          referralCode: 0, // referral code (recommended)
-          disableRFQs: true,
-          compact: true,
-        };
-
-        const quoteUrl = "https://api.odos.xyz/sor/quote/v2";
-
-        const response = await fetch(quoteUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(quoteConfig),
-        });
-        if (response.status === 200) {
-          const quote = await response.json();
-
-          console.log("Quote fetched successfully >>>", quote);
-
-          console.log("======== Assembling transaction =========");
+      execute: async (args: {
+        chainId: number;
+        fromToken: string;
+        toToken: string;
+        fromAmount: string;
+      }): Promise<ToolResult> => {
+        try {
+          console.log("======== Fetching Quote for the Transaction Tool =========");
           console.log(` Fetching Quote`);
 
-          const assembleUrl = "https://api.odos.xyz/sor/assemble";
-
-          const assembleRequestBody = {
+          const quoteConfig = {
+            chainId: args.chainId,
+            inputToken: [
+              {
+                tokenAddress: args.fromToken,
+                amount: args.fromAmount,
+              },
+            ],
+            outputTokens: [
+              {
+                tokenAddress: args.toToken,
+                proportion: 1,
+              },
+            ],
             userAddr: account.address,
-            pathId: quote.pathId,
-            simulate: true,
+            slippageLimitPercent: 0.3,
+            referralCode: 0,
+            disableRFQs: true,
+            compact: true,
           };
 
-          try {
+          const quoteUrl = "https://api.odos.xyz/sor/quote/v2";
+          const response = await fetch(quoteUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(quoteConfig),
+          });
+
+          if (response.status === 200) {
+            const quote = await response.json();
+            console.log("Quote fetched successfully >>>", quote);
+
+            console.log("======== Assembling transaction =========");
+            const assembleUrl = "https://api.odos.xyz/sor/assemble";
+            const assembleRequestBody = {
+              userAddr: account.address,
+              pathId: quote.pathId,
+              simulate: true,
+            };
+
             const assembledTransactionRaw = await fetch(assembleUrl, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -346,14 +386,9 @@ export const getOdosSwapTransaction = (account: Account) => {
             });
 
             const assembledTransaction = await assembledTransactionRaw.json();
-
-            console.log(
-              "Transaction fetched successfully",
-              assembledTransaction
-            );
+            console.log("Transaction fetched successfully", assembledTransaction);
 
             console.log("======== Executing transaction =========");
-
             const walletClient = createWalletClient({
               account,
               chain: getChain(parseInt(env.CHAIN_ID)),
@@ -364,28 +399,30 @@ export const getOdosSwapTransaction = (account: Account) => {
               transport: http(),
             });
 
-            const hash = await walletClient.sendTransaction(
-              assembledTransaction.transaction
-            );
-
+            const hash = await walletClient.sendTransaction(assembledTransaction.transaction);
             console.log(`[executeTransaction] transaction hash: ${hash}`);
-            const receipt = await publicClient.waitForTransactionReceipt({
-              hash,
-            });
-            console.log(
-              `[executeTransaction] transaction receipt: ${receipt.transactionHash}`
-            );
+            const receipt = await publicClient.waitForTransactionReceipt({ hash });
+            console.log(`[executeTransaction] transaction receipt: ${receipt.transactionHash}`);
 
-            return `[${new Date().toISOString()}] Transaction executed successfully. Transaction hash: ${
-              receipt.transactionHash
-            }`;
-          } catch (error) {
-            console.log("Error in creating transaction", error);
+            return {
+              success: true,
+              result: `Transaction executed successfully. Transaction hash: ${receipt.transactionHash}`
+            };
           }
-        } else {
-          console.log("Error in creating quote>>>", response);
+
+          return {
+            success: false,
+            result: null,
+            error: "Failed to fetch quote"
+          };
+        } catch (error) {
+          return {
+            success: false,
+            result: null,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
         }
-      },
-    }),
+      }
+    }
   };
 };
