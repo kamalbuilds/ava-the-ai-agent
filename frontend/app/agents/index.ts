@@ -31,6 +31,8 @@ export interface Agent {
     description: string;
     agent: RunnableWithMessageHistory<Record<string, any>, ChainValues>;
     metadata?: Record<string, any>;
+    type: string;
+    status: string;
 }
 
 export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): Promise<Agent[]> => {
@@ -136,25 +138,33 @@ export const createSpecializedAgents = async (baseOptions: BrianAgentOptions): P
             id: 'trading',
             name: 'Trading Agent',
             description: 'Specializes in price analysis and trading opportunities',
-            agent: tradingAgent
+            agent: tradingAgent,
+            type: 'trading',
+            status: 'active'
         },
         {
             id: 'liquidity',
             name: 'Liquidity Pool Agent',
             description: 'Analyzes liquidity pools and provides insights',
-            agent: liquidityAgent
+            agent: liquidityAgent,
+            type: 'liquidity',
+            status: 'active'
         },
         {
             id: 'portfolio',
             name: 'Portfolio Manager',
             description: 'Helps optimize portfolio allocation and management',
-            agent: portfolioAgent
+            agent: portfolioAgent,
+            type: 'portfolio',
+            status: 'active'
         },
         {
             id: 'defi-analytics',
             name: 'DeFi Analytics',
             description: 'Provides comprehensive DeFi market analysis using DeFiLlama data',
-            agent: defiLlamaAgent
+            agent: defiLlamaAgent,
+            type: 'analytics',
+            status: 'active'
         },
         // {
         //     id: 'coinbase-dev',
