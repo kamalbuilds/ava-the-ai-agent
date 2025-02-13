@@ -81,6 +81,43 @@ export function getTaskManagerToolkit(eventBus: EventBus): Record<string, Tool> 
           };
         }
       }
+    },
+    sendMessageToSafeWallet: {
+      description: "Send a transaction or spending limit request to the Safe Wallet agent",
+      parameters: z.object({
+        action: z.enum(['propose-transaction', 'set-spending-limit', 'spend-allowance']),
+        data: z.object({
+          to: z.string().optional(),
+          data: z.string().optional(),
+          value: z.string().optional(),
+          agentPrivateKey: z.string(),
+          tokenAddress: z.string().optional(),
+          amount: z.string().optional(),
+          resetTimeInMinutes: z.number().optional(),
+          ownerPrivateKey: z.string().optional(),
+          agentAddress: z.string().optional(),
+        }),
+        taskId: z.string()
+      }),
+      execute: async (args: Record<string, any>, options?: ToolExecutionOptions): Promise<ToolResult> => {
+        try {
+          eventBus.emit('task-manager-safe-wallet', {
+            taskId: args.taskId,
+            action: args.action,
+            data: args.data,
+          });
+          return {
+            success: true,
+            result: `Message sent to Safe Wallet agent: ${args.action}`
+          };
+        } catch (error) {
+          return {
+            success: false,
+            result: null,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      }
     }
   };
 }
