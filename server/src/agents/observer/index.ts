@@ -62,7 +62,7 @@ export class ObserverAgent extends Agent {
   ) {
     super(name, eventBus, aiProvider);
     this.account = account;
-    this.address = account.address;
+    this.address = account.address as `0x${string}`;
     this.aiProvider = aiProvider;
     this.tools = getObserverToolkit(this.address);
     this.setupEventHandlers();

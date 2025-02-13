@@ -114,6 +114,6 @@
     // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
     "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
   },
-  "include": ["src/**/*","env.d.ts"],
-  "exclude": ["node_modules"]
+  "include": ["src/index.ts","env.d.ts"],
+  "exclude": ["node_modules" , "src/atoma-agents","src/agents/eliza-agent","src/agents","src/app","src/setup","src/middleware","src/setup","src/app","src/agents"]
 }
