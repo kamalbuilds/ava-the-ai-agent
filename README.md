@@ -1,6 +1,6 @@
 # 🤖 Ava the Portfolio Manager AI Agent
 
-> Group of Multiple specialized autonomous AI agents with powerful tools that work together in collaberation to analyze, recommend, and execute the most optimal DeFi strategies while maintaining user-defined risk parameters and portfolio goals currently live on Avalanche , Mode , Arbitrium , Sei, powered by Brian AI and LangChain
+> Group of Multiple specialized autonomous AI agents with powerful tools that work together in collaberation to analyze, recommend, and execute the most optimal DeFi strategies while maintaining user-defined risk parameters and portfolio goals currently live on Sui , Avalanche , Mode , Arbitrium , Sei, powered by Brian AI and LangChain.
 
 - Users can manage their defi portfolio with their risk parameters and portfolio balance
 - Provides real-time feedback and execution status
@@ -29,36 +29,35 @@ https://youtu.be/gYtUwM4Azlc
 
 ## 🏗 Architecture
 
-<img width="1203" alt="Screenshot 2025-02-09 at 10 12 54 AM" src="https://github.com/user-attachments/assets/4498edcb-7d54-4dfb-a0bb-6ba3510a88b6" />
+<img width="1076" alt="Screenshot 2025-02-13 at 12 12 49 PM" src="https://github.com/user-attachments/assets/246b947c-bbee-4134-bbcb-6a33e38a7230" />
 
 ## 🌟 Key Features
 
-### 1. Natural Language Interface
+1. Natural Language Interface
 - Express portfolio goals in plain English
 - No need to understand complex DeFi terminology
 - AI translates intentions into actions
 
-### 2. Autonomous Execution
+ 2. Autonomous Execution
 - Breaks down complex goals into steps
 - Executes transactions automatically
 - Handles error recovery
 - Provides progress updates
 
-### 3. Portfolio Management
+ 3. Portfolio Management
 - Multi-protocol position monitoring
 - Yield optimization
 - Risk management
 - Rebalancing capabilities
 
-### 4. Real-time Updates
+4. Real-time Updates
 - Live execution status
 - Progress tracking
 - Transaction confirmations
 - Performance metrics
 
 
-
-The agents can now handle complex operations like portfolio rebalancing by:
+The agents handles complex operations like portfolio rebalancing by:
 
 - Breaking down operations into discrete tasks
 - Executing them in the correct order
@@ -73,6 +72,181 @@ This makes the agents more robust and capable of handling complex DeFi operation
 - **Blockchain**: Avalanche C-Chain, Teleporter, Eigenlayer AVS
 - **Development**: Foundry, Avalanche CLI
 - **Indexing**: The Graph Protocol
+
+## Technology Integrations
+
+### Atoma Network
+Atoma Network provides the foundational privacy-preserving infrastructure for our autonomous agents. 
+
+## Code Links
+
+1. https://github.com/kamalbuilds/ava-the-ai-agent/blob/dev/server/src/services/ai/providers/atoma.ts#L23
+
+2. https://github.com/kamalbuilds/ava-the-ai-agent/blob/dev/server/src/agents/sui-agent/index.ts#L23
+
+3. https://github.com/kamalbuilds/ava-the-ai-agent/blob/dev/server/src/agents/sui-agent/index.ts#L102
+
+4. BlueFin Atoma Agent - https://github.com/atoma-network/atoma-agents/pull/30
+
+5. Cetus Atoma Agent - https://github.com/atoma-network/atoma-agents/pull/24
+
+This integration enables:
+
+- **Private Compute Layer**
+  - Secure execution of agent strategies without exposing user portfolio data
+  - Zero-knowledge proofs for transaction verification
+  - Private state management across multiple DeFi protocols
+
+- **Cross-Protocol Privacy**
+  - Encrypted communication between agents using Atoma's privacy primitives
+  - Secure aggregation of portfolio data across Sui ecosystem
+  - Private order execution on DEXes without exposing user strategies
+
+- **Atoma Sage Integration**
+  - AI-powered insights branded as "Powered by Atoma Sage"
+  - Natural language processing for strategy explanation
+  - Risk assessment and portfolio recommendations
+  - Real-time market analysis with privacy guarantees
+
+### Eliza Agent
+Eliza serves as our conversational AI interface, providing human-like interaction while coordinating with other specialized agents:
+
+Code Links ->>
+
+1. https://github.com/kamalbuilds/ava-the-ai-agent/tree/dev/server/src/agents/eliza-agent
+
+2. https://github.com/kamalbuilds/ava-the-ai-agent/blob/dev/server/src/agents/task-manager/toolkit.ts#L59
+
+- **Multi-Agent Orchestration**
+  ```typescript
+  // Eliza coordinates with other agents through event-driven architecture
+
+  class ElizaAgent extends BaseAgent {
+    async generateInsight({
+      position,
+      analysis,
+      tone,
+      powered_by
+    }) {
+      // Natural language generation with personality
+      // Coordination with other agents
+    }
+  }
+  ```
+
+- **Protocol-Specific Adapters**
+  - Navi Protocol integration for leveraged positions
+  - Bluefin interface for perpetual trading
+  - Cetus integration for liquidity provision
+  - Aftermath connection for DCA and staking
+
+- **User Interaction Layer**
+  - Casual, friendly communication style
+  - Complex strategy simplification
+  - Real-time position monitoring
+  - Risk alerts and notifications
+
+### Navi Protocol Integration
+
+Navi Protocol powers our leveraged yield strategies with deep integration:
+
+https://github.com/kamalbuilds/ava-the-ai-agent/blob/dev/server/src/agents/task-manager/toolkit.ts#L59
+
+- **Position Management**
+  ```typescript
+  // Example of Navi position handling
+  interface NaviPosition {
+    asset: string;
+    leverage: number;
+    healthFactor: number;
+    liquidationPrice: number;
+    collateralFactor: number;
+  }
+  ```
+
+- **Risk Management**
+  - Real-time health factor monitoring
+  - Automated position adjustment
+  - Liquidation prevention strategies
+  - Collateral optimization
+
+- **Yield Strategies**
+  - Leveraged yield farming
+  - Auto-compounding positions
+  - APY optimization
+  - Gas-efficient rebalancing
+
+### Protocol Integrations
+
+#### Bluefin Integration
+
+https://github.com/atoma-network/atoma-agents/pull/30
+
+- **Perpetual Trading**
+  - Leverage up to 3x
+  - Stop-loss and take-profit automation
+  - Funding rate optimization
+  - Risk-adjusted position sizing
+
+#### Cetus Integration
+
+https://github.com/atoma-network/atoma-agents/pull/24
+
+- **Liquidity Management**
+  - Concentrated liquidity positions
+  - Range order optimization
+  - Impermanent loss protection
+  - Yield farming strategies
+
+#### Aftermath Integration
+- **DCA & Staking**
+  - Automated DCA execution
+  - afSUI staking management
+  - Yield optimization
+  - Gas-efficient order splitting
+
+### Agent Collaboration Architecture
+Our multi-agent system enables complex DeFi operations through specialized agents:
+
+```typescript
+interface AgentCollaboration {
+  observer: Observer;      // Monitors positions and market conditions
+  executor: Executor;      // Handles transaction execution
+  taskManager: TaskManager;// Coordinates multi-step operations
+  suiAgent: SuiAgent;     // SUI-specific operations
+  elizaAgent: ElizaAgent; // User interaction and strategy explanation
+}
+```
+
+Each agent is powered by Atoma Sage for:
+- Strategy formulation
+- Risk assessment
+- Market analysis
+- Natural language insights
+
+The system maintains privacy through:
+- Encrypted agent communication
+- Private state channels
+- Zero-knowledge proofs for verification
+- Secure multi-party computation for collaborative decisions
+
+### Integration Benefits
+1. **Privacy-First Architecture**
+   - User data protection
+   - Strategy confidentiality
+   - Secure multi-protocol interaction
+
+2. **Intelligent Automation**
+   - AI-powered decision making
+   - Autonomous position management
+   - Risk-aware execution
+
+3. **User Experience**
+   - Natural language interaction
+   - Real-time updates
+   - Simplified complex strategies
+   - Clear risk communication
+
 
 ## 📋 Example Use Cases
 
@@ -310,150 +484,3 @@ This example showcases how the AI agent can:
 - Monitor cross-L2 opportunities
 - Execute STARK-verified transactions
 - Maintain optimal risk parameters
-
-## Technology Integrations
-
-### Atoma Network
-Atoma Network provides the foundational privacy-preserving infrastructure for our autonomous agents. The integration enables:
-
-- **Private Compute Layer**
-  - Secure execution of agent strategies without exposing user portfolio data
-  - Zero-knowledge proofs for transaction verification
-  - Private state management across multiple DeFi protocols
-
-- **Cross-Protocol Privacy**
-  - Encrypted communication between agents using Atoma's privacy primitives
-  - Secure aggregation of portfolio data across Sui ecosystem
-  - Private order execution on DEXes without exposing user strategies
-
-- **Atoma Sage Integration**
-  - AI-powered insights branded as "Powered by Atoma Sage"
-  - Natural language processing for strategy explanation
-  - Risk assessment and portfolio recommendations
-  - Real-time market analysis with privacy guarantees
-
-### Eliza Agent
-Eliza serves as our conversational AI interface, providing human-like interaction while coordinating with other specialized agents:
-
-- **Multi-Agent Orchestration**
-  ```typescript
-  // Eliza coordinates with other agents through event-driven architecture
-
-  class ElizaAgent extends BaseAgent {
-    async generateInsight({
-      position,
-      analysis,
-      tone,
-      powered_by
-    }) {
-      // Natural language generation with personality
-      // Coordination with other agents
-    }
-  }
-  ```
-
-- **Protocol-Specific Adapters**
-  - Navi Protocol integration for leveraged positions
-  - Bluefin interface for perpetual trading
-  - Cetus integration for liquidity provision
-  - Aftermath connection for DCA and staking
-
-- **User Interaction Layer**
-  - Casual, friendly communication style
-  - Complex strategy simplification
-  - Real-time position monitoring
-  - Risk alerts and notifications
-
-### Navi Protocol Integration
-Navi Protocol powers our leveraged yield strategies with deep integration:
-
-- **Position Management**
-  ```typescript
-  // Example of Navi position handling
-  interface NaviPosition {
-    asset: string;
-    leverage: number;
-    healthFactor: number;
-    liquidationPrice: number;
-    collateralFactor: number;
-  }
-  ```
-
-- **Risk Management**
-  - Real-time health factor monitoring
-  - Automated position adjustment
-  - Liquidation prevention strategies
-  - Collateral optimization
-
-- **Yield Strategies**
-  - Leveraged yield farming
-  - Auto-compounding positions
-  - APY optimization
-  - Gas-efficient rebalancing
-
-### Protocol Integrations
-
-#### Bluefin Integration
-- **Perpetual Trading**
-  - Leverage up to 3x
-  - Stop-loss and take-profit automation
-  - Funding rate optimization
-  - Risk-adjusted position sizing
-
-#### Cetus Integration
-- **Liquidity Management**
-  - Concentrated liquidity positions
-  - Range order optimization
-  - Impermanent loss protection
-  - Yield farming strategies
-
-#### Aftermath Integration
-- **DCA & Staking**
-  - Automated DCA execution
-  - afSUI staking management
-  - Yield optimization
-  - Gas-efficient order splitting
-
-### Agent Collaboration Architecture
-Our multi-agent system enables complex DeFi operations through specialized agents:
-
-```typescript
-interface AgentCollaboration {
-  observer: Observer;      // Monitors positions and market conditions
-  executor: Executor;      // Handles transaction execution
-  taskManager: TaskManager;// Coordinates multi-step operations
-  suiAgent: SuiAgent;     // SUI-specific operations
-  elizaAgent: ElizaAgent; // User interaction and strategy explanation
-}
-```
-
-Each agent is powered by Atoma Sage for:
-- Strategy formulation
-- Risk assessment
-- Market analysis
-- Natural language insights
-
-The system maintains privacy through:
-- Encrypted agent communication
-- Private state channels
-- Zero-knowledge proofs for verification
-- Secure multi-party computation for collaborative decisions
-
-### Integration Benefits
-1. **Privacy-First Architecture**
-   - User data protection
-   - Strategy confidentiality
-   - Secure multi-protocol interaction
-
-2. **Intelligent Automation**
-   - AI-powered decision making
-   - Autonomous position management
-   - Risk-aware execution
-
-3. **User Experience**
-   - Natural language interaction
-   - Real-time updates
-   - Simplified complex strategies
-   - Clear risk communication
-
-
