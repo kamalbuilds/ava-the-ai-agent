@@ -2,13 +2,17 @@
 
 import { Navbar } from "@/components/ui/navbar";
 import { Footer } from "@/components/ui/footer";
+import { usePathname } from 'next/navigation';
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isLandingPage = pathname === '/';
+
   return (
     <>
-      <Navbar />
+      {!isLandingPage && <Navbar />}
       <main>{children}</main>
-      <Footer />
+      {!isLandingPage && <Footer />}
     </>
   );
 }
