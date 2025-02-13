@@ -14,7 +14,10 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@aave/contract-helpers": "^1.32.0",
+    "@aave/math-utils": "^1.32.0",
     "@ai-sdk/openai": "^1.0.7",
+    "@bgd-labs/aave-address-book": "^4.10.0",
     "@coinbase/cdp-langchain": "^0.0.15",
     "@coinbase/coinbase-sdk": "^0.15.0",
     "@hono/node-server": "^1.8.2",
@@ -23,14 +26,16 @@
     "@langchain/openai": "^0.4.2",
     "@supabase/supabase-js": "^2.47.0",
     "ai": "^4.0.12",
+    "atoma-sdk": "github:atoma-network/atoma-sdk-typescript",
+    "dayjs": "^1.11.13",
     "dotenv": "^16.4.7",
+    "ethers": "5",
     "figlet": "^1.8.0",
     "hono": "^4.6.12",
     "nodemon": "^3.1.9",
     "openai": "^4.76.1",
     "viem": "^2.22.17",
-    "zod": "^3.24.1",
-    "atoma-sdk": "github:atoma-network/atoma-sdk-typescript"
+    "zod": "^3.24.1"
   },
   "resolutions": {
     "@coinbase/coinbase-sdk": "^0.15.0"
