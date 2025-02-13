@@ -12,20 +12,21 @@
     "start:client": "pnpm --dir client dev"
   },
   "dependencies": {
-    "@elizaos/adapter-postgres": "0.1.7",
-    "@elizaos/adapter-sqlite": "0.1.7",
-    "@elizaos/adapter-supabase": "^0.1.9",
-    "@elizaos/client-auto": "0.1.7",
-    "@elizaos/client-direct": "0.1.7",
-    "@elizaos/client-discord": "0.1.7",
-    "@elizaos/client-telegram": "0.1.7",
-    "@elizaos/client-twitter": "0.1.7",
-    "@elizaos/core": "0.1.7",
-    "@elizaos/plugin-bootstrap": "0.1.7",
-    "@elizaos/plugin-image-generation": "0.1.7",
-    "@elizaos/plugin-node": "0.1.7",
-    "@elizaos/plugin-solana": "0.1.7",
-    "@elizaos/plugin-starknet": "0.1.7",
+    "@elizaos/adapter-postgres": "0.25.6-alpha.1",
+    "@elizaos/adapter-sqlite": "0.25.6-alpha.1",
+    "@elizaos/adapter-supabase": "0.25.6-alpha.1",
+    "@elizaos/client-auto": "0.25.6-alpha.1",
+    "@elizaos/client-direct": "0.25.6-alpha.1",
+    "@elizaos/client-discord": "0.25.6-alpha.1",
+    "@elizaos/client-telegram": "0.25.6-alpha.1",
+    "@elizaos/client-twitter": "0.25.6-alpha.1",
+    "@elizaos/core": "0.25.6-alpha.1",
+    "@elizaos/plugin-bootstrap": "0.25.6-alpha.1",
+    "@elizaos/plugin-image-generation": "0.25.6-alpha.1",
+    "@elizaos/plugin-node": "0.25.6-alpha.1",
+    "@elizaos/plugin-solana": "0.25.6-alpha.1",
+    "@elizaos/plugin-starknet": "0.25.6-alpha.1",
+    "@elizaos/plugin-sui": "0.25.6-alpha.1",
     "@tavily/core": "0.0.2",
     "amqplib": "0.10.5",
     "better-sqlite3": "11.5.0",
@@ -44,7 +45,8 @@
   },
   "pnpm": {
     "overrides": {
-      "onnxruntime-node": "1.20.0"
+      "onnxruntime-node": "1.20.0",
+      "@elizaos/*": "0.25.6-alpha.1"
     }
   },
   "devDependencies": {

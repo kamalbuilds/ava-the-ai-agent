@@ -2,7 +2,7 @@ import { EventBus } from '../types/event-bus';
 
 export class WebSocketEventBus implements EventBus {
     private ws: WebSocket | null = null;
-    private subscribers: Map<string, Function[]> = new Map();
+    private subscribers: Map<string, Array<(data: any) => void>> = new Map();
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
     private reconnectDelay = 1000;
@@ -38,14 +38,15 @@ export class WebSocketEventBus implements EventBus {
             this.emit('connection', { status: 'connected' });
         };
 
-        this.ws.onmessage = (event) => {
+        this.ws.onmessage = (ev) => {
             try {
-                const data = JSON.parse(event.data);
-                if (data.type && this.subscribers.has(data.type)) {
-                    this.subscribers.get(data.type)?.forEach(callback => callback(data));
+                const data = JSON.parse(ev.data);
+                const subscribers = this.subscribers.get(data.type);
+                if (subscribers) {
+                    subscribers.forEach((callback) => callback(data));
                 }
             } catch (error) {
-                console.error('Error processing WebSocket message:', error);
+                console.error('Error handling WebSocket message:', error);
             }
         };
 
@@ -71,33 +72,47 @@ export class WebSocketEventBus implements EventBus {
     }
 
     public emit(event: string, data: any): void {
-        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-            console.error('WebSocket not connected');
-            return;
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ type: event, ...data }));
         }
-        this.ws.send(JSON.stringify({ type: event, ...data }));
     }
 
-    public subscribe(event: string, callback: Function): void {
+    public subscribe(event: string, callback: (data: any) => void): void {
         if (!this.subscribers.has(event)) {
             this.subscribers.set(event, []);
         }
         this.subscribers.get(event)?.push(callback);
     }
 
-    public unsubscribe(event: string, callback: Function): void {
-        const callbacks = this.subscribers.get(event);
-        if (callbacks) {
-            const index = callbacks.indexOf(callback);
-            if (index > -1) {
-                callbacks.splice(index, 1);
+    public unsubscribe(event: string, callback: (data: any) => void): void {
+        const subscribers = this.subscribers.get(event);
+        if (subscribers) {
+            const index = subscribers.indexOf(callback);
+            if (index !== -1) {
+                subscribers.splice(index, 1);
             }
         }
     }
 
     public disconnect(): void {
-        this.ws?.close();
-        this.ws = null;
+        if (this.ws) {
+            this.ws.close();
+            this.ws = null;
+        }
         this.subscribers.clear();
+    }
+
+    public isConnected(): boolean {
+        return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+    }
+
+    public onMessage(handler: (ev: MessageEvent) => void): void {
+        if (this.ws) {
+            this.ws.onmessage = handler;
+        }
+    }
+
+    public getWebSocket(): WebSocket | null {
+        return this.ws;
     }
 }

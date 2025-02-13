@@ -30,16 +30,11 @@ export class AtomaProvider implements AIProvider {
           model: "meta-llama/Llama-3.3-70B-Instruct"
         });
 
-      // const usage: CompletionUsage = {
-      //   completionTokens: response.usage?.completionTokens || 0,
-      //   promptTokens: response.usage?.promptTokens || 0,
-      //   totalTokens: response.usage?.totalTokens || 0
-      // };
+
 
       return {
         text: response.choices[0].message.content,
         toolCalls: [],
-        // toolResults: []
       };
     } catch (error) {
       console.error("Atoma AI error:", error);

@@ -354,7 +354,7 @@ export class TaskManagerAgent extends Agent {
       }
 
       // Execute tools from toolkit for non-SUI tasks
-      console.log(`[${this.name}] ========== Starting Tool Execution ==========`);
+      console.log(`[${this.name}] ========== Starting Tool Execution for non SUI tasks==========`);
       const toolResults = [];
 
       // Send message to observer
