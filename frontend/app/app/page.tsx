@@ -264,7 +264,7 @@ export default function Home() {
       console.log("Event Bus Ref", eventBus, eventBusRef.current);
 
       // Connect to backend WebSocket
-      eventBus.connect("ws://localhost:3002");
+      eventBus.connect(process.env['NEXT_PUBLIC_WEBSOCKET_URL'] || 'ws://localhost:3002');
 
       subscribeToAgentEvents();
 
@@ -306,7 +306,7 @@ export default function Home() {
     const eventBus = new WebSocketEventBus();
     eventBusRef.current = eventBus;
 
-    eventBus.connect("ws://localhost:3002");
+    eventBus.connect(process.env['NEXT_PUBLIC_WEBSOCKET_URL'] || 'ws://localhost:3002');
 
     console.log("Event Bus", eventBus);
 

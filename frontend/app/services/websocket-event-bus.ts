@@ -7,7 +7,7 @@ export class WebSocketEventBus implements EventBus {
     private maxReconnectAttempts = 5;
     private reconnectDelay = 1000;
 
-    constructor(url: string = 'ws://localhost:3002') {
+    constructor(url: string = process.env['NEXT_PUBLIC_WEBSOCKET_URL'] || 'ws://localhost:3002') {
         this.connect(url);
     }
 
