@@ -2,16 +2,16 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { initializeAgents } from "./agents";
+import { initializeAgents } from "../agents";
 import { SendHorizontal, Bot, User, PanelRightClose, PanelRightOpen } from "lucide-react";
 import Image from "next/image";
 import { Switch } from "@/components/ui/switch";
-import { EXAMPLE_RESPONSES , AUTONOMOUS_EXAMPLES} from "../lib/example";
+import { EXAMPLE_RESPONSES , AUTONOMOUS_EXAMPLES} from "../../lib/example";
 import { EventBus } from "./types/event-bus";
-import { WebSocketEventBus } from "./services/websocket-event-bus";
+import { WebSocketEventBus } from "../services/websocket-event-bus";
 import {Navbar} from "@/components/ui/navbar";
 import {Footer} from "@/components/ui/footer";
-import { useSettingsStore } from './stores/settingsStore';
+import { useSettingsStore } from '../stores/settingsStore';
 
 type CollaborationType =
   | "analysis"
