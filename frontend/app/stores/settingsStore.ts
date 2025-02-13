@@ -17,7 +17,7 @@ export const useSettingsStore = create<SettingsState>()(
         aiProvider: {
           provider: 'openai',
           apiKey: '',
-          modelName: 'gpt-4'
+          modelName: 'gpt-4o'
         },
         walletKey: '',
         enablePrivateCompute: false,

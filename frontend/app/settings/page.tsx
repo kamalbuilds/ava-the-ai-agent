@@ -93,7 +93,7 @@ export default function SettingsPage() {
               >
                 <option value="gpt-4o">GPT-4o</option>
                 <option value="deepseek-r1">DeepSeek-R1</option>
-                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                <option value="gpt-4o">GPT-3.5 Turbo</option>
               </select>
               </div>
 

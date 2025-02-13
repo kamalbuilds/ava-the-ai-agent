@@ -60,7 +60,7 @@ export default function Home() {
                     privateKeyOrAccount: formattedPrivateKey as `0x${string}`,
                     llm: new ChatOpenAI({
                         apiKey: openAiKey,
-                        modelName: "gpt-4",
+                        modelName: "gpt-4o",
                         temperature: 0.7,
                     }),
                     config: {

@@ -51,7 +51,7 @@ const eventBus = new EventBus();
 const aiProvider = AIFactory.createProvider({
   provider: 'openai',
   apiKey: env.OPENAI_API_KEY,
-  modelName: 'gpt-4'
+  modelName: 'gpt-4o'
 });
 
 // Initialize agents

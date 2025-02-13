@@ -18,7 +18,7 @@ export class OpenAIProvider implements AIProvider {
   private apiKey: string;
   private modelName: string;
 
-  constructor(apiKey: string, modelName: string = "gpt-4") {
+  constructor(apiKey: string, modelName: string = "gpt-4o") {
     this.apiKey = apiKey;
     this.modelName = modelName;
   }
