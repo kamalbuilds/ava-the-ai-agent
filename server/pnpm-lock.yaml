@@ -36,10 +36,13 @@ importers:
         specifier: ^2.5.9
         version: 2.5.9(typescript@5.7.3)(zod@3.24.1)
       '@safe-global/protocol-kit':
-        specifier: ^5.2.2
+        specifier: ^5.2.0
         version: 5.2.2(typescript@5.7.3)(zod@3.24.1)
+      '@safe-global/safe-deployments':
+        specifier: ^1.37.24
+        version: 1.37.28
       '@safe-global/safe-modules-deployments':
-        specifier: ^2.2.7
+        specifier: ^2.2.4
         version: 2.2.7
       '@safe-global/types-kit':
         specifier: ^1.0.2

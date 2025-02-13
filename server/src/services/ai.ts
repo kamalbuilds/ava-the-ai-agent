@@ -51,7 +51,7 @@ export class AIService {
 
       case 'openai':
         return this.openai?.createChatCompletion({
-          model: "gpt-4",
+          model: "gpt-4o",
           messages: [{ role: "user", content: prompt }]
         });
 
