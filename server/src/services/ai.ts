@@ -1,4 +1,4 @@
-import { AtomaSDK } from "atoma-ts-sdk";
+import { AtomaSDK } from "atoma-sdk";
 import OpenAI from "openai";
 
 export class AIService {

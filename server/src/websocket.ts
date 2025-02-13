@@ -1,6 +1,6 @@
 import { WebSocket, WebSocketServer } from "ws";
 import { EventBus } from "./comms/event-bus";
-import { agents } from "./index";
+
 
 const WS_PORT = 3002;
 
