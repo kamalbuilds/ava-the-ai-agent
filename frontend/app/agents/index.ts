@@ -244,6 +244,7 @@ export const initializeAgents = async () => {
         privateKeyOrAccount: process.env["NEXT_PUBLIC_PRIVATE_KEY"] as `0x${string}`,
         llm: new ChatOpenAI({
             apiKey: process.env["NEXT_PUBLIC_OPENAI_API_KEY"]!,
+            modelName: "gpt-4o",
         }),
     };
 

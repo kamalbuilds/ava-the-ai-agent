@@ -64,7 +64,10 @@ const agentImages = {
   liquidity: "/agent_liquidity.png",
   portfolio: "/agent_default.png",
   "defi-analytics": "/agent_analyst.png",
+  default: "/agent_default.png", // Add a default image
 };
+
+console.log(agentImages,"agentImages");
 
 const scrollbarStyles = `
   .custom-scrollbar::-webkit-scrollbar {
@@ -200,6 +203,7 @@ export default function Home() {
 
         const initializedAgents = await initializeAgents();
         setAgents(initializedAgents);
+        console.log(agents, "initializedAgents");
 
         setAgentState((prev) => ({
           ...prev,
@@ -443,6 +447,8 @@ export default function Home() {
         },
         { configurable: { sessionId: "user-1" } }
       );
+
+      console.log(initialAnalysis, "initialAnalysis", portfolioAgent);
 
       setMessages((prev) => [
         ...prev,
@@ -752,8 +758,8 @@ export default function Home() {
                 <div className="flex items-center mb-2">
                   <div className="relative w-12 h-12 mr-3">
                     <Image
-                      src={agentImages[agent.id as keyof typeof agentImages]}
-                      alt={agent.name}
+                      src={agentImages[agent.id as keyof typeof agentImages] || agentImages.default}
+                      alt={`${agent.name} avatar`}
                       fill
                       className="rounded-full object-cover"
                       priority

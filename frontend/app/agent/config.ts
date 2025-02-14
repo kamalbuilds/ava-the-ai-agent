@@ -18,7 +18,7 @@ export const initializeAgent = async (config: {
             privateKeyOrAccount: config.privateKey as `0x${string}`,
             llm: new ChatOpenAI({
                 apiKey: config.openAiKey,
-                modelName: "gpt-4-turbo-preview",
+                modelName: "gpt-4o",
                 temperature: 0.2
             }),
         });
