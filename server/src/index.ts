@@ -73,7 +73,7 @@ console.log("[registerAgents] task manager agent initialized.");
 console.log("all events registered");
 
 // Setup WebSocket server
-const WS_PORT = 3002;
+const WS_PORT = 3001;
 const wss = new WebSocketServer({ port: WS_PORT });
 
 wss.on("connection", (ws: WebSocket) => {
