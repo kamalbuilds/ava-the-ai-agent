@@ -7,7 +7,7 @@ import { SendHorizontal, Bot, User, PanelRightClose, PanelRightOpen } from "luci
 import Image from "next/image";
 import { Switch } from "@/components/ui/switch";
 import { EXAMPLE_RESPONSES , AUTONOMOUS_EXAMPLES} from "../../lib/example";
-import { EventBus } from "./types/event-bus";
+import { EventBus } from "../types/event-bus";
 import { WebSocketEventBus } from "../services/websocket-event-bus";
 import {Navbar} from "@/components/ui/navbar";
 import {Footer} from "@/components/ui/footer";

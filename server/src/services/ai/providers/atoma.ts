@@ -1,6 +1,6 @@
-import { AtomaSDK } from "atoma-sdk";
+import { AtomaSDK } from "atoma-ts-sdk";
 import type { AIProvider, AIResponse } from "../types";
-import type { CompletionUsage } from "atoma-sdk/models/components/completionusage";
+import type { CompletionUsage } from "atoma-ts-sdk/models/components/completionusage";
 
 export class AtomaProvider implements AIProvider {
   private sdk: AtomaSDK;
@@ -29,7 +29,6 @@ export class AtomaProvider implements AIProvider {
           messages,
           model: "meta-llama/Llama-3.3-70B-Instruct"
         });
-
 
 
       return {

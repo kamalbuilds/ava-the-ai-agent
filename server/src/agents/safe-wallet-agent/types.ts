@@ -1,6 +1,6 @@
-import { type Safe } from '@safe-global/protocol-kit';
-import { type SafeApiKit } from '@safe-global/api-kit';
-import { type SafeModuleDeployment } from '@safe-global/safe-modules-deployments';
+import  Safe  from '@safe-global/protocol-kit';
+import SafeApiKit  from '@safe-global/api-kit';
+import type SafeModuleDeployment from '@safe-global/safe-modules-deployments';
 
 export interface SafeWalletConfig {
   rpcUrl: string;
@@ -38,6 +38,6 @@ export interface AllowanceConfig {
 export interface SafeWalletState {
   safe: Safe;
   apiKit: SafeApiKit;
-  allowanceModule: SafeModuleDeployment;
+  allowanceModule;
   safeAddress: string;
 } 

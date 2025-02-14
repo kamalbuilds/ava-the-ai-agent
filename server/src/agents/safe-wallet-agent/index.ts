@@ -1,4 +1,4 @@
-import Safe from '@safe-global/protocol-kit';
+import Safe, { PredictedSafeProps, SafeAccountConfig } from '@safe-global/protocol-kit';
 import SafeApiKit from '@safe-global/api-kit';
 import { getAllowanceModuleDeployment } from '@safe-global/safe-modules-deployments';
 import { OperationType, MetaTransactionData } from '@safe-global/types-kit';
@@ -50,14 +50,23 @@ export class SafeWalletAgent extends Agent implements SafeWalletState {
 
   async createNewSafe(config: CreateSafeConfig) {
     const account = privateKeyToAccount(config.agentPrivateKey as `0x${string}`);
+    const provider = this.safe.getSafeProvider().provider as any;
+    console.log('provider', provider);
+
+    const safeAccountConfig: SafeAccountConfig = {
+      owners: config.owners,
+      threshold: config.threshold
+    }
     
+    const predictedSafe: PredictedSafeProps = {
+      safeAccountConfig
+      // ...
+    };
+
     this.safe = await Safe.init({
-      provider: this.safe.provider,
+      provider: provider,
       signer: account,
-      safeOptions: {
-        owners: config.owners,
-        threshold: config.threshold
-      }
+      safeOptions: predictedSafe
     });
     this.safeAddress = await this.safe.getAddress();
     return this.safeAddress;
@@ -92,7 +101,7 @@ export class SafeWalletAgent extends Agent implements SafeWalletState {
 
   async setSpendingLimit(config: SpendingLimitConfig) {
     const account = privateKeyToAccount(config.ownerPrivateKey as `0x${string}`);
-    const allowanceModuleAddress = this.allowanceModule.networkAddresses[this.safe.chainId];
+    const allowanceModuleAddress = this.allowanceModule.networkAddresses[this.safe.getChainId().toString()];
 
     const addDelegateData = encodeFunctionData({
       abi: this.allowanceModule.abi,
@@ -133,19 +142,20 @@ export class SafeWalletAgent extends Agent implements SafeWalletState {
 
   async spendAllowance(config: AllowanceConfig) {
     const account = privateKeyToAccount(config.agentPrivateKey as `0x${string}`);
+
     const publicClient = createPublicClient({ 
-      transport: http(this.safe.provider) 
+      transport: http(this.safe.getSafeProvider().provider as any) 
     });
 
     const allowance = await publicClient.readContract({
-      address: this.allowanceModule.networkAddresses[this.safe.chainId],
+      address: this.allowanceModule.networkAddresses[this.safe.getChainId().toString()],
       abi: this.allowanceModule.abi,
       functionName: 'getTokenAllowance',
       args: [this.safeAddress, await this.safe.getAddress(), config.tokenAddress]
     }) as any; // Type assertion since we know the structure
 
     const hash = await publicClient.readContract({
-      address: this.allowanceModule.networkAddresses[this.safe.chainId],
+      address: this.allowanceModule.networkAddresses[this.safe.getChainId().toString()],
       abi: this.allowanceModule.abi,
       functionName: 'generateTransferHash',
       args: [
@@ -162,7 +172,7 @@ export class SafeWalletAgent extends Agent implements SafeWalletState {
     const signature = await this.safe.signHash(hash as `0x${string}`);
 
     const { request } = await publicClient.simulateContract({
-      address: this.allowanceModule.networkAddresses[this.safe.chainId],
+      address: this.allowanceModule.networkAddresses[this.safe.getChainId().toString()],
       abi: this.allowanceModule.abi,
       functionName: 'executeAllowanceTransfer',
       args: [
