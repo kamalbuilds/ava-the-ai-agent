@@ -6,7 +6,8 @@
     "build": "tsc",
     "dev": "ts-node src/index.ts",
     "start": "node dist/index.js",
-    "start:wh": "ts-node src/websocket.ts",
+    "start:ws": "node dist/websocket.js",
+    "dev:ws": "ts-node src/websocket.ts",
     "vercel-build": "npm run build"
   },
   "keywords": [],
