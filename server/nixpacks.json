@@ -11,6 +11,6 @@
     }
   },
   "start": {
-    "cmd": "bun run dev"
+    "cmd": "bun run dev && bun run dev:ws"
   }
 }
