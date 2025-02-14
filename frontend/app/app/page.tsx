@@ -9,9 +9,12 @@ import { Switch } from "@/components/ui/switch";
 import { EXAMPLE_RESPONSES , AUTONOMOUS_EXAMPLES} from "../../lib/example";
 import { EventBus } from "./types/event-bus";
 import { WebSocketEventBus } from "../services/websocket-event-bus";
-import {Navbar} from "@/components/ui/navbar";
-import {Footer} from "@/components/ui/footer";
+import dynamic from 'next/dynamic';
 import { useSettingsStore } from '../stores/settingsStore';
+
+// Dynamically import components that need to be client-side only
+const Navbar = dynamic(() => import('@/components/ui/navbar'), { ssr: false });
+const Footer = dynamic(() => import('@/components/ui/footer'), { ssr: false });
 
 type CollaborationType =
   | "analysis"
@@ -57,14 +60,6 @@ interface Agent {
   message?: string;
   agent?: any;
 }
-
-// Add a mapping for agent images
-const agentImages = {
-  trading: "/agent_trader.png",
-  liquidity: "/agent_liquidity.png",
-  portfolio: "/agent_default.png",
-  "defi-analytics": "/agent_analyst.png",
-};
 
 const scrollbarStyles = `
   .custom-scrollbar::-webkit-scrollbar {
@@ -118,12 +113,128 @@ interface AgentMessage {
 }
 
 export default function Home() {
-  const { settings } = useSettingsStore();
+  // Client-side state initialization
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [wsEventBus, setWsEventBus] = useState<WebSocketEventBus | null>(null);
   const [autonomousMode, setAutonomousMode] = useState(false);
-  
-  // Sample prompts data
+  const [mounted, setMounted] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const eventBusRef = useRef<WebSocketEventBus | null>(null);
+  const { settings } = useSettingsStore();
+
+  const [agentState, setAgentState] = useState<AgentState>({
+    isInitialized: false,
+    isProcessing: false,
+    error: null,
+    activeAgent: null,
+    systemEvents: [],
+  });
+
+  // Initialize on client-side only
+  useEffect(() => {
+    setMounted(true);
+    const eventBus = new WebSocketEventBus();
+    setWsEventBus(eventBus);
+    eventBusRef.current = eventBus;
+
+    eventBus.connect(process.env['NEXT_PUBLIC_WEBSOCKET_URL'] || 'ws://localhost:3002');
+
+    // Subscribe to agent messages
+    eventBus.subscribe('agent-message', (data: AgentMessage) => {
+      if (!mounted) return;
+      
+      // If it's an error or warning, add it to system events instead of messages
+      if (data.eventType === 'error' || data.eventType === 'warning') {
+        const newEvent: SystemEvent = {
+          timestamp: new Date().toLocaleTimeString(),
+          event: data.content,
+          agent: data.agentName,
+          type: data.eventType
+        };
+        setAgentState(prev => ({
+          ...prev,
+          systemEvents: [...prev.systemEvents, newEvent]
+        }));
+        return;
+      }
+
+      // Only add non-error messages to the chat
+      const newMessage: Message = {
+        role: data.role,
+        content: data.content,
+        timestamp: new Date().toLocaleTimeString(),
+        agentName: data.agentName,
+        collaborationType: data.collaborationType
+      };
+
+      setMessages(prev => deduplicateMessages([...prev, newMessage]));
+    });
+
+    // Subscribe to system events
+    eventBus.subscribe('agent-event', (data: AgentMessage) => {
+      if (!mounted) return;
+
+      const newEvent: SystemEvent = {
+        timestamp: new Date().toLocaleTimeString(),
+        event: data.action || data.event || data.content || '',
+        agent: data.agentName,
+        type: data.eventType || 'info'
+      };
+
+      setAgentState(prev => ({
+        ...prev,
+        systemEvents: [...prev.systemEvents, newEvent]
+      }));
+
+      // Don't add system events to messages
+    });
+
+    // Subscribe to execution results
+    eventBus.subscribe('execution-result', (data: any) => {
+      if (!mounted) return;
+
+      // If it's an error, add to system events
+      if (data.error) {
+        const newEvent: SystemEvent = {
+          timestamp: new Date().toLocaleTimeString(),
+          event: data.error,
+          agent: 'Executor',
+          type: 'error'
+        };
+        setAgentState(prev => ({
+          ...prev,
+          systemEvents: [...prev.systemEvents, newEvent]
+        }));
+        return;
+      }
+
+      // Only add successful results to messages
+      const newMessage: Message = {
+        role: 'assistant',
+        content: data.report || data.result || '',
+        timestamp: new Date().toLocaleTimeString(),
+        agentName: 'Executor',
+        collaborationType: 'execution'
+      };
+
+      setMessages(prev => deduplicateMessages([...prev, newMessage]));
+    });
+
+    return () => {
+      eventBus.disconnect();
+    };
+  }, []);
+
+  // Scroll to bottom effect
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  if (!mounted) {
+    return null; // Return null on server-side
+  }
+
   const samplePrompts = [
     { icon: "💱", text: "Swap 1 USDC to WETH" },
     { icon: "📈", text: "Create investment plan for 5 SOL to make 7 SOL" },
@@ -145,31 +256,25 @@ export default function Home() {
     setInput(promptText);
   };
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const getTimestamp = () => {
+    if (typeof window === 'undefined') return '';
+    return new Date().toLocaleTimeString();
+  };
+
+  const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() || agentState.isProcessing) return;
     handleMessage(input);
     setInput("");
   };
 
-  const [agentState, setAgentState] = useState<AgentState>({
-    isInitialized: false,
-    isProcessing: false,
-    error: null,
-    activeAgent: null,
-    systemEvents: [],
-  });
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
   const [systemEvents, setSystemEvents] = useState<SystemEvent[]>([]);
 
-  const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const clientRef = useRef<any>(null);
   const agentRef = useRef<any>(null);
-  const eventBusRef = useRef<EventBus | null>(null);
-  const agentsRef = useRef<any>(null);
   const ws = useRef<WebSocket | null>(null);
-  const [wsEventBus, setWsEventBus] = useState<WebSocketEventBus | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -264,7 +369,7 @@ export default function Home() {
       console.log("Event Bus Ref", eventBus, eventBusRef.current);
 
       // Connect to backend WebSocket
-      eventBus.connect("ws://localhost:3002");
+      eventBus.connect(process.env['NEXT_PUBLIC_WEBSOCKET_URL'] || 'ws://localhost:3002');
 
       subscribeToAgentEvents();
 
@@ -629,7 +734,7 @@ export default function Home() {
         ...prev.systemEvents,
         {
           ...event,
-          timestamp: new Date().toLocaleTimeString(),
+          timestamp: mounted ? getTimestamp() : '',
         },
       ],
     }));
@@ -683,7 +788,7 @@ export default function Home() {
       const newMessage: Message = {
         role: data.role,
         content: data.content,
-        timestamp: data.timestamp || new Date().toLocaleTimeString(),
+        timestamp: mounted ? getTimestamp() : data.timestamp || '',
         agentName: data.agentName,
         collaborationType: data.collaborationType
       };
@@ -697,7 +802,7 @@ export default function Home() {
     // Subscribe to system events
     eventBus.subscribe('agent-event', (data: AgentMessage) => {
       const newEvent: SystemEvent = {
-        timestamp: data.timestamp || new Date().toLocaleTimeString(),
+        timestamp: mounted ? getTimestamp() : data.timestamp || '',
         event: data.action || data.event || '',
         agent: data.agentName,
         type: data.eventType || 'info'
@@ -714,7 +819,7 @@ export default function Home() {
       const newMessage: Message = {
         role: 'assistant',
         content: data.report || data.result || '',
-        timestamp: new Date().toLocaleTimeString(),
+        timestamp: mounted ? getTimestamp() : '',
         agentName: 'Executor',
         collaborationType: 'execution'
       };
@@ -731,7 +836,6 @@ export default function Home() {
   }, []);
 
   return (
-  <>
     <div className="flex flex-col min-h-screen">
       <style jsx global>{scrollbarStyles}</style>
       <Navbar />
@@ -751,13 +855,7 @@ export default function Home() {
               >
                 <div className="flex items-center mb-2">
                   <div className="relative w-12 h-12 mr-3">
-                    <Image
-                      src={agentImages[agent.id as keyof typeof agentImages]}
-                      alt={agent.name}
-                      fill
-                      className="rounded-full object-cover"
-                      priority
-                    />
+                    <Bot className="w-12 h-12 text-gray-600" />
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-900">{agent.name}</h3>
@@ -900,54 +998,39 @@ export default function Home() {
           }`}
         >
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
-            {isRightSidebarOpen && (
-              <h2 className="text-lg font-semibold">System Events</h2>
-            )}
-            <Button
-              variant="primary"
-              size="sm"
+            <h2 className="font-semibold">System Events</h2>
+            <button
               onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
-              className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
-              title={isRightSidebarOpen ? "Close sidebar" : "Open sidebar"}
+              className="p-1 hover:bg-white/5 rounded-lg transition-colors duration-200"
             >
-              {isRightSidebarOpen ? (
-                <PanelRightClose className="h-5 w-5 text-gray-600 hover:text-gray-900" />
-              ) : (
-                <PanelRightOpen className="h-5 w-5 text-gray-600 hover:text-gray-900" />
-              )}
-            </Button>
+              {isRightSidebarOpen ? <PanelRightClose className="w-5 h-5" /> : <PanelRightOpen className="w-5 h-5" />}
+            </button>
           </div>
           
           {isRightSidebarOpen && (
-            <div 
-              className="flex-1 overflow-y-auto p-4 custom-scrollbar"
-              style={{ 
-                height: 'calc(100vh - 280px)',
-                maxHeight: 'calc(100vh - 280px)'
-              }}
-            >
-              {agentState.systemEvents.map((event, index) => (
-                <div
-                  key={index}
-                  className={`p-3 mb-2 rounded-lg ${
-                    event.type === "error"
-                      ? "bg-red-100"
-                      : event.type === "success"
-                        ? "bg-green-100"
-                        : event.type === "warning"
-                          ? "bg-yellow-100"
-                          : "bg-blue-100"
-                  }`}
-                >
-                  <div className="text-sm font-medium">
-                    {event.agent && (
-                      <span className="text-gray-600">[{event.agent}] </span>
-                    )}
-                    <span className="text-gray-900">{event.event}</span>
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <div className="space-y-2 p-4">
+                {agentState.systemEvents.map((event, index) => (
+                  <div
+                    key={index}
+                    className={`p-3 rounded-lg text-sm ${
+                      event.type === 'error' 
+                        ? 'bg-red-500/10 border border-red-500/20 text-red-200'
+                        : event.type === 'warning'
+                        ? 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-200'
+                        : event.type === 'success'
+                        ? 'bg-green-500/10 border border-green-500/20 text-green-200'
+                        : 'bg-blue-500/10 border border-blue-500/20 text-blue-200'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium">{event.agent || 'System'}</span>
+                      <span className="text-xs opacity-60">{event.timestamp}</span>
+                    </div>
+                    <p className="mt-1">{event.event}</p>
                   </div>
-                  <div className="text-xs text-gray-500">{event.timestamp}</div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -955,6 +1038,5 @@ export default function Home() {
 
       <Footer />
     </div>
-    </>
   );
 }
