@@ -2,9 +2,6 @@
 
 > Group of Multiple specialized autonomous AI agents with powerful tools that work together in collaberation to analyze, recommend, and execute the most optimal DeFi strategies while maintaining user-defined risk parameters and portfolio goals currently live on Sui , Avalanche , Mode , Arbitrium , Sei, powered by Brian AI and LangChain.
 
-- Users can manage their defi portfolio with their risk parameters and portfolio balance
-- Provides real-time feedback and execution status
-
 ## 🎯 Problem Statement
 Managing DeFi portfolios across multiple protocols across different chains can be complex and time-consuming.
 
@@ -30,6 +27,46 @@ https://youtu.be/gYtUwM4Azlc
 ## 🏗 Architecture
 
 <img width="1076" alt="Screenshot 2025-02-13 at 12 12 49 PM" src="https://github.com/user-attachments/assets/246b947c-bbee-4134-bbcb-6a33e38a7230" />
+
+## 📑 Quick Navigation
+
+### 🚀 Core Sections
+- [Problem Statement](#-problem-statement)
+- [Solution](#-solution)
+- [Architecture](#-architecture)
+- [Key Features](#-key-features)
+- [Technology Stack](#-technology-stack)
+- [Technology Integrations](#technology-integrations)
+
+### 🏆 Track Submissions
+- [DeFAI: Automate Integrations](#defai-automate-integrations)
+- [DeFAI: Best Agent on Arbitrum](#defai-best-agent-on-arbitrum)
+- [AI Advancement: Most Autonomous Agent](#ai-advancement-most-autonomous-agent)
+- [Smart Account Tooling: Best Use of Lit Agent Wallet with Safe](#smart-account-tooling-best-use-of-lit-agent-wallet-with-safe)
+- [AI Advancement: Enhanced Onchain Capabilities](#ai-advancement-enhanced-onchain-capabilities)
+- [Smart Account Tooling: Safe Core Infrastructure](#smart-account-tooling-safe-core-infrastructure)
+- [Smart Account Tooling: DuckAI Network Integration](#smart-account-tooling-duckai-network-integration)
+- [DeFAI: Best-In-Class Implementation](#defai-best-in-class-implementation)
+- [Smart Account Tooling: Smart Sessions Co-pilot](#smart-account-tooling-smart-sessions-co-pilot)
+- [AI Advancement: GOAT Plugins on Sei Network](#ai-advancement-goat-plugins-on-sei-network)
+- [Social: AI-Powered Content Translation](#social-ai-powered-content-translation)
+- [DeFAI: Autonomous Business Agents](#defai-autonomous-business-agents)
+- [Social/Gaming: Best Gaming Agent on Avalanche](#socialgaming-best-gaming-agent-on-avalanche)
+- [DeFAI: Safe App Chain Agent](#defai-safe-app-chain-agent)
+- [Smart Account Tooling: Humans X AI](#smart-account-tooling-humans-x-ai)
+
+### 💻 Implementation Details
+- [Enso Integration](#enso-integration-view-code)
+- [SuperchainBridge Integration](#superchainbridge-integration-view-code)
+- [Protocol Integration](#protocol-integration-view-frontend)
+- [Agent System](#agent-system-view-implementation)
+- [Safe Integration](#safe-integration)
+- [Custom Modules](#custom-modules-view-implementation)
+- [Money Market Integration](#money-market-integration-view-implementation)
+- [CoW Protocol Integration](#cow-protocol-integration-view-code)
+
+- Users can manage their defi portfolio with their risk parameters and portfolio balance
+- Provides real-time feedback and execution status
 
 ## 🌟 Key Features
 
