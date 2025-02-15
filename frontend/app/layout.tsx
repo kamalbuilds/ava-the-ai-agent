@@ -5,6 +5,7 @@ import { Inter } from "next/font/google";
 import { MainLayout } from "@/components/layouts/MainLayout";
 import { ThirdwebProvider } from "thirdweb/react";
 import { QueryClient, QueryClientProvider } from 'react-query';
+import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -29,6 +30,7 @@ export default function RootLayout({
         <QueryClientProvider client={queryClient}>
           <ThirdwebProvider>
             <MainLayout>{children}</MainLayout>
+            <Toaster />
           </ThirdwebProvider>
         </QueryClientProvider>
       </body>
