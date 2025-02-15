@@ -22,3 +22,5 @@ server/node_modules/
 server/.next
 server/.env
 server/dist
+
+server/server/src/atoma-agents/
