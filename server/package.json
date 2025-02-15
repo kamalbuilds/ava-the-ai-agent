@@ -23,6 +23,7 @@
     "@langchain/groq": "^0.1.3",
     "@langchain/langgraph": "^0.2.42",
     "@langchain/openai": "^0.4.2",
+    "@lit-protocol/aw-signer": "^0.1.0-19",
     "@mysten/sui": "^1.21.2",
     "@safe-global/api-kit": "^2.5.9",
     "@safe-global/protocol-kit": "^5.2.2",
