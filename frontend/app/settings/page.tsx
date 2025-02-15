@@ -1,37 +1,22 @@
 'use client';
-
-import { useState } from 'react';
 import { useSettingsStore } from '../stores/settingsStore';
 import { MainLayout } from '@/components/layouts/MainLayout';
 
 export default function SettingsPage() {
   const { settings, updateAIProvider, updateWalletKey, updateAdditionalSettings, togglePrivateCompute } = useSettingsStore();
-  const [isTestingConnection, setIsTestingConnection] = useState(false);
 
   const handleProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     updateAIProvider({
       ...settings.aiProvider,
-      provider: e.target.value as 'openai' | 'atoma'
+      provider: e.target.value as 'openai' | 'atoma' | 'venice'
     });
   };
 
-  const handleTestConnection = async () => {
-    setIsTestingConnection(true);
-    try {
-      const response = await fetch('/api/test-connection', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(settings)
-      });
-      if (!response.ok) throw new Error('Connection test failed');
-      alert('Connection successful!');
-    } catch (error) {
-      alert('Connection failed: ' + error);
-    } finally {
-      setIsTestingConnection(false);
-    }
+  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    updateAIProvider({
+      ...settings.aiProvider,
+      modelName: e.target.value
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -43,6 +28,29 @@ export default function SettingsPage() {
       apiKey: settings.aiProvider.apiKey,
       modelName: settings.aiProvider.modelName
     });
+  };
+
+  // Get model options based on selected provider
+  const getModelOptions = () => {
+    switch (settings.aiProvider.provider) {
+      case 'venice':
+        return [
+          { value: 'dolphin-2.9.2-qwen2-72b', label: 'Dolphin 2.9.2 Qwen2 72B' },
+          { value: 'sdxl-1.0', label: 'SDXL 1.0' }
+        ];
+      case 'openai':
+        return [
+          { value: 'gpt-4o', label: 'GPT-4o' },
+          { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
+        ];
+      case 'atoma':
+        return [
+          { value: 'deepseek-r1', label: 'DeepSeek-R1' },
+          { value: 'meta-llama/Llama-3.3-70B-Instruct', label: 'Llama 3.3 70B' }
+        ];
+      default:
+        return [];
+    }
   };
 
   return (
@@ -65,6 +73,7 @@ export default function SettingsPage() {
                 >
                   <option value="openai">OpenAI</option>
                   <option value="atoma">Atoma (Private Compute)</option>
+                  <option value="venice">Venice AI</option>
                 </select>
               </div>
 
@@ -78,23 +87,23 @@ export default function SettingsPage() {
                     apiKey: e.target.value
                   })}
                   className="w-full border rounded-md p-2"
+                  placeholder={`Enter your ${settings.aiProvider.provider} API key`}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-2">Model Name</label>
-              <select 
-                value={settings.aiProvider.modelName}
-                onChange={(e) => updateAIProvider({
-                  ...settings.aiProvider,
-                  modelName: e.target.value
-                })}
-                className="w-full border rounded-md p-2 bg-black"
-              >
-                <option value="gpt-4o">GPT-4o</option>
-                <option value="deepseek-r1">DeepSeek-R1</option>
-                <option value="gpt-4o">GPT-3.5 Turbo</option>
-              </select>
+                <select 
+                  value={settings.aiProvider.modelName}
+                  onChange={handleModelChange}
+                  className="w-full border rounded-md p-2 bg-black"
+                >
+                  {getModelOptions().map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {settings.aiProvider.provider === 'atoma' && (
@@ -108,6 +117,21 @@ export default function SettingsPage() {
                   <label htmlFor="private-compute">
                     Enable Private Compute (TEE Protection)
                   </label>
+                </div>
+              )}
+
+              {settings.aiProvider.provider === 'venice' && (
+                <div className="mt-4 p-4 bg-blue-50 rounded-md">
+                  <h3 className="text-sm font-medium text-blue-800 mb-2">Venice AI Information</h3>
+                  <p className="text-sm text-blue-600">
+                    Venice AI provides OpenAI-compatible APIs with additional features:
+                  </p>
+                  <ul className="list-disc list-inside text-sm text-blue-600 mt-2">
+                    <li>High-performance models</li>
+                    <li>Image generation capabilities</li>
+                    <li>Customizable system prompts</li>
+                    <li>Compatible with existing OpenAI tools</li>
+                  </ul>
                 </div>
               )}
             </div>
@@ -150,21 +174,15 @@ export default function SettingsPage() {
             </div>
           </section>
 
-          <button
-            type="submit"
-            className="bg-blue-500 text-white px-4 py-2 rounded"
-          >
-            Save Settings
-          </button>
+          <div className="flex gap-4">
+            <button
+              type="submit"
+              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+            >
+              Save Settings
+            </button>
+          </div>
         </form>
-
-        <button
-          onClick={handleTestConnection}
-          disabled={isTestingConnection}
-          className="bg-blue-500 hover:bg-blue-600  px-4 py-2 rounded-md"
-        >
-          {isTestingConnection ? 'Testing...' : 'Test Connection'}
-        </button>
       </div>
     </MainLayout>
   );
