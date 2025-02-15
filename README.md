@@ -484,3 +484,175 @@ This example showcases how the AI agent can:
 - Monitor cross-L2 opportunities
 - Execute STARK-verified transactions
 - Maintain optimal risk parameters
+
+### Sei Money Market Agent with Brahma ConsoleKit
+
+The Sei Money Market Agent is a specialized autonomous agent that leverages Brahma's ConsoleKit to execute DeFi strategies on the Sei network. This agent focuses on money market operations and stablecoin management.
+
+#### Features
+
+- **Autonomous DeFi Operations**
+  - Deposit and withdraw from money markets
+  - Automated portfolio rebalancing
+  - Yield optimization across multiple protocols
+  - Risk-managed position management
+
+- **Brahma ConsoleKit Integration**
+  - Secure transaction execution
+  - Real-time portfolio monitoring
+  - Multi-protocol support
+  - Automated strategy execution
+
+#### Configuration
+
+The agent requires the following configuration:
+
+```typescript
+interface SeiMoneyMarketConfig {
+  apiKey: string;        // Your Brahma API key
+  baseURL: string;       // Brahma API base URL
+  supportedTokens: {     // List of supported tokens
+    address: string;     // Token contract address
+    symbol: string;      // Token symbol
+    decimals: number;    // Token decimals
+  }[];
+}
+```
+
+#### Usage
+
+1. Configure the agent through the web interface
+2. Set up supported tokens and risk parameters
+3. The agent will automatically:
+   - Monitor market conditions
+   - Execute optimal strategies
+   - Maintain portfolio balance
+   - Provide real-time updates
+
+#### Example Strategy
+
+```typescript
+// Define target portfolio allocation
+const targetAllocation = {
+  'USDC': 0.4,  // 40% USDC
+  'USDT': 0.3,  // 30% USDT
+  'DAI': 0.3    // 30% DAI
+};
+
+// Agent automatically maintains this allocation
+await agent.handleEvent('REBALANCE', { targetAllocations: targetAllocation });
+```
+
+### Superchain Bridge Integration
+
+The Superchain Bridge Agent enables secure cross-chain token transfers between Superchain networks using the SuperchainERC20 standard and SuperchainTokenBridge.
+
+#### Features
+
+- **Secure Token Bridging**
+  - Implements ERC-7802 for cross-chain mint/burn functionality
+  - Uses SuperchainTokenBridge for secure message passing
+  - Supports all Superchain networks (OP Mainnet, Base, etc.)
+  - Real-time bridge status monitoring
+
+- **Autonomous Bridge Operations**
+  - Automated token approvals
+  - Transaction status tracking
+  - Gas optimization
+  - Error recovery and retries
+
+#### Supported Networks
+
+Currently supported Superchain networks:
+- OP Mainnet (Chain ID: 10)
+- OP Goerli (Chain ID: 420)
+- Base (Chain ID: 8453)
+- Base Goerli (Chain ID: 84531)
+
+#### How It Works
+
+1. **Initiating Message (Source Chain)**
+   ```typescript
+   // User initiates bridge transaction
+   await bridgeAgent.handleEvent('BRIDGE_TOKENS', {
+     token: 'USDC',
+     amount: '1000000', // 1 USDC (6 decimals)
+     fromChainId: 10,   // OP Mainnet
+     toChainId: 8453,   // Base
+     recipient: '0x...'
+   });
+   ```
+
+2. **Token Bridge Flow**
+   - Tokens are burned on source chain
+   - Message is relayed through L2ToL2CrossDomainMessenger
+   - Tokens are minted on destination chain
+   - Real-time status updates via events
+
+3. **Status Monitoring**
+   ```typescript
+   // Check bridge transaction status
+   await bridgeAgent.handleEvent('CHECK_BRIDGE_STATUS', {
+     txHash: '0x...',
+     fromChainId: 10,
+     toChainId: 8453
+   });
+   ```
+
+#### Security Features
+
+1. **SuperchainERC20 Security**
+   - Common cross-chain interface (ERC-7802)
+   - Secure mint/burn mechanics
+   - Permission controls for bridge contracts
+
+2. **Message Verification**
+   - L2ToL2CrossDomainMessenger for secure message passing
+   - Cross-domain sender verification
+   - Replay protection
+
+3. **Error Handling**
+   - Transaction failure recovery
+   - Automatic retries with backoff
+   - Detailed error reporting
+
+#### Example Usage
+
+```typescript
+// Configure the bridge agent
+const config: SuperchainConfig = {
+  sourceChain: {
+    id: 10,
+    name: 'OP Mainnet'
+  },
+  destinationChain: {
+    id: 8453,
+    name: 'Base'
+  },
+  providerUrls: {
+    10: 'https://mainnet.optimism.io',
+    8453: 'https://mainnet.base.org'
+  },
+  privateKey: process.env.BRIDGE_WALLET_KEY,
+  supportedTokens: {
+    10: {
+      'USDC': '0x...' // OP Mainnet USDC
+    },
+    8453: {
+      'USDC': '0x...' // Base USDC
+    }
+  }
+};
+
+// Initialize the bridge agent
+const bridgeAgent = new SuperchainBridgeAgent(eventBus, config);
+
+// Bridge tokens
+await bridgeAgent.handleEvent('BRIDGE_TOKENS', {
+  token: 'USDC',
+  amount: '1000000',
+  fromChainId: 10,
+  toChainId: 8453,
+  recipient: '0x...'
+});
+```
