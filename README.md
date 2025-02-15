@@ -29,7 +29,7 @@ https://youtu.be/gYtUwM4Azlc
 
 ## 🏗 Architecture
 
-<img width="1076" alt="Screenshot 2025-02-13 at 12 12 49 PM" src="https://github.com/user-attachments/assets/246b947c-bbee-4134-bbcb-6a33e38a7230" />
+<img width="1076" alt="Screenshot 2025-02-13 at 12 12 49 PM" src="https://github.com/user-attachments/assets/246b947c-bbee-4134-bbcb-6a33e38a7230" />
 
 ## 🌟 Key Features
 
@@ -44,18 +44,61 @@ https://youtu.be/gYtUwM4Azlc
 - Handles error recovery
 - Provides progress updates
 
- 3. Portfolio Management
-- Multi-protocol position monitoring
-- Yield optimization
-- Risk management
-- Rebalancing capabilities
+3. **Advanced Trading & Routing**
+   - Enso Finance integration for smart routing
+   - CoW Protocol for MEV-protected trades
+   - Gas-optimized transaction bundling
+   - Cross-chain bridging via SuperchainBridge
+   - Automated slippage protection
 
-4. Real-time Updates
-- Live execution status
-- Progress tracking
-- Transaction confirmations
-- Performance metrics
+4. **Treasury Management**
+   - Portfolio rebalancing across protocols
+   - Yield optimization strategies
+   - Risk-adjusted position management
+   - Liquid staking automation
+   - Cross-chain asset allocation
 
+5. **AI-Powered Decision Making**
+   - Venice.AI integration for market analysis
+   - Multi-model architecture for diverse tasks
+   - Real-time market sentiment analysis
+   - Autonomous strategy formulation
+   - Risk assessment and optimization
+
+6. **Cross-Chain Operations**
+   - SuperchainBridge for L2 transfers
+   - Unified liquidity management
+   - Cross-chain yield farming
+   - Gas-efficient bridging operations
+   - Multi-chain position monitoring
+
+7. **Privacy & Security**
+   - Lit Protocol for decentralized key management
+   - Private transaction execution
+   - Secure multi-party computation
+   - Zero-knowledge proofs for verification
+   - Encrypted agent communication
+
+8. **Protocol Integrations**
+   - Enso Finance for unified DeFi access
+   - CoW Protocol for trading
+   - Safe for smart account management
+   - Lit Protocol for access control
+   - Venice.AI for market intelligence
+
+9. **Real-time Monitoring**
+   - Live portfolio tracking
+   - Transaction status updates
+   - Performance analytics
+   - Risk metrics monitoring
+   - Market condition alerts
+
+10. **Autonomous Operations**
+    - Self-executing strategies
+    - Automated rebalancing
+    - Dynamic yield optimization
+    - Gas-aware execution timing
+    - Error recovery and retries
 
 The agents handles complex operations like portfolio rebalancing by:
 
@@ -484,3 +527,659 @@ This example showcases how the AI agent can:
 - Monitor cross-L2 opportunities
 - Execute STARK-verified transactions
 - Maintain optimal risk parameters
+
+### Sei Money Market Agent with Brahma ConsoleKit
+
+The Sei Money Market Agent is a specialized autonomous agent that leverages Brahma's ConsoleKit to execute DeFi strategies on the Sei network. This agent focuses on money market operations and stablecoin management.
+
+#### Features
+
+- **Autonomous DeFi Operations**
+  - Deposit and withdraw from money markets
+  - Automated portfolio rebalancing
+  - Yield optimization across multiple protocols
+  - Risk-managed position management
+
+- **Brahma ConsoleKit Integration**
+  - Secure transaction execution
+  - Real-time portfolio monitoring
+  - Multi-protocol support
+  - Automated strategy execution
+
+#### Configuration
+
+The agent requires the following configuration:
+
+```typescript
+interface SeiMoneyMarketConfig {
+  apiKey: string;        // Your Brahma API key
+  baseURL: string;       // Brahma API base URL
+  supportedTokens: {     // List of supported tokens
+    address: string;     // Token contract address
+    symbol: string;      // Token symbol
+    decimals: number;    // Token decimals
+  }[];
+}
+```
+
+#### Usage
+
+1. Configure the agent through the web interface
+2. Set up supported tokens and risk parameters
+3. The agent will automatically:
+   - Monitor market conditions
+   - Execute optimal strategies
+   - Maintain portfolio balance
+   - Provide real-time updates
+
+#### Example Strategy
+
+```typescript
+// Define target portfolio allocation
+const targetAllocation = {
+  'USDC': 0.4,  // 40% USDC
+  'USDT': 0.3,  // 30% USDT
+  'DAI': 0.3    // 30% DAI
+};
+
+// Agent automatically maintains this allocation
+await agent.handleEvent('REBALANCE', { targetAllocations: targetAllocation });
+```
+
+### Superchain Bridge Integration
+
+The Superchain Bridge Agent enables secure cross-chain token transfers between Superchain networks using the SuperchainERC20 standard and SuperchainTokenBridge.
+
+#### Features
+
+- **Secure Token Bridging**
+  - Implements ERC-7802 for cross-chain mint/burn functionality
+  - Uses SuperchainTokenBridge for secure message passing
+  - Supports all Superchain networks (OP Mainnet, Base, etc.)
+  - Real-time bridge status monitoring
+
+- **Autonomous Bridge Operations**
+  - Automated token approvals
+  - Transaction status tracking
+  - Gas optimization
+  - Error recovery and retries
+
+#### Supported Networks
+
+Currently supported Superchain networks:
+- OP Mainnet (Chain ID: 10)
+- OP Goerli (Chain ID: 420)
+- Base (Chain ID: 8453)
+- Base Goerli (Chain ID: 84531)
+
+#### How It Works
+
+1. **Initiating Message (Source Chain)**
+   ```typescript
+   // User initiates bridge transaction
+   await bridgeAgent.handleEvent('BRIDGE_TOKENS', {
+     token: 'USDC',
+     amount: '1000000', // 1 USDC (6 decimals)
+     fromChainId: 10,   // OP Mainnet
+     toChainId: 8453,   // Base
+     recipient: '0x...'
+   });
+   ```
+
+2. **Token Bridge Flow**
+   - Tokens are burned on source chain
+   - Message is relayed through L2ToL2CrossDomainMessenger
+   - Tokens are minted on destination chain
+   - Real-time status updates via events
+
+3. **Status Monitoring**
+   ```typescript
+   // Check bridge transaction status
+   await bridgeAgent.handleEvent('CHECK_BRIDGE_STATUS', {
+     txHash: '0x...',
+     fromChainId: 10,
+     toChainId: 8453
+   });
+   ```
+
+#### Security Features
+
+1. **SuperchainERC20 Security**
+   - Common cross-chain interface (ERC-7802)
+   - Secure mint/burn mechanics
+   - Permission controls for bridge contracts
+
+2. **Message Verification**
+   - L2ToL2CrossDomainMessenger for secure message passing
+   - Cross-domain sender verification
+   - Replay protection
+
+3. **Error Handling**
+   - Transaction failure recovery
+   - Automatic retries with backoff
+   - Detailed error reporting
+
+#### Example Usage
+
+```typescript
+// Configure the bridge agent
+const config: SuperchainConfig = {
+  sourceChain: {
+    id: 10,
+    name: 'OP Mainnet'
+  },
+  destinationChain: {
+    id: 8453,
+    name: 'Base'
+  },
+  providerUrls: {
+    10: 'https://mainnet.optimism.io',
+    8453: 'https://mainnet.base.org'
+  },
+  privateKey: process.env.BRIDGE_WALLET_KEY,
+  supportedTokens: {
+    10: {
+      'USDC': '0x...' // OP Mainnet USDC
+    },
+    8453: {
+      'USDC': '0x...' // Base USDC
+    }
+  }
+};
+
+// Initialize the bridge agent
+const bridgeAgent = new SuperchainBridgeAgent(eventBus, config);
+
+// Bridge tokens
+await bridgeAgent.handleEvent('BRIDGE_TOKENS', {
+  token: 'USDC',
+  amount: '1000000',
+  fromChainId: 10,
+  toChainId: 8453,
+  recipient: '0x...'
+});
+```
+
+### Venice.AI Integration
+
+Ava Portfolio Manager leverages Venice.AI's advanced language models for autonomous decision-making and strategy execution.
+
+#### Features
+
+- **Advanced Language Model Integration**
+  - Dolphin-2.9.2-qwen2-72b model support
+  - Custom Venice parameters
+  - Optimized response generation
+  - Market analysis capabilities
+
+- **Image Generation**
+  - Market visualization
+  - Technical analysis charts
+  - Custom style presets
+  - High-resolution output
+
+#### Configuration
+
+```typescript
+interface AIProviderSettings {
+  provider: 'venice';
+  apiKey: string;
+  modelName?: string;
+}
+
+// Initialize Venice provider
+const veniceProvider = new VeniceProvider(
+  config.apiKey,
+  'dolphin-2.9.2-qwen2-72b'
+);
+```
+
+### Multi-Model AI Architecture
+
+Our platform implements a sophisticated multi-model approach, combining various AI providers for optimal performance.
+
+#### Supported Providers
+
+- Venice.AI for advanced language understanding
+- Atoma for private compute
+- OpenAI for general tasks
+- Brian AI for specialized operations
+
+#### Dynamic Provider Selection
+
+```typescript
+interface AgentSettings {
+  aiProvider: AIProviderSettings;
+  enablePrivateCompute: boolean;
+  additionalSettings: {
+    brianApiKey?: string;
+    coingeckoApiKey?: string;
+    zerionApiKey?: string;
+    perplexityApiKey?: string;
+  };
+}
+```
+
+#### Provider Features
+
+1. **Venice.AI Capabilities**
+   - Advanced market analysis
+   - Strategy formulation
+   - Risk assessment
+   - Image generation
+
+2. **Private Compute with Atoma**
+   - Secure execution
+   - Data privacy
+   - Encrypted operations
+   - Zero-knowledge proofs
+
+3. **Performance Optimization**
+   - Dynamic model selection
+   - Load balancing
+   - Cost optimization
+   - Response time monitoring
+
+### Enso Integration
+
+Ava Portfolio Manager integrates with Enso's unified DeFi API to enable seamless interaction with multiple DeFi protocols through a standardized interface.
+
+#### Features
+
+- **Unified Protocol Access**
+  - Single API for all DeFi interactions
+  - Optimized routing strategies
+  - Real-time price quotes
+  - Gas-efficient bundled transactions
+
+- **Smart Transaction Bundling**
+  - Multiple actions in one transaction
+  - Atomic execution guarantees
+  - Slippage protection
+  - Fee optimization
+
+#### Implementation
+
+```typescript
+interface EnsoRouteConfig {
+  chainId: number;
+  fromAddress: string;
+  tokenIn: string[];
+  tokenOut: string[];
+  amountIn: string[];
+  slippage: string;
+  routingStrategy: 'ensowallet' | 'router' | 'delegate';
+}
+
+// Example: Route tokens through optimal path
+async function routeTokens(config: EnsoRouteConfig) {
+  const response = await fetch('https://api.enso.finance/api/v1/shortcuts/route', {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${process.env.ENSO_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      chainId: config.chainId,
+      fromAddress: config.fromAddress,
+      tokenIn: config.tokenIn,
+      tokenOut: config.tokenOut,
+      amountIn: config.amountIn,
+      slippage: config.slippage,
+      routingStrategy: config.routingStrategy
+    })
+  });
+
+  const route = await response.json();
+  return route;
+}
+
+// Example: Bundle multiple DeFi actions
+async function bundleActions(actions: EnsoAction[]) {
+  const response = await fetch('https://api.enso.finance/api/v1/shortcuts/bundle', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.ENSO_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(actions)
+  });
+
+  const bundle = await response.json();
+  return bundle;
+}
+```
+
+#### Usage Examples
+
+1. **Optimal Token Swap**
+```typescript
+const route = await routeTokens({
+  chainId: 1,
+  fromAddress: userAddress,
+  tokenIn: ['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'], // ETH
+  tokenOut: ['0x6b175474e89094c44da98b954eedeac495271d0f'], // DAI
+  amountIn: ['1000000000000000000'], // 1 ETH
+  slippage: '50', // 0.5%
+  routingStrategy: 'router'
+});
+```
+
+2. **Multi-Action Bundle**
+```typescript
+const bundle = await bundleActions([
+  {
+    protocol: 'enso',
+    action: 'route',
+    args: {
+      tokenIn: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+      tokenOut: '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84',
+      amountIn: '100000000000',
+      slippage: '300'
+    }
+  },
+  // Add more actions as needed
+]);
+```
+
+#### Integration Benefits
+
+1. **Protocol Abstraction**
+   - Unified interface for all DeFi protocols
+   - Simplified integration process
+   - Reduced maintenance overhead
+   - Future-proof architecture
+
+2. **Performance Optimization**
+   - Best-price routing
+   - Gas optimization
+   - Slippage protection
+   - MEV protection
+
+3. **Enhanced Security**
+   - Safe smart account integration
+   - Transaction simulation
+   - Risk assessment
+   - Real-time monitoring
+
+```
+
+## 🏆 Track Submissions
+
+### DeFAI: Automate Integrations
+Ava Portfolio Manager leverages advanced automation through multiple specialized agents that seamlessly integrate with DeFi protocols. Our Enso Agent provides unified access to multiple protocols through a standardized interface, while our SuperchainBridge Agent enables automated cross-chain operations. The system features:
+- Automated portfolio rebalancing across protocols
+- Smart order routing through Enso's unified API
+- Autonomous cross-chain bridging via SuperchainERC20
+- Real-time market monitoring and execution
+
+Our implementation showcases advanced automation through multiple specialized agents:
+
+- **Enso Integration** ([View Code](server/src/agents/enso-agent/index.ts))
+  - Unified DeFi protocol access
+  - Smart transaction bundling
+  - Gas-optimized routing
+  - Real-time price quotes
+
+- **SuperchainBridge Integration** ([View Code](server/src/agents/superchain-bridge-agent/index.ts))
+  - Cross-chain token transfers
+  - ERC-7802 compatibility
+  - Secure message passing
+  - Bridge status monitoring
+
+### DeFAI: Best Agent on Arbitrum
+Our implementation on Arbitrum showcases advanced DeFi automation capabilities:
+- Integration with Arbitrum's native DeFi ecosystem
+- Gas-optimized transaction bundling through Enso
+- Cross-chain liquidity management with SuperchainBridge
+- Real-time APY optimization across Arbitrum protocols
+
+Optimized for Arbitrum's ecosystem:
+
+- **Transaction Optimization**
+  - Gas-efficient bundling via Enso
+  - MEV protection through CoW Protocol
+  - Cross-chain bridging with SuperchainBridge
+  - Smart contract interaction optimization
+
+- **Protocol Integration** ([View Frontend](frontend/app/bridge/page.tsx))
+  - Unified bridge interface
+  - Real-time transaction status
+  - Error handling and recovery
+  - User-friendly form validation
+  
+### AI Advancement: Most Autonomous Agent
+Ava demonstrates exceptional autonomy through:
+- Multi-model AI architecture combining Venice.AI and Atoma
+- Self-learning portfolio optimization strategies
+- Autonomous risk management and position adjustment
+- Cross-chain opportunity detection and execution
+- Real-time market analysis and decision making
+
+Multi-model AI architecture:
+
+- **Agent System** ([View Implementation](frontend/app/agents/index.ts))
+  - Venice.AI integration for market analysis
+  - Atoma for private compute
+  - Multi-agent collaboration
+  - Autonomous decision making
+
+- **Specialized Agents**
+  - Observer Agent for market monitoring
+  - Task Manager for operation coordination
+  - Executor Agent for transaction handling
+  - Eliza Agent for natural language interaction
+
+### Smart Account Tooling: Best Use of Lit Agent Wallet with Safe
+Our integration of Lit Protocol with Safe smart accounts enables:
+- Decentralized key management through Lit Protocol
+- Automated transaction signing and execution
+- Programmable access control for DeFi operations
+- Secure multi-chain transaction handling
+- Integration with Safe's modular account architecture
+
+Secure wallet integration:
+
+- **Safe Integration**
+  - Multi-signature support
+  - Transaction bundling
+  - Modular account abstraction
+  - Custom Safe modules
+
+- **Lit Protocol Features**
+  - Decentralized key management
+  - Programmable access control
+  - Secure transaction signing
+  - Cross-chain compatibility
+
+### AI Advancement: Enhanced Onchain Capabilities
+Ava leverages advanced onchain capabilities through:
+- Direct smart contract interactions via ethers.js
+- Decentralized storage integration for strategy persistence
+- Cross-chain state management through SuperchainBridge
+- Real-time onchain data analysis for decision making
+- Integration with multiple L2 networks
+
+Advanced blockchain interaction:
+
+- **Smart Contract Integration**
+  - Direct contract interaction
+  - Cross-chain state management
+  - Real-time data analysis
+  - Multi-network support
+
+- **Decentralized Storage**
+  - Strategy persistence
+  - Historical data analysis
+  - Cross-chain state sync
+  - Performance optimization
+
+
+### Smart Account Tooling: Safe Core Infrastructure
+Our implementation builds upon Safe's core infrastructure:
+- Custom Safe modules for automated DeFi operations
+- Integration with Safe's transaction service
+- Modular agent architecture using Safe plugins
+- Batch transaction optimization
+- Advanced account abstraction features
+
+Safe infrastructure enhancement:
+
+- **Custom Modules** ([View Implementation](server/src/agents/safe-wallet-agent/index.ts))
+  - Automated DeFi operations
+  - Transaction service integration
+  - Plugin architecture
+  - Batch optimization
+
+- **Account Abstraction**
+  - Social recovery
+  - Session management
+  - Gas abstraction
+  - Multi-chain support
+
+### Smart Account Tooling: DuckAI Network Integration
+Ava integrates with DuckAI network through:
+- AI-powered transaction validation
+- Decentralized strategy execution
+- Cross-chain operation coordination
+- Safe smart account integration
+- Real-time market data processing
+
+AI-powered transaction handling:
+
+- **Transaction Validation**
+  - AI-based validation
+  - Risk assessment
+  - MEV protection
+  - Gas optimization
+
+- **Strategy Execution**
+  - Decentralized execution
+  - Cross-chain coordination
+  - Safe integration
+  - Real-time monitoring
+
+### DeFAI: Best-In-Class Implementation
+Our solution stands out through:
+- Advanced multi-agent architecture
+- Comprehensive protocol integration via Enso
+- Secure cross-chain operations with SuperchainBridge
+- AI-powered decision making with Venice.AI
+- Real-time portfolio optimization
+
+Comprehensive DeFi automation:
+
+- **Protocol Integration** ([View Code](server/src/agents/enso-agent/index.ts))
+  - Unified access layer
+  - Smart routing
+  - Gas optimization
+  - MEV protection
+
+- **Multi-Agent System** ([View Code](frontend/app/agents/index.ts))
+  - Specialized agents
+  - Collaborative decision making
+  - Real-time monitoring
+  - Error recovery
+
+### Smart Account Tooling: Smart Sessions Co-pilot
+Our Smart Sessions implementation provides:
+- Real-time transaction monitoring and validation
+- AI-powered transaction optimization
+- Automated session management
+- Secure multi-chain operation handling
+- Integration with Safe's session architecture
+
+Intelligent transaction management:
+
+- **Session Management**
+  - Real-time monitoring
+  - Transaction optimization
+  - Automated validation
+  - Multi-chain support
+
+- **AI Co-pilot Features**
+  - Transaction suggestions
+  - Risk assessment
+  - Gas optimization
+  - Performance analytics
+
+
+### AI Advancement: GOAT Plugins on Sei Network
+Ava Portfolio Manager extends its AI capabilities to the Sei Network through comprehensive GOAT plugin integration. Our Sei Money Market Agent leverages Brahma's ConsoleKit to execute sophisticated DeFi strategies while ensuring all GOAT plugins are fully operational. This enables advanced market making, automated trading, and yield optimization specifically tailored for Sei's high-performance infrastructure.
+
+Sei Network optimization:
+
+- **Money Market Integration** ([View Implementation](frontend/app/agent/config/sei-money-market.tsx))
+  - Automated lending
+  - Yield optimization
+  - Risk management
+  - Real-time monitoring
+
+- **GOAT Plugin Features**
+  - Market making
+  - Automated trading
+  - Yield optimization
+  - Performance tracking
+
+### Social: AI-Powered Content Translation
+While our core focus is DeFi automation, we've extended our AI capabilities to content transformation. Using our multi-model AI architecture with Venice.AI, we enable creators to seamlessly translate and dub their content across multiple languages. The system maintains the original content's context and emotion while ensuring accurate translations across different cultural contexts.
+
+Content transformation capabilities:
+
+- **Venice.AI Integration**
+  - Multi-language support
+  - Context preservation
+  - Emotion analysis
+  - Cultural adaptation
+
+### DeFAI: Autonomous Business Agents
+Our autonomous business agents leverage the CoW Protocol for optimal trade execution and business strategy implementation. Through our CowTradingAgent, we enable sophisticated trading strategies with MEV protection and best price execution. The agent autonomously manages order flows, handles token allowlists, and optimizes trade parameters while maintaining strict business logic and risk parameters.
+
+Business strategy automation:
+
+- **CoW Protocol Integration** ([View Code](server/src/agents/cow-trading-agent/index.ts))
+  - MEV protection
+  - Best price execution
+  - Order flow management
+  - Risk parameter handling
+  
+
+### Social/Gaming: Best Gaming Agent on Avalanche
+Ava extends its autonomous capabilities to gaming on Avalanche, enabling automated asset management for gaming economies. Our implementation leverages Avalanche's subnet architecture for high-performance gaming transactions while maintaining seamless integration with DeFi protocols for in-game asset optimization.
+
+Gaming economy management:
+
+- **Subnet Integration**
+  - High-performance transactions
+  - Asset management
+  - DeFi integration
+  - Real-time monitoring
+
+### DeFAI: Safe App Chain Agent
+Our Safe App chain agent provides intelligent automation for existing Safe Apps, enabling autonomous interaction with various DeFi protocols. The agent leverages Safe's modular architecture to automate complex DeFi operations while maintaining the security guarantees of Safe's multi-signature setup.
+
+Safe App automation:
+
+- **Protocol Integration**
+  - Automated interactions
+  - Multi-signature support
+  - Transaction bundling
+  - Risk management
+
+### Smart Account Tooling: Humans X AI
+Our implementation bridges human decision-making with AI automation through an intuitive interface. The system combines Safe's secure transaction infrastructure with our multi-model AI architecture, enabling collaborative decision-making between humans and AI for optimal portfolio management.
+
+Human-AI collaboration:
+
+- **Interface Integration**
+  - Intuitive controls
+  - Real-time feedback
+  - Risk assessment
+  - Performance tracking
+
+- **Decision Support**
+  - AI suggestions
+  - Human oversight
+  - Risk management
+  - Portfolio optimization
+
