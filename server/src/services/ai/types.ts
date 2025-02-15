@@ -17,10 +17,16 @@ export interface AIProvider {
     systemPrompt: string
   ) => Promise<AIResponse>;
   generateEmbeddings?: (text: string) => Promise<number[]>;
+  generateImage?: (prompt: string, options?: {
+    width?: number;
+    height?: number;
+    steps?: number;
+    style_preset?: string;
+  }) => Promise<{ images: string[] }>;
 }
 
 export interface AIConfig {
-  provider: 'openai' | 'atoma';
+  provider: 'openai' | 'atoma' | 'venice';
   apiKey: string;
   enablePrivateCompute?: boolean;
   modelName?: string;
