@@ -1,5 +1,8 @@
-import { StoryProtocolClient } from './client';
+import { StoryClient, StoryConfig } from "@story-protocol/core-sdk";
+
 import { IPLicenseTerms, IPMetadata } from '../../types/ip-agent';
+import { Address, http } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 
 export interface ATCPIPConfig {
   endpoint: string;
@@ -8,11 +11,18 @@ export interface ATCPIPConfig {
 }
 
 export class ATCPIPProvider {
-  private client: StoryProtocolClient;
+  private client: StoryClient;
   private agentId: string;
 
+  private PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY || "0x";
+  private account = privateKeyToAccount(this.PRIVATE_KEY as Address);
+  private config: StoryConfig = {
+    transport: http(process.env.RPC_PROVIDER_URL),
+    account: this.account,
+  };
+  
   constructor(config: ATCPIPConfig) {
-    this.client = new StoryProtocolClient(config.endpoint, config.apiKey);
+    this.client = StoryClient.newClient(this.config);
     this.agentId = config.agentId;
   }
 
