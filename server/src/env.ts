@@ -33,6 +33,7 @@ const envSchema = z.object({
   RECALL_API_KEY: z.string(),
   STORY_PROTOCOL_ENDPOINT: z.string().default("https://api.storyprotocol.xyz/v1"),
   STORY_PROTOCOL_API_KEY: z.string(),
+  RPC_PROVIDER_URL: z.string().default("https://base.llamarpc.com"),
 });
 
 export const env = envSchema.parse(process.env);

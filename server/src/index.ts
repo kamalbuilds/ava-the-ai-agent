@@ -68,8 +68,6 @@ const recallStorage = new RecallStorage({
 
 // Initialize ATCP/IP Provider
 const atcpipProvider = new ATCPIPProvider({
-  endpoint: env.STORY_PROTOCOL_ENDPOINT,
-  apiKey: env.STORY_PROTOCOL_API_KEY || 'demo', // Fallback for development
   agentId: 'ava'
 });
 
