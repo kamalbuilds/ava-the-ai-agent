@@ -16,6 +16,8 @@ import { AIFactory } from "./services/ai/factory";
 import env from "./env";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
+import { RecallStorage } from "./agents/plugins/recall-storage";
+import { ATCPIPProvider } from "./agents/plugins/atcp-ip";
 
 // console.log(figlet.textSync("AVA-2.0"));
 // console.log("======== Initializing Server =========");
@@ -50,24 +52,65 @@ const eventBus = new EventBus();
 // Initialize AI provider
 const aiProvider = AIFactory.createProvider({
   provider: 'openai',
-  apiKey: env.OPENAI_API_KEY,
-  modelName: 'gpt-4o'
+  apiKey: env.OPENAI_API_KEY as string,
+  modelName: 'gpt-4'
+});
+
+// Create account from private key
+const account = privateKeyToAccount(env.WALLET_PRIVATE_KEY as `0x${string}`);
+
+// Initialize Recall Storage
+const recallStorage = new RecallStorage({
+  endpoint: env.RECALL_API_ENDPOINT,
+  apiKey: env.RECALL_API_KEY || 'demo', // Fallback for development
+  namespace: 'ava'
+});
+
+// Initialize ATCP/IP Provider
+const atcpipProvider = new ATCPIPProvider({
+  endpoint: env.STORY_PROTOCOL_ENDPOINT,
+  apiKey: env.STORY_PROTOCOL_API_KEY || 'demo', // Fallback for development
+  agentId: 'ava'
 });
 
 // Initialize agents
 console.log("======== Registering agents =========");
 
-// Create account from private key
-const account = privateKeyToAccount(env.WALLET_PRIVATE_KEY as `0x${string}`);
+const taskManager = new TaskManagerAgent(
+  'task-manager',
+  eventBus,
+  account,
+  recallStorage,
+  atcpipProvider
+);
+console.log("[registerAgents] task manager agent initialized.");
 
-const executorAgent = new ExecutorAgent("executor", eventBus, account);
+const executor = new ExecutorAgent(
+  'executor',
+  eventBus,
+  account,
+  recallStorage,
+  atcpipProvider
+);
 console.log("[registerAgents] executor agent initialized.");
 
-console.log("[registerAgents] initializing observer agent...");
-const observerAgent = new ObserverAgent("observer", eventBus, account, aiProvider);
+const observer = new ObserverAgent(
+  'observer',
+  eventBus,
+  account,
+  aiProvider,
+  recallStorage,
+  atcpipProvider
+);
 console.log("[registerAgents] observer agent initialized with address:", account.address);
 
-const taskManagerAgent = new TaskManagerAgent(eventBus, aiProvider);
+const taskManagerAgent = new TaskManagerAgent(
+  'task-manager',
+  eventBus,
+  account,
+  recallStorage,
+  atcpipProvider
+);
 console.log("[registerAgents] task manager agent initialized.");
 
 console.log("all events registered");
@@ -124,8 +167,7 @@ wss.on("connection", (ws: WebSocket) => {
         });
 
         // Update agents with new settings
-        observerAgent.updateAIProvider(newProvider);
-        taskManagerAgent.updateAIProvider(newProvider);
+        observer.updateAIProvider(newProvider);
         
         eventBus.emit("agent-action", {
           agent: "system",
@@ -144,7 +186,7 @@ wss.on("connection", (ws: WebSocket) => {
         ws.send(JSON.stringify(messageData));
 
         if (data.command === "stop") {
-          observerAgent.stop();
+          observer.stop();
           eventBus.emit("agent-action", {
             agent: "system",
             action: "All agents stopped"
@@ -154,7 +196,7 @@ wss.on("connection", (ws: WebSocket) => {
             agent: "system",
             action: "Starting task processing"
           });
-          await observerAgent.processTask(data.command);
+          await observer.processTask(data.command);
         }
       }
     } catch (error) {

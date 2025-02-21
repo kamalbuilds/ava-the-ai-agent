@@ -29,6 +29,10 @@ const envSchema = z.object({
   DEFAULT_AI_PROVIDER: z.enum(['openai', 'atoma']).default('openai'),
   COOKIE_API_KEY: z.string(),
   ATOMA_API_KEY: z.string().optional(),
+  RECALL_API_ENDPOINT: z.string().default("https://api.recall.ai"),
+  RECALL_API_KEY: z.string(),
+  STORY_PROTOCOL_ENDPOINT: z.string().default("https://api.storyprotocol.xyz/v1"),
+  STORY_PROTOCOL_API_KEY: z.string(),
 });
 
 export const env = envSchema.parse(process.env);
