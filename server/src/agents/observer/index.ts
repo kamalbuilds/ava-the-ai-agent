@@ -1,6 +1,6 @@
 import { generateText } from "ai";
 import type { EventBus } from "../../comms";
-import { Agent } from "../agent";
+import { IPAgent } from "../types/ip-agent";
 import { openai } from "@ai-sdk/openai";
 import { getObserverSystemPrompt } from "../../system-prompts";
 import type { Hex, Account } from "viem";
@@ -9,6 +9,9 @@ import { saveThought } from "../../memory";
 import env from "../../env";
 import type { AIProvider, AIResponse, Tool } from "../../services/ai/types";
 import { v4 as uuidv4 } from 'uuid';
+import { RecallStorage } from "../plugins/recall-storage";
+import { ATCPIPProvider } from "../plugins/atcp-ip";
+import type { IPLicenseTerms, IPMetadata } from "../types/ip-agent";
 
 const OBSERVER_STARTING_PROMPT = `Analyze the current market situation using Cookie API data. 
 Focus on:
@@ -41,11 +44,10 @@ interface ToolResult {
 /**
  * @dev The observer agent is responsible for generating a report about the best opportunities to make money.
  */
-export class ObserverAgent extends Agent {
+export class ObserverAgent extends IPAgent {
   private address: Hex;
   private account: Account;
   private isRunning: boolean = false;
-  protected aiProvider: AIProvider;
   private tools: Record<string, Tool>;
 
   /**
@@ -53,17 +55,20 @@ export class ObserverAgent extends Agent {
    * @param eventBus - The event bus to emit events to other agents
    * @param account - The account to observe
    * @param aiProvider - The AI provider to use for generating text
+   * @param recallStorage - The recall storage plugin
+   * @param atcpipProvider - The ATCPIP provider
    */
   constructor(
     name: string,
     eventBus: EventBus,
     account: Account,
-    aiProvider: AIProvider
+    aiProvider: AIProvider,
+    recallStorage: RecallStorage,
+    atcpipProvider: ATCPIPProvider
   ) {
-    super(name, eventBus, aiProvider);
+    super(name, eventBus, recallStorage, atcpipProvider, aiProvider);
     this.account = account;
     this.address = account.address as `0x${string}`;
-    this.aiProvider = aiProvider;
     this.tools = getObserverToolkit(this.address);
     this.setupEventHandlers();
   }
@@ -97,22 +102,20 @@ export class ObserverAgent extends Agent {
   }
 
   /**
-   * Implementation of abstract method from Agent class
+   * Implementation of abstract method from IPAgent class
    */
   async onStepFinish({ text, toolCalls, toolResults }: {
     text?: string;
     toolCalls?: any[];
     toolResults?: any[];
   }): Promise<void> {
-    console.log(
-        // @ts-ignore
-      `[observer] step finished. tools called: ${toolCalls?.length > 0
-        // @ts-ignore
-        ? toolCalls.map((tool: any) => tool.toolName).join(", ")
-        : "none"
-      }`
-    );
     if (text) {
+      // Store chain of thought in Recall
+      await this.storeChainOfThought(`thought:${Date.now()}`, [text], {
+        toolCalls: toolCalls || [],
+        toolResults: toolResults || []
+      });
+
       await saveThought({
         agent: "observer",
         text,
@@ -154,11 +157,17 @@ export class ObserverAgent extends Agent {
    * @param data - The data to handle
    */
   private async handleTaskManagerEvent(data: any): Promise<void> {
-    // Initialize toolResults outside try block so it's accessible in catch
     const toolResults: ToolResult[] = [];
     
     try {
       console.log(`[${this.name}] Processing task manager event:`, data);
+
+      // Store task in Recall
+      await this.storeIntelligence(`task:${data.taskId}`, {
+        task: data.task,
+        type: 'analysis',
+        timestamp: Date.now()
+      });
       
       // System event for task start
       this.eventBus.emit('agent-action', {
@@ -188,13 +197,38 @@ export class ObserverAgent extends Agent {
               status: 'success'
             });
 
+            // Store tool result as IP
+            const toolResultLicenseTerms: IPLicenseTerms = {
+              name: `${toolName} Analysis - ${data.taskId}`,
+              description: `Analysis results from ${toolName} for task ${data.taskId}`,
+              scope: 'commercial',
+              transferability: true,
+              onchain_enforcement: true,
+              royalty_rate: 0.05
+            };
+
+            const licenseId = await this.mintLicense(toolResultLicenseTerms, {
+              issuer_id: this.name,
+              holder_id: 'task-manager',
+              issue_date: Date.now(),
+              version: '1.0'
+            });
+
+            // Store tool result with license
+            await this.storeIntelligence(`${toolName}:${data.taskId}`, {
+              result: result.result,
+              licenseId,
+              timestamp: Date.now()
+            });
+
             // Emit successful tool result
             this.eventBus.emit('agent-message', {
               role: 'assistant',
               content: `${toolName} Analysis:\n${JSON.stringify(result.result, null, 2)}`,
               timestamp: new Date().toLocaleTimeString(),
               agentName: this.name,
-              collaborationType: 'tool-result'
+              collaborationType: 'tool-result',
+              licenseId
             });
           } else {
             console.warn(`[${this.name}] ${toolName} tool execution failed:`, result.error || 'Unknown error');
@@ -202,6 +236,13 @@ export class ObserverAgent extends Agent {
               tool: toolName,
               error: result.error || 'Unknown error',
               status: 'error'
+            });
+
+            // Store error in Recall
+            await this.storeIntelligence(`error:${toolName}:${data.taskId}`, {
+              error: result.error || 'Unknown error',
+              timestamp: Date.now(),
+              tool: toolName
             });
           }
         } catch (error) {
@@ -236,55 +277,61 @@ export class ObserverAgent extends Agent {
         toDate: today.toISOString().split('T')[0]
       });
 
-      console.log(`[${this.name}] ========== Tool Execution Complete ==========`);
-      
-      if (hasAllToolsFailed) {
-        throw new Error('All tools failed to execute. Unable to generate analysis.');
-      }
+      // Store all tool results together
+      await this.storeIntelligence(`analysis:${data.taskId}`, {
+        toolResults,
+        timestamp: Date.now()
+      });
 
-      // Generate analysis even with partial data
-      console.log(`[${this.name}] Generating analysis with available data...`);
-      const systemPrompt = getObserverSystemPrompt(this.address);
-      
-      // Prepare context based on available results
-      const context = `Here's the available market data and social sentiment analysis. Note that some tools may have failed:\n${JSON.stringify(toolResults, null, 2)}\n\nPlease provide analysis based on the available data, and indicate what additional data would be helpful.`;
-      
-      const response = await this.aiProvider.generateText(
-        context,
-        systemPrompt.content
-      );
+      // Generate final analysis
+      const analysisLicenseTerms: IPLicenseTerms = {
+        name: `Market Analysis - ${data.taskId}`,
+        description: 'Comprehensive market analysis combining multiple data sources',
+        scope: 'commercial',
+        transferability: true,
+        onchain_enforcement: true,
+        royalty_rate: 0.1,
+        rev_share: 0.05
+      };
 
-      // Send analysis back to task manager
+      const analysisLicenseId = await this.mintLicense(analysisLicenseTerms, {
+        issuer_id: this.name,
+        holder_id: 'task-manager',
+        issue_date: Date.now(),
+        version: '1.0'
+      });
+
+      // Store analysis with license
+      await this.storeIntelligence(`final-analysis:${data.taskId}`, {
+        analysis: toolResults,
+        licenseId: analysisLicenseId,
+        timestamp: Date.now()
+      });
+
+      // Send results back to task manager
       this.eventBus.emit('observer-task-manager', {
         taskId: data.taskId,
-        type: 'analysis',
-        result: response.text,
-        toolResults,
-        timestamp: new Date().toISOString(),
+        result: toolResults,
         status: 'completed',
-        partialData: toolResults.some(r => r.status === 'error')
+        timestamp: new Date().toISOString(),
+        licenseId: analysisLicenseId
       });
 
-      // Save the thought
-      await saveThought({
-        agent: this.name,
-        text: response.text,
-        toolCalls: response.toolCalls || [],
-        toolResults
-      });
-
-    } catch (error: unknown) {
-      console.error(`[${this.name}] Error handling task manager event:`, error);
+    } catch (error) {
+      console.error(`[${this.name}] Error in handleTaskManagerEvent:`, error);
       
-      // Even if we have an error, try to send any collected data back
+      // Store error in Recall
+      await this.storeIntelligence(`error:${data.taskId}`, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: Date.now()
+      });
+
+      // Send error back to task manager
       this.eventBus.emit('observer-task-manager', {
         taskId: data.taskId,
-        type: 'analysis',
-        result: `Analysis failed but collected partial data: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        toolResults,
-        timestamp: new Date().toISOString(),
-        status: 'partial',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        result: error instanceof Error ? error.message : 'Unknown error',
+        status: 'failed',
+        timestamp: new Date().toISOString()
       });
     }
   }
