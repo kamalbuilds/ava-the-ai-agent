@@ -38,6 +38,7 @@ export interface IPLicenseTerms {
 export abstract class IPAgent extends Agent {
   protected recallStorage: RecallStorage;
   protected atcpipProvider: ATCPIPProvider;
+  private bucketAlias: string;
 
   constructor(
     name: string, 
@@ -49,35 +50,34 @@ export abstract class IPAgent extends Agent {
     super(name, eventBus, aiProvider);
     this.recallStorage = recallStorage;
     this.atcpipProvider = atcpipProvider;
+    this.bucketAlias = `${name}-bucket`;
+    this.initializeRecallBucket();
   }
 
-  // ATCP/IP Protocol Methods
-  protected async requestIP(
-    providerId: string,
-    request: { type: string; description: string }
-  ): Promise<{ terms: IPLicenseTerms; metadata: IPMetadata }> {
-    return this.atcpipProvider.requestIP(providerId, request);
-  }
-
-  protected async proposeTerms(
-    requesterId: string,
-    terms: IPLicenseTerms
-  ): Promise<boolean> {
-    return this.atcpipProvider.proposeTerms(requesterId, terms);
-  }
-
-  protected async negotiateTerms(
-    counterpartyId: string,
-    terms: IPLicenseTerms
-  ): Promise<IPLicenseTerms> {
-    return this.atcpipProvider.negotiateTerms(counterpartyId, terms);
+  private async initializeRecallBucket(): Promise<void> {
+    try {
+      await this.recallStorage.getOrCreateBucket(this.bucketAlias);
+    } catch (error) {
+      console.error(`Error initializing Recall bucket for ${this.name}:`, error);
+    }
   }
 
   protected async mintLicense(
     terms: IPLicenseTerms,
     metadata: IPMetadata
   ): Promise<string> {
-    return this.atcpipProvider.mintLicense(terms, metadata);
+    const licenseId = await this.atcpipProvider.mintLicense(terms, metadata);
+    
+    // Store license in Recall
+    await this.storeIntelligence(`license:${licenseId}`, {
+      terms,
+      metadata: {
+        ...metadata,
+        license_id: licenseId,
+      },
+    });
+
+    return licenseId;
   }
 
   protected async verifyLicense(licenseId: string): Promise<boolean> {
@@ -90,7 +90,12 @@ export abstract class IPAgent extends Agent {
     data: any,
     metadata?: Record<string, any>
   ): Promise<void> {
-    await this.recallStorage.store(key, data, metadata);
+    await this.recallStorage.store(key, data, {
+      ...metadata,
+      agent: this.name,
+      timestamp: Date.now(),
+      type: 'intelligence',
+    });
   }
 
   protected async retrieveIntelligence(
@@ -104,12 +109,49 @@ export abstract class IPAgent extends Agent {
     thoughts: string[],
     metadata?: Record<string, any>
   ): Promise<void> {
-    await this.recallStorage.storeCoT(key, thoughts, metadata);
+    await this.recallStorage.storeCoT(key, thoughts, {
+      ...metadata,
+      agent: this.name,
+      timestamp: Date.now(),
+      type: 'chain-of-thought',
+    });
   }
 
   protected async retrieveChainOfThought(
     key: string
   ): Promise<{ thoughts: string[]; metadata?: Record<string, any> }> {
     return this.recallStorage.retrieveCoT(key);
+  }
+
+  protected async searchIntelligence(
+    query: string,
+    options?: {
+      limit?: number;
+      filter?: Record<string, any>;
+    }
+  ): Promise<Array<{ key: string; score: number; data: any }>> {
+    return this.recallStorage.search(query, {
+      ...options,
+      filter: {
+        ...options?.filter,
+        agent: this.name,
+      },
+    });
+  }
+
+  protected async retrieveRecentThoughts(
+    limit: number = 10
+  ): Promise<Array<{ thoughts: string[]; metadata?: Record<string, any> }>> {
+    const results = await this.recallStorage.search('type:chain-of-thought', {
+      limit,
+      filter: {
+        agent: this.name,
+      },
+    });
+
+    return results.map(result => ({
+      thoughts: result.data.thoughts,
+      metadata: result.data.metadata,
+    }));
   }
 } 

@@ -109,6 +109,14 @@ export class ObserverAgent extends IPAgent {
     toolCalls?: any[];
     toolResults?: any[];
   }): Promise<void> {
+    console.log(
+        // @ts-ignore
+      `[observer] step finished. tools called: ${toolCalls?.length > 0
+        // @ts-ignore
+        ? toolCalls.map((tool: any) => tool.toolName).join(", ")
+        : "none"
+      }`
+    );
     if (text) {
       // Store chain of thought in Recall
       await this.storeChainOfThought(`thought:${Date.now()}`, [text], {
@@ -157,6 +165,7 @@ export class ObserverAgent extends IPAgent {
    * @param data - The data to handle
    */
   private async handleTaskManagerEvent(data: any): Promise<void> {
+    // Initialize toolResults outside try block so it's accessible in catch
     const toolResults: ToolResult[] = [];
     
     try {
@@ -368,7 +377,7 @@ export class ObserverAgent extends IPAgent {
 
     try {
       const systemPrompt = getObserverSystemPrompt(this.address);
-      const response = await this.aiProvider.generateText(
+      const response = await this.aiProvider?.generateText(
         taskManagerData ? 
           `Analyze the following task manager data and provide recommendations:\n${JSON.stringify(taskManagerData)}` :
           'Perform a complete market and portfolio analysis.',
@@ -376,7 +385,7 @@ export class ObserverAgent extends IPAgent {
       );
 
       // Process tool calls if any
-      if (response.toolCalls) {
+      if (response?.toolCalls) {
         for (const toolCall of response.toolCalls) {
           try {
             const result = await this.executeTool(toolCall);
@@ -392,7 +401,7 @@ export class ObserverAgent extends IPAgent {
 
       // Emit results to task manager
       this.eventBus.emit(`${this.name}-task-manager`, {
-        report: response.text,
+        report: response?.text,
         timestamp: new Date().toISOString()
       });
 
@@ -495,7 +504,7 @@ export class ObserverAgent extends IPAgent {
       // Prepare context for AI based on available results
       const context = `Here's the available market data and social sentiment analysis. Note that some tools may have failed:\n${JSON.stringify(toolResults, null, 2)}`;
       
-      const response = await this.aiProvider.generateText(
+      const response = await this.aiProvider?.generateText(
         context,
         systemPrompt.content
       );
@@ -504,7 +513,7 @@ export class ObserverAgent extends IPAgent {
       this.eventBus.emit('observer-task-manager', {
         taskId,
         type: 'analysis',
-        result: response.text,
+        result: response?.text,
         toolResults,
         timestamp: new Date().toISOString()
       });
@@ -512,8 +521,8 @@ export class ObserverAgent extends IPAgent {
       // Save the thought
       await saveThought({
         agent: this.name,
-        text: response.text,
-        toolCalls: response.toolCalls || [],
+        text: response?.text || '',
+        toolCalls: response?.toolCalls || [],
         toolResults
       });
 
@@ -536,19 +545,19 @@ export class ObserverAgent extends IPAgent {
   async processMessage(message: string): Promise<string> {
     try {
       const systemPrompt = getObserverSystemPrompt(this.address!);
-      const response = await this.aiProvider.generateText(
+      const response = await this.aiProvider?.generateText(
         message,
         systemPrompt.content
       );
 
       await saveThought({
         agent: this.name,
-        text: response.text,
-        toolCalls: response.toolCalls || [],
+        text: response?.text || '',
+        toolCalls: response?.toolCalls || [],
         toolResults: []
       });
 
-      return response.text;
+      return response?.text || '';
     } catch (error) {
       console.error('Observer agent error:', error);
       throw error;

@@ -4,7 +4,7 @@ import { Coinbase } from "@coinbase/coinbase-sdk";
 import { ChatGroq } from "@langchain/groq";
 import { MemorySaver } from "@langchain/langgraph";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { Agent } from "../agent";
+import { IPAgent } from "../types/ip-agent";
 import type { EventBus } from "../../comms";
 import env from "../../env";
 import {
@@ -17,15 +17,22 @@ import {
   createPrediction,
   CreatePredictionInput,
 } from "./actions/create_prediction";
-
+import { RecallStorage } from "../plugins/recall-storage";
+import { ATCPIPProvider } from "../plugins/atcp-ip";
+import type { IPLicenseTerms, IPMetadata } from "../types/ip-agent";
 
 // Arbitrium Track
-export class CdpAgent extends Agent {
+export class CdpAgent extends IPAgent {
   private agent: any;
   private config: any;
 
-  constructor(name: string, eventBus: EventBus) {
-    super(name, eventBus);
+  constructor(
+    name: string, 
+    eventBus: EventBus,
+    recallStorage: RecallStorage,
+    atcpipProvider: ATCPIPProvider
+  ) {
+    super(name, eventBus, recallStorage, atcpipProvider);
   }
 
   async initialize() {
@@ -52,8 +59,57 @@ export class CdpAgent extends Agent {
     for await (const chunk of stream) {
       if ("agent" in chunk) {
         responseMessage = chunk.agent.messages[0].content;
+
+        // License the agent's response
+        const responseLicenseTerms: IPLicenseTerms = {
+          name: `CDP Agent Response - ${Date.now()}`,
+          description: "License for CDP agent's response to user message",
+          scope: 'commercial',
+          transferability: true,
+          onchain_enforcement: true,
+          royalty_rate: 0.05
+        };
+
+        const licenseId = await this.mintLicense(responseLicenseTerms, {
+          issuer_id: this.name,
+          holder_id: 'user',
+          issue_date: Date.now(),
+          version: '1.0'
+        });
+
+        // Store response with license
+        await this.storeIntelligence(`response:${Date.now()}`, {
+          message: responseMessage,
+          licenseId,
+          timestamp: Date.now()
+        });
+
       } else if ("tools" in chunk) {
         responseMessage = chunk.tools.messages[0].content;
+
+        // License the tool result
+        const toolResultLicenseTerms: IPLicenseTerms = {
+          name: `CDP Tool Result - ${Date.now()}`,
+          description: "License for CDP tool execution result",
+          scope: 'commercial',
+          transferability: true,
+          onchain_enforcement: true,
+          royalty_rate: 0.05
+        };
+
+        const licenseId = await this.mintLicense(toolResultLicenseTerms, {
+          issuer_id: this.name,
+          holder_id: 'user',
+          issue_date: Date.now(),
+          version: '1.0'
+        });
+
+        // Store tool result with license
+        await this.storeIntelligence(`tool:${Date.now()}`, {
+          result: responseMessage,
+          licenseId,
+          timestamp: Date.now()
+        });
       }
     }
 
@@ -68,6 +124,31 @@ export class CdpAgent extends Agent {
         : "none"
       }`
     );
+
+    if (text) {
+      // Store chain of thought with license
+      const thoughtLicenseTerms: IPLicenseTerms = {
+        name: `CDP Chain of Thought - ${Date.now()}`,
+        description: "License for CDP agent's chain of thought",
+        scope: 'commercial',
+        transferability: true,
+        onchain_enforcement: true,
+        royalty_rate: 0.05
+      };
+
+      const licenseId = await this.mintLicense(thoughtLicenseTerms, {
+        issuer_id: this.name,
+        holder_id: 'user',
+        issue_date: Date.now(),
+        version: '1.0'
+      });
+
+      await this.storeChainOfThought(`thought:${Date.now()}`, [text], {
+        toolCalls: toolCalls || [],
+        toolResults: toolResults || [],
+        licenseId
+      });
+    }
   }
 }
 

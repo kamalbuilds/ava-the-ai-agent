@@ -20,10 +20,12 @@ export class ATCPIPProvider {
     this.agentId = config.agentId;
 
     // Initialize Story Protocol client
-    const account = privateKeyToAccount(env.WALLET_PRIVATE_KEY as `0x${string}`);
+    const privateKey = env.WALLET_PRIVATE_KEY as `0x${string}`;
+    const transport = http(env.STORY_RPC_PROVIDER_URL || 'https://rpc.ankr.com/eth_sepolia') as any;
+    
     const storyConfig: StoryConfig = {
-      transport: http(env.RPC_PROVIDER_URL),
-      account,
+      account: privateKey,
+      transport,
       chainId: "aeneid" as SupportedChainIds,
     };
 
@@ -39,8 +41,9 @@ export class ATCPIPProvider {
     const client = this.getStoryClient();
     
     // Create IP asset with Story Protocol's mintAndRegisterIp
-    const response = await client.ipAsset.mintAndRegisterIp({
-      spgNftContract: (process.env.SPG_NFT_CONTRACT_ADDRESS || ZERO_ADDRESS) as Address,
+    const response = await client.ipAsset.register({
+      nftContract: (process.env.SPG_NFT_CONTRACT_ADDRESS || ZERO_ADDRESS) as Address,
+      tokenId: BigInt(Date.now()),
       ipMetadata: {
         ipMetadataURI: metadata.link_to_terms || '',
         ipMetadataHash: toHex(metadata.license_id || '0', { size: 32 }),
@@ -198,21 +201,11 @@ export class ATCPIPProvider {
     const client = this.getStoryClient();
 
     try {
-      // Transfer the IP license using registerDerivativeIp
-      await client.ipAsset.registerDerivativeIp({
-        nftContract: (process.env.NFT_CONTRACT_ADDRESS || ZERO_ADDRESS) as Address,
-        tokenId: licenseId as Address,
-        derivData: {
-          parentIpIds: [fromAgentId as Address],
-          licenseTermsIds: [BigInt(1)], // Using default license terms ID
-        },
-        ipMetadata: {
-          ipMetadataURI: '',
-          ipMetadataHash: DEFAULT_HASH,
-          nftMetadataURI: '',
-          nftMetadataHash: DEFAULT_HASH,
-        },
-        txOptions: { waitForTransaction: true }
+      // Transfer the IP license using registerDerivativeWithLicenseTokens
+      await client.ipAsset.registerDerivativeWithLicenseTokens({
+        childIpId: toAgentId as Address,
+        licenseTokenIds: [BigInt(licenseId)],
+        txOptions: { waitForTransaction: true },
       });
 
       return true;

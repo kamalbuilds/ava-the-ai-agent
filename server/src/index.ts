@@ -61,9 +61,11 @@ const account = privateKeyToAccount(env.WALLET_PRIVATE_KEY as `0x${string}`);
 
 // Initialize Recall Storage
 const recallStorage = new RecallStorage({
-  endpoint: env.RECALL_API_ENDPOINT,
-  apiKey: env.RECALL_API_KEY || 'demo', // Fallback for development
-  namespace: 'ava'
+  network: 'testnet',
+  syncInterval: 2 * 60 * 1000, // 2 minutes
+  batchSize: 4, // 4KB
+  eventBus,
+  bucketAlias: 'ava'
 });
 
 // Initialize ATCP/IP Provider
