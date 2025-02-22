@@ -25,6 +25,8 @@
     "@langchain/openai": "^0.4.2",
     "@lit-protocol/aw-signer": "^0.1.0-19",
     "@mysten/sui": "^1.21.2",
+    "@recallnet/chains": "^0.0.1",
+    "@recallnet/sdk": "^0.0.2",
     "@safe-global/api-kit": "^2.5.9",
     "@safe-global/protocol-kit": "^5.2.2",
     "@safe-global/safe-deployments": "^1.37.24",
@@ -44,9 +46,7 @@
     "uuid": "^11.0.5",
     "viem": "^2.22.17",
     "ws": "^8.18.0",
-    "zod": "^3.24.1",
-    "@recallnet/chains": "^0.0.1",
-    "@recallnet/sdk": "^0.0.2"
+    "zod": "^3.24.1"
   },
   "resolutions": {
     "@coinbase/coinbase-sdk": "^0.15.0"
