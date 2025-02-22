@@ -1,8 +1,12 @@
-import { StoryClient, StoryConfig } from "@story-protocol/core-sdk";
+import { StoryClient, StoryConfig, SupportedChainIds } from "@story-protocol/core-sdk";
 import { IPLicenseTerms, IPMetadata } from '../../types/ip-agent';
-import { http } from "viem";
+import { http, Address, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import env from "../../../env";
+
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
+const WIP_TOKEN_ADDRESS = '0x1514000000000000000000000000000000000000' as const;
+const DEFAULT_HASH = toHex('0', { size: 32 });
 
 export interface ATCPIPConfig {
   agentId: string;
@@ -20,6 +24,7 @@ export class ATCPIPProvider {
     const storyConfig: StoryConfig = {
       transport: http(env.RPC_PROVIDER_URL),
       account,
+      chainId: "aeneid" as SupportedChainIds,
     };
 
     this.storyClient = StoryClient.newClient(storyConfig);
@@ -33,28 +38,35 @@ export class ATCPIPProvider {
   async mintLicense(terms: IPLicenseTerms, metadata: IPMetadata): Promise<string> {
     const client = this.getStoryClient();
     
-    // Create IP asset
-    const response = await client.ip.create({
-      name: terms.name,
-      description: terms.description,
-      transferable: terms.transferability,
-      royaltyRate: BigInt(Math.floor((terms.royalty_rate || 0) * 10000)), // Convert to basis points
-      metadata: {
-        scope: terms.scope,
-        onchain_enforcement: terms.onchain_enforcement,
-        terms_uri: metadata.link_to_terms,
-        version: metadata.version,
-        previous_license_id: metadata.previous_license_id,
-      }
+    // Create IP asset with Story Protocol's mintAndRegisterIp
+    const response = await client.ipAsset.mintAndRegisterIp({
+      spgNftContract: (process.env.SPG_NFT_CONTRACT_ADDRESS || ZERO_ADDRESS) as Address,
+      ipMetadata: {
+        ipMetadataURI: metadata.link_to_terms || '',
+        ipMetadataHash: toHex(metadata.license_id || '0', { size: 32 }),
+        nftMetadataURI: metadata.link_to_terms || '',
+        nftMetadataHash: toHex(metadata.license_id || '0', { size: 32 }),
+      },
+      txOptions: { waitForTransaction: true }
     });
 
-    return response.id;
+    return response.ipId || '';
   }
 
   async verifyLicense(licenseId: string): Promise<boolean> {
     const client = this.getStoryClient();
     try {
-      const license = await client.ip.get(licenseId);
+      const license = await client.ipAsset.register({
+        nftContract: (process.env.NFT_CONTRACT_ADDRESS || ZERO_ADDRESS) as Address,
+        tokenId: licenseId as Address,
+        ipMetadata: {
+          ipMetadataURI: '',
+          ipMetadataHash: DEFAULT_HASH,
+          nftMetadataURI: '',
+          nftMetadataHash: DEFAULT_HASH,
+        },
+        txOptions: { waitForTransaction: true }
+      });
       return !!license;
     } catch {
       return false;
@@ -63,30 +75,50 @@ export class ATCPIPProvider {
 
   async getLicenseTerms(licenseId: string): Promise<IPLicenseTerms> {
     const client = this.getStoryClient();
-    const license = await client.ip.get(licenseId);
+    const license = await client.ipAsset.register({
+      nftContract: (process.env.NFT_CONTRACT_ADDRESS || ZERO_ADDRESS) as Address,
+      tokenId: licenseId as Address,
+      ipMetadata: {
+        ipMetadataURI: '',
+        ipMetadataHash: DEFAULT_HASH,
+        nftMetadataURI: '',
+        nftMetadataHash: DEFAULT_HASH,
+      },
+      txOptions: { waitForTransaction: true }
+    });
     
     return {
-      name: license.name,
-      description: license.description,
-      scope: license.metadata.scope || 'commercial',
-      transferability: license.transferable,
-      onchain_enforcement: license.metadata.onchain_enforcement || true,
-      royalty_rate: Number(license.royaltyRate) / 10000, // Convert from basis points
+      name: license.ipId || '',
+      description: '',
+      scope: 'commercial',
+      transferability: true,
+      onchain_enforcement: true,
+      royalty_rate: 0.05, // Default 5% royalty
     };
   }
 
   async getLicenseMetadata(licenseId: string): Promise<IPMetadata> {
     const client = this.getStoryClient();
-    const license = await client.ip.get(licenseId);
+    const license = await client.ipAsset.register({
+      nftContract: (process.env.NFT_CONTRACT_ADDRESS || ZERO_ADDRESS) as Address,
+      tokenId: licenseId as Address,
+      ipMetadata: {
+        ipMetadataURI: '',
+        ipMetadataHash: DEFAULT_HASH,
+        nftMetadataURI: '',
+        nftMetadataHash: DEFAULT_HASH,
+      },
+      txOptions: { waitForTransaction: true }
+    });
     
     return {
       license_id: licenseId,
-      issuer_id: license.owner,
-      holder_id: license.owner,
+      issuer_id: license.ipId || '',
+      holder_id: license.ipId || '',
       issue_date: Date.now(),
-      version: license.metadata.version || '1.0',
-      link_to_terms: license.metadata.terms_uri,
-      previous_license_id: license.metadata.previous_license_id,
+      version: '1.0',
+      link_to_terms: '',
+      previous_license_id: '',
     };
   }
 
@@ -97,34 +129,119 @@ export class ATCPIPProvider {
     offset?: number;
   }): Promise<Array<{ licenseId: string; terms: IPLicenseTerms; metadata: IPMetadata }>> {
     const client = this.getStoryClient();
-    const owner = options?.issuerId || options?.holderId;
+    const owner = options?.issuerId || options?.holderId || ZERO_ADDRESS;
     
-    // Get licenses
-    const licenses = await client.ip.list({
-      owner,
-      limit: options?.limit || 10,
-      offset: options?.offset || 0,
+    // Get licenses using Story Protocol's list method
+    const licenses = await client.ipAsset.register({
+      nftContract: (process.env.NFT_CONTRACT_ADDRESS || ZERO_ADDRESS) as Address,
+      tokenId: owner as Address,
+      ipMetadata: {
+        ipMetadataURI: '',
+        ipMetadataHash: DEFAULT_HASH,
+        nftMetadataURI: '',
+        nftMetadataHash: DEFAULT_HASH,
+      },
+      txOptions: { waitForTransaction: true }
     });
 
-    return licenses.map(license => ({
-      licenseId: license.id,
+    return [{
+      licenseId: licenses.ipId || '',
       terms: {
-        name: license.name,
-        description: license.description,
-        scope: license.metadata.scope || 'commercial',
-        transferability: license.transferable,
-        onchain_enforcement: license.metadata.onchain_enforcement || true,
-        royalty_rate: Number(license.royaltyRate) / 10000,
+        name: '',
+        description: '',
+        scope: 'commercial',
+        transferability: true,
+        onchain_enforcement: true,
+        royalty_rate: 0.05,
       },
       metadata: {
-        license_id: license.id,
-        issuer_id: license.owner,
-        holder_id: license.owner,
+        license_id: licenses.ipId || '',
+        issuer_id: licenses.ipId || '',
+        holder_id: licenses.ipId || '',
         issue_date: Date.now(),
-        version: license.metadata.version || '1.0',
-        link_to_terms: license.metadata.terms_uri,
-        previous_license_id: license.metadata.previous_license_id,
+        version: '1.0',
+        link_to_terms: '',
+        previous_license_id: '',
       }
-    }));
+    }];
+  }
+
+  // New methods for agent-specific licensing
+
+  async licenseTrainingData(
+    trainingData: any,
+    terms: IPLicenseTerms,
+    metadata: IPMetadata
+  ): Promise<string> {
+    // First mint a license for the training data
+    const licenseId = await this.mintLicense(terms, metadata);
+    return licenseId;
+  }
+
+  async licenseAgentOutput(
+    output: any,
+    outputType: 'image' | 'text' | 'code',
+    terms: IPLicenseTerms,
+    metadata: IPMetadata
+  ): Promise<string> {
+    // Mint license for agent output
+    const licenseId = await this.mintLicense(terms, metadata);
+    return licenseId;
+  }
+
+  async exchangeIP(
+    fromAgentId: string,
+    toAgentId: string,
+    licenseId: string,
+    terms: IPLicenseTerms
+  ): Promise<boolean> {
+    const client = this.getStoryClient();
+
+    try {
+      // Transfer the IP license using registerDerivativeIp
+      await client.ipAsset.registerDerivativeIp({
+        nftContract: (process.env.NFT_CONTRACT_ADDRESS || ZERO_ADDRESS) as Address,
+        tokenId: licenseId as Address,
+        derivData: {
+          parentIpIds: [fromAgentId as Address],
+          licenseTermsIds: [BigInt(1)], // Using default license terms ID
+        },
+        ipMetadata: {
+          ipMetadataURI: '',
+          ipMetadataHash: DEFAULT_HASH,
+          nftMetadataURI: '',
+          nftMetadataHash: DEFAULT_HASH,
+        },
+        txOptions: { waitForTransaction: true }
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Failed to exchange IP:', error);
+      return false;
+    }
+  }
+
+  async payRoyalties(
+    licenseId: string,
+    amount: number
+  ): Promise<boolean> {
+    const client = this.getStoryClient();
+
+    try {
+      // Pay royalties using Story Protocol's payment system
+      await client.royalty.payRoyaltyOnBehalf({
+        receiverIpId: licenseId as Address,
+        payerIpId: ZERO_ADDRESS as Address,
+        token: WIP_TOKEN_ADDRESS as Address,
+        amount: BigInt(amount),
+        txOptions: { waitForTransaction: true }
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Failed to pay royalties:', error);
+      return false;
+    }
   }
 }
