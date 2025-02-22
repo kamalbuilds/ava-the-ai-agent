@@ -206,6 +206,7 @@ export class ATCPIPProvider {
         childIpId: toAgentId as Address,
         licenseTokenIds: [BigInt(licenseId)],
         txOptions: { waitForTransaction: true },
+        maxRts: 100_000_000,
       });
 
       return true;
