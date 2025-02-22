@@ -49,12 +49,19 @@ import { ATCPIPProvider } from "./agents/plugins/atcp-ip";
 // Initialize core services
 const eventBus = new EventBus();
 
+// // Initialize AI provider
+// const aiProvider = AIFactory.createProvider({
+//   provider: "openai",
+//   apiKey: env.OPENAI_API_KEY,
+//   modelName: "gpt-4o",
+// });
 // Initialize AI provider
-const aiProvider = AIFactory.createProvider({
-  provider: 'openai',
-  apiKey: env.OPENAI_API_KEY as string,
-  modelName: 'gpt-4'
-});
+// const aiProvider = AIFactory.createProvider({
+//     provider: 'openai',
+//   apiKey: env.OPENAI_API_KEY as string,
+//   modelName: 'gpt-4'
+// });
+
 
 // Create account from private key
 const account = privateKeyToAccount(env.WALLET_PRIVATE_KEY as `0x${string}`);
@@ -71,6 +78,9 @@ const recallStorage = new RecallStorage({
 // Initialize ATCP/IP Provider
 const atcpipProvider = new ATCPIPProvider({
   agentId: 'ava'
+  provider: "groq",
+  apiKey: env.GROQ_API_KEY,
+  modelName: "gemma2-9b-it",
 });
 
 // Initialize agents
@@ -93,6 +103,10 @@ const executor = new ExecutorAgent(
   atcpipProvider
 );
 console.log("[registerAgents] executor agent initialized.");
+
+
+
+console.log("[registerAgents] initializing observer agent...");
 
 const observer = new ObserverAgent(
   'observer',
@@ -123,34 +137,46 @@ wss.on("connection", (ws: WebSocket) => {
   console.log(`[WebSocket] Client connected on port ${WS_PORT}`);
 
   // Forward events from event bus to WebSocket clients
-  eventBus.on("agent-action", async (data: { agent: string; action: string }) => {
-    ws.send(JSON.stringify({
-      type: "agent-message",
-      timestamp: new Date().toLocaleTimeString(),
-      role: "assistant",
-      content: `[${data.agent}] ${data.action}`,
-      agentName: data.agent
-    }));
-  });
+  eventBus.on(
+    "agent-action",
+    async (data: { agent: string; action: string }) => {
+      ws.send(
+        JSON.stringify({
+          type: "agent-message",
+          timestamp: new Date().toLocaleTimeString(),
+          role: "assistant",
+          content: `[${data.agent}] ${data.action}`,
+          agentName: data.agent,
+        })
+      );
+    }
+  );
 
-  eventBus.on("agent-response", async (data: { agent: string; message: string }) => {
-    ws.send(JSON.stringify({
-      type: "agent-message",
-      timestamp: new Date().toLocaleTimeString(),
-      role: "assistant",
-      content: data.message,
-      agentName: data.agent
-    }));
-  });
+  eventBus.on(
+    "agent-response",
+    async (data: { agent: string; message: string }) => {
+      ws.send(
+        JSON.stringify({
+          type: "agent-message",
+          timestamp: new Date().toLocaleTimeString(),
+          role: "assistant",
+          content: data.message,
+          agentName: data.agent,
+        })
+      );
+    }
+  );
 
   eventBus.on("agent-error", async (data: { agent: string; error: string }) => {
-    ws.send(JSON.stringify({
-      type: "agent-message",
-      timestamp: new Date().toLocaleTimeString(),
-      role: "error",
-      content: `Error in ${data.agent}: ${data.error}`,
-      agentName: data.agent
-    }));
+    ws.send(
+      JSON.stringify({
+        type: "agent-message",
+        timestamp: new Date().toLocaleTimeString(),
+        role: "error",
+        content: `Error in ${data.agent}: ${data.error}`,
+        agentName: data.agent,
+      })
+    );
   });
 
   ws.on("message", async (message: string) => {
@@ -163,25 +189,27 @@ wss.on("connection", (ws: WebSocket) => {
           provider: data.settings.aiProvider.provider,
           apiKey: data.settings.aiProvider.apiKey,
           modelName: data.settings.aiProvider.modelName,
-          enablePrivateCompute: data.settings.enablePrivateCompute
+          enablePrivateCompute: data.settings.enablePrivateCompute,
         });
 
         // Update agents with new settings
         observer.updateAIProvider(newProvider);
         
+        observerAgent.updateAIProvider(newProvider);
+        taskManagerAgent.updateAIProvider(newProvider);
+
         eventBus.emit("agent-action", {
           agent: "system",
-          action: "Updated AI provider settings"
+          action: "Updated AI provider settings",
         });
-      }
-      else if (data.type === "command") {
+      } else if (data.type === "command") {
         // Add user message to chat
         const messageData = {
           type: "agent-message",
           timestamp: new Date().toLocaleTimeString(),
           role: "user",
           content: data.command,
-          agentName: "user"
+          agentName: "user",
         };
         ws.send(JSON.stringify(messageData));
 
@@ -189,55 +217,63 @@ wss.on("connection", (ws: WebSocket) => {
           observer.stop();
           eventBus.emit("agent-action", {
             agent: "system",
-            action: "All agents stopped"
+            action: "All agents stopped",
           });
         } else {
           eventBus.emit("agent-action", {
             agent: "system",
-            action: "Starting task processing"
+            action: "Starting task processing",
           });
           await observer.processTask(data.command);
         }
       }
     } catch (error) {
       console.error("[WebSocket] Error processing message:", error);
-      ws.send(JSON.stringify({
-        type: "agent-message",
-        timestamp: new Date().toLocaleTimeString(),
-        role: "error",
-        content: "Error processing command",
-        agentName: "system"
-      }));
+      ws.send(
+        JSON.stringify({
+          type: "agent-message",
+          timestamp: new Date().toLocaleTimeString(),
+          role: "error",
+          content: "Error processing command",
+          agentName: "system",
+        })
+      );
     }
   });
 
   ws.on("close", () => {
     eventBus.unsubscribe("agent-action", async (data) => {
-      ws.send(JSON.stringify({
-        type: "agent-message",
-        timestamp: new Date().toLocaleTimeString(),
-        role: "assistant",
-        content: `[${data.agent}] ${data.action}`,
-        agentName: data.agent
-      }));
+      ws.send(
+        JSON.stringify({
+          type: "agent-message",
+          timestamp: new Date().toLocaleTimeString(),
+          role: "assistant",
+          content: `[${data.agent}] ${data.action}`,
+          agentName: data.agent,
+        })
+      );
     });
     eventBus.unsubscribe("agent-response", async (data) => {
-      ws.send(JSON.stringify({
-        type: "agent-message",
-        timestamp: new Date().toLocaleTimeString(),
-        role: "assistant",
-        content: data.message,
-        agentName: data.agent
-      }));
+      ws.send(
+        JSON.stringify({
+          type: "agent-message",
+          timestamp: new Date().toLocaleTimeString(),
+          role: "assistant",
+          content: data.message,
+          agentName: data.agent,
+        })
+      );
     });
     eventBus.unsubscribe("agent-error", async (data) => {
-      ws.send(JSON.stringify({
-        type: "agent-message",
-        timestamp: new Date().toLocaleTimeString(),
-        role: "error",
-        content: `Error in ${data.agent}: ${data.error}`,
-        agentName: data.agent
-      }));
+      ws.send(
+        JSON.stringify({
+          type: "agent-message",
+          timestamp: new Date().toLocaleTimeString(),
+          role: "error",
+          content: `Error in ${data.agent}: ${data.error}`,
+          agentName: data.agent,
+        })
+      );
     });
   });
 });

@@ -15,6 +15,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@ai-sdk/groq": "^1.1.9",
     "@ai-sdk/openai": "^1.0.7",
     "@coinbase/cdp-langchain": "^0.0.15",
     "@coinbase/coinbase-sdk": "^0.15.0",
