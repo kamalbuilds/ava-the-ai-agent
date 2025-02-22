@@ -15,6 +15,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@ai-sdk/groq": "^1.1.9",
     "@ai-sdk/openai": "^1.0.7",
     "@coinbase/cdp-langchain": "^0.0.15",
     "@coinbase/coinbase-sdk": "^0.15.0",
@@ -33,6 +34,7 @@
     "@supabase/supabase-js": "^2.47.0",
     "ai": "^4.0.12",
     "atoma-ts-sdk": "^0.1.2",
+    "brahma-console-kit": "^1.0.6",
     "dotenv": "^16.4.7",
     "ethers": "5.7.2",
     "figlet": "^1.8.0",
@@ -42,7 +44,6 @@
     "uuid": "^11.0.5",
     "viem": "^2.22.17",
     "ws": "^8.18.0",
-    "brahma-console-kit": "^1.0.6",
     "zod": "^3.24.1"
   },
   "resolutions": {
