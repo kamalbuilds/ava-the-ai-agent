@@ -1,5 +1,9 @@
 import { z } from "zod";
-import type { Tool, ToolExecutionOptions, ToolResult } from "../../services/ai/types";
+import type {
+  Tool,
+  ToolExecutionOptions,
+  ToolResult,
+} from "../../services/ai/types";
 import type { Account } from "viem";
 import env from "../../env";
 import {
@@ -16,13 +20,31 @@ import {
   http,
 } from "viem";
 import { getChain } from "../../utils/chain";
+import {
+  isTokenId,
+  TokenTransfer,
+  wormhole,
+  chains,
+} from "@wormhole-foundation/sdk";
+import { Wormhole, amount, signSendWait } from "@wormhole-foundation/sdk";
+import algorand from "@wormhole-foundation/sdk/algorand";
+import aptos from "@wormhole-foundation/sdk/aptos";
+import cosmwasm from "@wormhole-foundation/sdk/cosmwasm";
+import evm from "@wormhole-foundation/sdk/evm";
+import solana from "@wormhole-foundation/sdk/solana";
+import sui from "@wormhole-foundation/sdk/sui";
+import { getSigner } from "./helpers/utils";
 
 export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
   return {
     simulateTasks: {
-      description: "A tool that simulates the output of all the tasks. It is useful to check the outputs and to fix the inputs of other tasks. Always use this tool before the executeTransaction tool.",
+      description:
+        "A tool that simulates the output of all the tasks. It is useful to check the outputs and to fix the inputs of other tasks. Always use this tool before the executeTransaction tool.",
       parameters: z.object({}),
-      execute: async (args: Record<string, any>, options?: ToolExecutionOptions): Promise<ToolResult> => {
+      execute: async (
+        args: Record<string, any>,
+        options?: ToolExecutionOptions
+      ): Promise<ToolResult> => {
         try {
           console.log("======== simulateTasks Tool =========");
           const { data: tasks, error } = await retrieveTasks();
@@ -32,7 +54,7 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
             return {
               success: false,
               result: null,
-              error: `Failed to retrieve tasks: ${error.message}`
+              error: `Failed to retrieve tasks: ${error.message}`,
             };
           }
 
@@ -40,7 +62,7 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
             return {
               success: false,
               result: null,
-              error: "No tasks found."
+              error: "No tasks found.",
             };
           }
 
@@ -52,9 +74,9 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
 
               return [
                 `[taskId: ${taskData.id}] "${taskData.task}"`,
-                `Transaction: ${taskData.from_token?.symbol || 'Unknown'} -> ${taskData.to_token?.symbol || 'Unknown'}`,
-                `Amount: ${taskData.from_amount || '0'} ${taskData.from_token?.symbol || ''} -> ${taskData.to_amount || '0'} ${taskData.to_token?.symbol || ''}`,
-                `Status: ${taskData.status || 'pending'}`,
+                `Transaction: ${taskData.from_token?.symbol || "Unknown"} -> ${taskData.to_token?.symbol || "Unknown"}`,
+                `Amount: ${taskData.from_amount || "0"} ${taskData.from_token?.symbol || ""} -> ${taskData.to_amount || "0"} ${taskData.to_token?.symbol || ""}`,
+                `Status: ${taskData.status || "pending"}`,
                 `Steps: ${JSON.stringify(taskData.steps, null, 2)}`,
               ].join("\n");
             })
@@ -62,17 +84,17 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
 
           return {
             success: true,
-            result: simulations.join("\n\n")
+            result: simulations.join("\n\n"),
           };
         } catch (error) {
           console.error(`[simulateTasks] Unexpected error:`, error);
           return {
             success: false,
             result: null,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : "Unknown error",
           };
         }
-      }
+      },
     },
     getTransactionData: {
       description: "A tool that transforms the tasks into transactions.",
@@ -84,80 +106,112 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
           })
         ),
       }),
-      execute: async (args: Record<string, any>, options?: ToolExecutionOptions): Promise<ToolResult> => {
+      execute: async (
+        args: Record<string, any>,
+        options?: ToolExecutionOptions
+      ): Promise<ToolResult> => {
         try {
           if (!args.tasks || !Array.isArray(args.tasks)) {
             return {
               success: false,
               result: null,
-              error: "Invalid tasks parameter. Expected array of tasks."
+              error: "Invalid tasks parameter. Expected array of tasks.",
             };
           }
 
           console.log("======== getTransactionData Tool =========");
-          console.log(`[getTransactionData] Processing ${args.tasks.length} tasks`);
-          
-          const transactions = await Promise.all(
-            args.tasks.map(async ({ task, taskId }: { task: string; taskId: string | null }) => {
-              if (!task) {
-                console.error(`[getTransactionData] Invalid task object:`, { task, taskId });
-                return null;
-              }
-
-              console.log(`[getTransactionData] Fetching transaction data for task: "${task.substring(0, 100)}..."`);
-              try {
-                const brianResponse = await fetch(
-                  `${env.BRIAN_API_URL || "https://api.brianknows.org/api/v0/agent/transaction"}`,
-                  {
-                    method: "POST",
-                    body: JSON.stringify({
-                      prompt: task,
-                      chainId: env.CHAIN_ID,
-                      address: account.address,
-                    }),
-                    headers: {
-                      "Content-Type": "application/json",
-                      "x-brian-api-key": env.BRIAN_API_KEY,
-                    },
-                  }
-                );
-
-                if (!brianResponse.ok) {
-                  throw new Error(`Brian API returned ${brianResponse.status}: ${await brianResponse.text()}`);
-                }
-
-                const { result } = await brianResponse.json();
-                if (!result || !result[0]?.data) {
-                  throw new Error('Invalid response from Brian API');
-                }
-
-                const data = result[0].data;
-                console.log(`[getTransactionData] Brian says: ${data.description}`);
-                
-                return {
-                  task,
-                  steps: data.steps,
-                  taskId,
-                  fromToken: data.fromToken,
-                  fromAmountUSD: `$${data.fromAmountUSD}`,
-                  toToken: data.toToken,
-                  toAmountUSD: `$${data.toAmountUSD}`,
-                  fromAmount: formatUnits(data.fromAmount, data.fromToken.decimals),
-                  outputAmount: formatUnits(data.toAmountMin, data.toToken.decimals),
-                };
-              } catch (error) {
-                console.error(`[getTransactionData] Error processing task:`, error);
-                return null;
-              }
-            })
+          console.log(
+            `[getTransactionData] Processing ${args.tasks.length} tasks`
           );
 
-          const validTransactions = transactions.filter(t => t !== null);
+          const transactions = await Promise.all(
+            args.tasks.map(
+              async ({
+                task,
+                taskId,
+              }: {
+                task: string;
+                taskId: string | null;
+              }) => {
+                if (!task) {
+                  console.error(`[getTransactionData] Invalid task object:`, {
+                    task,
+                    taskId,
+                  });
+                  return null;
+                }
+
+                console.log(
+                  `[getTransactionData] Fetching transaction data for task: "${task.substring(0, 100)}..."`
+                );
+                try {
+                  const brianResponse = await fetch(
+                    `${env.BRIAN_API_URL || "https://api.brianknows.org/api/v0/agent/transaction"}`,
+                    {
+                      method: "POST",
+                      body: JSON.stringify({
+                        prompt: task,
+                        chainId: env.CHAIN_ID,
+                        address: account.address,
+                      }),
+                      headers: {
+                        "Content-Type": "application/json",
+                        "x-brian-api-key": env.BRIAN_API_KEY,
+                      },
+                    }
+                  );
+
+                  if (!brianResponse.ok) {
+                    throw new Error(
+                      `Brian API returned ${brianResponse.status}: ${await brianResponse.text()}`
+                    );
+                  }
+
+                  const { result } = await brianResponse.json();
+                  if (!result || !result[0]?.data) {
+                    throw new Error("Invalid response from Brian API");
+                  }
+
+                  const data = result[0].data;
+                  console.log(
+                    `[getTransactionData] Brian says: ${data.description}`
+                  );
+
+                  return {
+                    task,
+                    steps: data.steps,
+                    taskId,
+                    fromToken: data.fromToken,
+                    fromAmountUSD: `$${data.fromAmountUSD}`,
+                    toToken: data.toToken,
+                    toAmountUSD: `$${data.toAmountUSD}`,
+                    fromAmount: formatUnits(
+                      data.fromAmount,
+                      data.fromToken.decimals
+                    ),
+                    outputAmount: formatUnits(
+                      data.toAmountMin,
+                      data.toToken.decimals
+                    ),
+                  };
+                } catch (error) {
+                  console.error(
+                    `[getTransactionData] Error processing task:`,
+                    error
+                  );
+                  return null;
+                }
+              }
+            )
+          );
+
+          const validTransactions = transactions.filter((t) => t !== null);
           if (validTransactions.length === 0) {
             return {
               success: false,
               result: null,
-              error: "Failed to process any transactions. Please check the task format and try again."
+              error:
+                "Failed to process any transactions. Please check the task format and try again.",
             };
           }
 
@@ -190,7 +244,10 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
               }
 
               if (result.error) {
-                console.error(`[getTransactionData] Error storing/updating task:`, result.error);
+                console.error(
+                  `[getTransactionData] Error storing/updating task:`,
+                  result.error
+                );
                 continue;
               }
 
@@ -200,7 +257,7 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
                   taskId: taskData.id,
                   task: transaction.task,
                   createdAt: taskData.created_at,
-                  status: taskData.status
+                  status: taskData.status,
                 });
               }
             } catch (error) {
@@ -212,42 +269,48 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
             return {
               success: false,
               result: null,
-              error: "Failed to store any tasks. Please try again."
+              error: "Failed to store any tasks. Please try again.",
             };
           }
 
           return {
             success: true,
-            result: taskResults
+            result: taskResults,
           };
         } catch (error) {
           console.error(`[getTransactionData] Unexpected error:`, error);
           return {
             success: false,
             result: null,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : "Unknown error",
           };
         }
-      }
+      },
     },
     executeTransaction: {
-      description: "A tool that executes a transaction. Execute transactions in chronological order.",
+      description:
+        "A tool that executes a transaction. Execute transactions in chronological order.",
       parameters: z.object({
         task: z.string(),
         taskId: z.string(),
       }),
-      execute: async (args: Record<string, any>, options?: ToolExecutionOptions): Promise<ToolResult> => {
+      execute: async (
+        args: Record<string, any>,
+        options?: ToolExecutionOptions
+      ): Promise<ToolResult> => {
         try {
           if (!args.task || !args.taskId) {
             return {
               success: false,
               result: null,
-              error: "Missing required parameters: task and taskId"
+              error: "Missing required parameters: task and taskId",
             };
           }
 
           console.log("======== executeTransaction Tool =========");
-          console.log(`[executeTransaction] executing transaction with task id: ${args.taskId}`);
+          console.log(
+            `[executeTransaction] executing transaction with task id: ${args.taskId}`
+          );
 
           const { data: taskData } = await retrieveTaskById(args.taskId);
 
@@ -255,7 +318,7 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
             return {
               success: false,
               result: null,
-              error: `Transaction not found for task: "${args.task}" [id: ${args.taskId}].`
+              error: `Transaction not found for task: "${args.task}" [id: ${args.taskId}].`,
             };
           }
 
@@ -279,15 +342,21 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
                 data: step.data,
               });
               console.log(`[executeTransaction] transaction hash: ${hash}`);
-              const receipt = await publicClient.waitForTransactionReceipt({ hash });
-              console.log(`[executeTransaction] transaction receipt: ${receipt.transactionHash}`);
+              const receipt = await publicClient.waitForTransactionReceipt({
+                hash,
+              });
+              console.log(
+                `[executeTransaction] transaction receipt: ${receipt.transactionHash}`
+              );
               hashes.push(receipt.transactionHash);
             } catch (error) {
-              console.log(`[executeTransaction] transaction for task "${args.task}" failed: ${error}`);
+              console.log(
+                `[executeTransaction] transaction for task "${args.task}" failed: ${error}`
+              );
               return {
                 success: false,
                 result: null,
-                error: `Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+                error: `Transaction failed: ${error instanceof Error ? error.message : "Unknown error"}`,
               };
             }
           }
@@ -296,17 +365,147 @@ export const getExecutorToolkit = (account: Account): Record<string, Tool> => {
 
           return {
             success: true,
-            result: `Transaction executed successfully. Transaction hashes: ${hashes.join(", ")}`
+            result: `Transaction executed successfully. Transaction hashes: ${hashes.join(", ")}`,
           };
         } catch (error) {
           return {
             success: false,
             result: null,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : "Unknown error",
           };
         }
-      }
-    }
+      },
+    },
+    crossChainNativeTokenTranfer: {
+      description: `
+      Cross Chain native Token transfer from source chain to destination chain using wormhole SDK. Remember to ask the user for source chain, destination chain and amount.
+      `,
+      parameters: z.object({
+        sourceChain: z.enum(chains),
+        destinationChain: z.enum(chains),
+        amount: z.string(),
+      }),
+      execute: async (
+        args: Record<string, any>,
+        options?: ToolExecutionOptions
+      ): Promise<ToolResult> => {
+        const wh = await wormhole("Testnet", [
+          evm,
+          solana,
+          aptos,
+          algorand,
+          cosmwasm,
+          sui,
+        ]);
+
+        const sourceChain = wh.getChain(args.sourceChain);
+        const destinationChain = wh.getChain(args.destinationChain);
+
+        const sender = await getSigner(sourceChain);
+        const receiver = await getSigner(destinationChain);
+
+        const token = await sourceChain.getNativeWrappedTokenId();
+        console.log("token", token);
+
+        const tbDest = await destinationChain.getTokenBridge();
+        try {
+          const wrapped = await tbDest.getWrappedAsset(token);
+          console.log("wrapped", wrapped);
+          console.log(
+            `Token already wrapped on ${destinationChain.chain}. Skipping attestation.`
+          );
+        } catch (error) {
+          console.log(
+            `No wrapped token found on ${destinationChain.chain}. Proceeding with attestation.`
+          );
+          return {
+            success: false,
+            result: null,
+            error: error instanceof Error ? error.message : "Unknown error",
+          };
+        }
+
+        try {
+          // Get a Token Bridge contract client on the source
+          const sndTb = await sourceChain.getTokenBridge();
+          const tokenId = Wormhole.tokenId(sourceChain.chain, "native");
+
+          const amt = amount.units(
+            amount.parse(args.amount, sourceChain.config.nativeTokenDecimals)
+          );
+
+          const transfer = sndTb.transfer(
+            sender.address.address,
+            receiver.address,
+            tokenId.address,
+            amt
+          );
+
+          const txids = await signSendWait(
+            sourceChain,
+            transfer,
+            sender.signer
+          );
+          console.log("Sent: ", txids);
+
+          const latestTxID = txids[txids.length - 1].txid;
+          const wormhole_scan = `https://wormholescan.io/#/tx/${latestTxID}?network=Testnet`;
+
+          const [whm] = await sourceChain.parseTransaction(latestTxID);
+          console.log("Wormhole Messages: ", whm);
+
+          const vaa = await wh.getVaa(whm, "TokenBridge:Transfer", 600_000);
+
+          if (vaa === null) {
+            return {
+              success: true,
+              result: `
+            Transaction ID Successfully created from ${args.sourceChain} to ${args.destinationChain}: 
+            {
+                "transaction_id":${latestTxID},
+                "wormhole_scan":${wormhole_scan}
+            } 
+            `,
+            };
+          } else {
+            const destinationBridge = await destinationChain.getTokenBridge();
+            console.log("destinationBridge", destinationBridge);
+
+            const redeem = destinationBridge.redeem(
+              receiver.address.address,
+              vaa!
+            );
+            console.log("redeem", redeem);
+
+            const rcvTxids = await signSendWait(
+              destinationChain,
+              redeem,
+              receiver.signer
+            );
+            console.log("Sent: ", rcvTxids);
+
+            const finished = await destinationBridge.isTransferCompleted(vaa!);
+            console.log("Transfer completed: ", finished);
+            return {
+              success: true,
+              result: `
+                Transfer completed to the destination Address: 
+                {
+                    "transaction_id":${latestTxID},
+                    "wormhole_scan":${wormhole_scan}
+                }
+            `,
+            };
+          }
+        } catch (error) {
+          return {
+            success: false,
+            result: null,
+            error: error instanceof Error ? error.message : "Unknown error",
+          };
+        }
+      },
+    },
   };
 };
 
@@ -325,9 +524,11 @@ export const getOdosSwapTransaction = (account: Account) => {
         chainId: z.number().describe("Chain Id of the Chain"),
         fromToken: z.string().describe("Address of the source token"),
         toToken: z.string().describe("Address of the destination token"),
-        fromAmount: z.string().describe(
-          "The amount to be transferred from the source chain, specified in the smallest unit of the token (e.g., wei for ETH)."
-        ),
+        fromAmount: z
+          .string()
+          .describe(
+            "The amount to be transferred from the source chain, specified in the smallest unit of the token (e.g., wei for ETH)."
+          ),
       }),
       execute: async (args: {
         chainId: number;
@@ -336,7 +537,9 @@ export const getOdosSwapTransaction = (account: Account) => {
         fromAmount: string;
       }): Promise<ToolResult> => {
         try {
-          console.log("======== Fetching Quote for the Transaction Tool =========");
+          console.log(
+            "======== Fetching Quote for the Transaction Tool ========="
+          );
           console.log(` Fetching Quote`);
 
           const quoteConfig = {
@@ -386,7 +589,10 @@ export const getOdosSwapTransaction = (account: Account) => {
             });
 
             const assembledTransaction = await assembledTransactionRaw.json();
-            console.log("Transaction fetched successfully", assembledTransaction);
+            console.log(
+              "Transaction fetched successfully",
+              assembledTransaction
+            );
 
             console.log("======== Executing transaction =========");
             const walletClient = createWalletClient({
@@ -399,30 +605,36 @@ export const getOdosSwapTransaction = (account: Account) => {
               transport: http(),
             });
 
-            const hash = await walletClient.sendTransaction(assembledTransaction.transaction);
+            const hash = await walletClient.sendTransaction(
+              assembledTransaction.transaction
+            );
             console.log(`[executeTransaction] transaction hash: ${hash}`);
-            const receipt = await publicClient.waitForTransactionReceipt({ hash });
-            console.log(`[executeTransaction] transaction receipt: ${receipt.transactionHash}`);
+            const receipt = await publicClient.waitForTransactionReceipt({
+              hash,
+            });
+            console.log(
+              `[executeTransaction] transaction receipt: ${receipt.transactionHash}`
+            );
 
             return {
               success: true,
-              result: `Transaction executed successfully. Transaction hash: ${receipt.transactionHash}`
+              result: `Transaction executed successfully. Transaction hash: ${receipt.transactionHash}`,
             };
           }
 
           return {
             success: false,
             result: null,
-            error: "Failed to fetch quote"
+            error: "Failed to fetch quote",
           };
         } catch (error) {
           return {
             success: false,
             result: null,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : "Unknown error",
           };
         }
-      }
-    }
+      },
+    },
   };
 };
