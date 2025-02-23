@@ -17,6 +17,7 @@ import {
 import { getLangChainTools } from "@coinbase/agentkit-langchain";
 import { MemorySaver } from "@langchain/langgraph";
 import { wormholeActionProvider } from "./action-providers/customActionProvider";
+import env from "../../env";
 
 export class CdpAgent extends Agent {
   private agent: ReturnType<typeof createReactAgent>;
@@ -43,11 +44,11 @@ export class CdpAgent extends Agent {
       // const llm = new ChatOpenAI({ model: "gpt-4o-mini" });
 
       const llm = new ChatGroq({
-        apiKey: "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",
+        apiKey: env.GROQ_API_KEY,
       });
 
       const account = privateKeyToAccount(
-        "0xe257b96ba2b289e90a1942501eb09c1ba70a84f8ba8673ff659b97c4ecb3bc4e"
+        env.WALLET_PRIVATE_KEY as `0x${string}`
       );
       const networkId = "base-sepolia"; //TODO: we can change this to the env network Id
       const client = createWalletClient({
@@ -68,10 +69,8 @@ export class CdpAgent extends Agent {
           erc20ActionProvider(),
           // The CDP API Action Provider provides faucet functionality on base-sepolia. Can be removed if you do not need this functionality.
           cdpApiActionProvider({
-            apiKeyName:
-              "organizations/cac5f419-53cf-4d28-9112-d9b6df66e79a/apiKeys/1134ef49-bc5d-49ce-8441-256f292bd26a",
-            apiKeyPrivateKey:
-              "-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIAOFqhFgL9EZw27xLcf6J33rIFMzpGUWSMeQnNN9T3heoAoGCCqGSM49\nAwEHoUQDQgAESbGVagO3T6dwTRb2KZ+7kGNCjFuieWiQYkke7/1JryCcZOo7Myq5\nV0PUtWWmUmMTZaLA0gcqZsS52yQpO0Pg/Q==\n-----END EC PRIVATE KEY-----\n",
+            apiKeyName: env.CDP_API_KEY_NAME,
+            apiKeyPrivateKey: env.CDP_API_KEY_PRIVATE_KEY,
           }),
         ],
       });
@@ -104,6 +103,25 @@ export class CdpAgent extends Agent {
       console.error("Error initializing agent:", error);
       throw new Error("Failed to initialize agent");
     }
+  }
+
+  async getAgentRespinse(userMessage: string) {
+    if (!this.agent) {
+      this.initialize();
+    }
+    const stream = await this.agent.stream(
+      { messages: [{ content: userMessage, role: "user" }] }, // The new message to send to the agent
+      { configurable: { thread_id: "AgentKit Discussion" } } // Customizable thread ID for tracking conversations
+    );
+
+    // 4️. Process the streamed response chunks into a single message
+    let agentResponse = "";
+    for await (const chunk of stream) {
+      if ("agent" in chunk) {
+        agentResponse += chunk.agent.messages[0].content;
+      }
+    }
+    return agentResponse;
   }
 
   async onStepFinish({ text, toolCalls, toolResults }: any): Promise<void> {
