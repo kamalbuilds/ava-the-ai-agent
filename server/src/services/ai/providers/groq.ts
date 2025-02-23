@@ -54,7 +54,7 @@ export class GroqProvider implements AIProvider {
         prompt.length > 4000 ? prompt.substring(0, 4000) + "..." : prompt;
 
       const response = await aiGenerateText({
-        model,
+        model: model as any,
         system: systemPrompt,
         prompt: truncatedPrompt,
         maxSteps: 100,

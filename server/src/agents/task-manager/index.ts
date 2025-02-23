@@ -12,7 +12,7 @@ import env from "../../env";
 import { v4 as uuidv4 } from 'uuid';
 import type { AIProvider, Tool } from "../../services/ai/types";
 import type { Account } from "viem";
-import { RecallStorage } from "../plugins/recall-storage";
+import { RecallStorage } from "../plugins/recall-storage/index.js";
 import { ATCPIPProvider } from "../plugins/atcp-ip";
 import type { IPLicenseTerms, IPMetadata } from "../types/ip-agent";
 

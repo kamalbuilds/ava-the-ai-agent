@@ -31,8 +31,9 @@ interface RecallResult<T> {
 }
 
 export class RecallStorage {
-  private client!: any; // Using ! to tell TypeScript this will be initialized in constructor
-  private syncInterval: NodeJS.Timer | undefined;
+  private client: any;
+  private clientInitialized: Promise<void>;
+  private syncIntervalId?: ReturnType<typeof setInterval>;
   private intervalMs: number;
   private batchSizeKB: number;
   private eventBus?: EventBus;
@@ -44,13 +45,15 @@ export class RecallStorage {
       throw new Error('WALLET_PRIVATE_KEY is required in environment variables');
     }
 
-    this.initializeClient(privateKey);
-    
     this.intervalMs = config.syncInterval || 2 * 60 * 1000; // Default 2 minutes
     this.batchSizeKB = config.batchSize || 4; // Default 4KB
     this.eventBus = config.eventBus;
     this.bucketAlias = config.bucketAlias || 'default-bucket';
-    this.startPeriodicSync();
+    
+
+    this.clientInitialized = this.initializeClient(privateKey).then(() => {
+      this.startPeriodicSync();
+    });
   }
 
   private async initializeClient(privateKey: string): Promise<void> {
@@ -67,14 +70,16 @@ export class RecallStorage {
     }
   }
 
+  async waitForInitialization(): Promise<void> {
+    await this.clientInitialized;
+  }
+
   async store(
     key: string,
     data: any,
     metadata?: Record<string, any>
   ): Promise<void> {
-    if (!this.client) {
-      throw new Error('Recall client not initialized');
-    }
+    await this.waitForInitialization();
 
     const bucketManager = await this.client.bucketManager();
     const bucket = await this.getOrCreateBucket(this.bucketAlias);
@@ -93,9 +98,7 @@ export class RecallStorage {
   async retrieve(
     key: string
   ): Promise<{ data: any; metadata?: Record<string, any> }> {
-    if (!this.client) {
-      throw new Error('Recall client not initialized');
-    }
+    await this.waitForInitialization();
 
     const bucketManager = await this.client.bucketManager();
     const bucket = await this.getOrCreateBucket(this.bucketAlias);
@@ -178,9 +181,7 @@ export class RecallStorage {
   }
 
   async getOrCreateBucket(bucketAlias: string): Promise<Address> {
-    if (!this.client) {
-      throw new Error('Recall client not initialized');
-    }
+    await this.waitForInitialization();
 
     try {
       const bucketManager = await this.client.bucketManager();
@@ -211,7 +212,35 @@ export class RecallStorage {
     }
   }
 
+  private startPeriodicSync(): void {
+    if (this.syncIntervalId) {
+      return;
+    }
+
+    this.syncIntervalId = setInterval(async () => {
+      try {
+        await this.syncLogsToRecall();
+      } catch (error) {
+        console.error('Error in periodic log sync:', error);
+      }
+    }, this.intervalMs);
+
+    // Initial sync
+    this.syncLogsToRecall().catch(error => {
+      console.error('Error in initial log sync:', error);
+    });
+  }
+
+  stopPeriodicSync(): void {
+    if (this.syncIntervalId) {
+      clearInterval(this.syncIntervalId);
+      this.syncIntervalId = undefined;
+    }
+  }
+
   private async syncLogsToRecall(): Promise<void> {
+    await this.waitForInitialization();
+
     try {
       const bucketAddress = await this.getOrCreateBucket(this.bucketAlias);
       const result = await this.client.bucketManager().query(bucketAddress, {
@@ -259,10 +288,13 @@ export class RecallStorage {
       }
     } catch (error) {
       console.error('Error syncing logs to Recall:', error);
+      throw error;
     }
   }
 
   private async storeBatchToRecall(batch: string[]): Promise<void> {
+    await this.waitForInitialization();
+
     try {
       const bucketAddress = await this.getOrCreateBucket(this.bucketAlias);
       const timestamp = Date.now();
@@ -293,32 +325,7 @@ export class RecallStorage {
       }
     } catch (error) {
       console.error('Error storing batch to Recall:', error);
-    }
-  }
-
-  private startPeriodicSync(): void {
-    if (this.syncInterval) {
-      return;
-    }
-
-    this.syncInterval = setInterval(async () => {
-      try {
-        await this.syncLogsToRecall();
-      } catch (error) {
-        console.error('Error in periodic log sync:', error);
-      }
-    }, this.intervalMs);
-
-    // Initial sync
-    this.syncLogsToRecall().catch(error => {
-      console.error('Error in initial log sync:', error);
-    });
-  }
-
-  stopPeriodicSync(): void {
-    if (this.syncInterval) {
-      clearInterval(this.syncInterval);
-      this.syncInterval = undefined;
+      throw error;
     }
   }
 } 

@@ -9,7 +9,7 @@ import { saveThought } from "../../memory";
 import env from "../../env";
 import type { AIProvider, AIResponse, Tool } from "../../services/ai/types";
 import { v4 as uuidv4 } from 'uuid';
-import { RecallStorage } from "../plugins/recall-storage";
+import { RecallStorage } from "../plugins/recall-storage/index.js";
 import { ATCPIPProvider } from "../plugins/atcp-ip";
 import type { IPLicenseTerms, IPMetadata } from "../types/ip-agent";
 

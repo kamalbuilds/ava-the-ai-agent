@@ -6,7 +6,7 @@ import { openai } from "@ai-sdk/openai";
 import { getExecutorSystemPrompt } from "../../system-prompts";
 import { saveThought } from "../../memory";
 import type { Account } from "viem";
-import { RecallStorage } from "../plugins/recall-storage";
+import { RecallStorage } from "../plugins/recall-storage/index.js";
 import { ATCPIPProvider } from "../plugins/atcp-ip";
 import type { IPLicenseTerms, IPMetadata } from "../types/ip-agent";
 
