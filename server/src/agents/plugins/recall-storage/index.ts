@@ -8,6 +8,7 @@ export interface RecallStorageConfig {
   batchSize?: number;
   eventBus?: EventBus;
   bucketAlias?: string;
+  maxRetries?: number;
 }
 
 interface BucketObject {
@@ -38,6 +39,8 @@ export class RecallStorage {
   private batchSizeKB: number;
   private eventBus?: EventBus;
   private bucketAlias: string;
+  private maxRetries: number;
+  private retryDelay: number = 1000; // 1 second
 
   constructor(config: RecallStorageConfig) {
     const privateKey = env.WALLET_PRIVATE_KEY;
@@ -49,8 +52,9 @@ export class RecallStorage {
     this.batchSizeKB = config.batchSize || 4; // Default 4KB
     this.eventBus = config.eventBus;
     this.bucketAlias = config.bucketAlias || 'default-bucket';
+    this.maxRetries = config.maxRetries || 3;
     
-
+    // Initialize client asynchronously
     this.clientInitialized = this.initializeClient(privateKey).then(() => {
       this.startPeriodicSync();
     });
@@ -70,6 +74,25 @@ export class RecallStorage {
     }
   }
 
+  private async retryOperation<T>(
+    operation: () => Promise<T>,
+    retries: number = this.maxRetries
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error: any) {
+      if (
+        retries > 0 && 
+        (error.message?.includes('sequence') || error.message?.includes('nonce'))
+      ) {
+        console.log(`Retrying operation, ${retries} attempts remaining...`);
+        await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+        return this.retryOperation(operation, retries - 1);
+      }
+      throw error;
+    }
+  }
+
   async waitForInitialization(): Promise<void> {
     await this.clientInitialized;
   }
@@ -81,18 +104,20 @@ export class RecallStorage {
   ): Promise<void> {
     await this.waitForInitialization();
 
-    const bucketManager = await this.client.bucketManager();
-    const bucket = await this.getOrCreateBucket(this.bucketAlias);
-    
-    await bucketManager.add(
-      bucket,
-      key,
-      new TextEncoder().encode(JSON.stringify({
-        data,
-        metadata: metadata || {},
-        timestamp: Date.now(),
-      }))
-    );
+    await this.retryOperation(async () => {
+      const bucketManager = await this.client.bucketManager();
+      const bucket = await this.getOrCreateBucket(this.bucketAlias);
+      
+      await bucketManager.add(
+        bucket,
+        key,
+        new TextEncoder().encode(JSON.stringify({
+      data,
+      metadata: metadata || {},
+      timestamp: Date.now(),
+        }))
+      );
+    });
   }
 
   async retrieve(
@@ -100,21 +125,23 @@ export class RecallStorage {
   ): Promise<{ data: any; metadata?: Record<string, any> }> {
     await this.waitForInitialization();
 
-    const bucketManager = await this.client.bucketManager();
-    const bucket = await this.getOrCreateBucket(this.bucketAlias);
-    
-    const result = await bucketManager.get(bucket, key) as RecallResult<Uint8Array>;
-    
-    if (!result.result) {
-      throw new Error(`No data found for key: ${key}`);
-    }
+    return this.retryOperation(async () => {
+      const bucketManager = await this.client.bucketManager();
+      const bucket = await this.getOrCreateBucket(this.bucketAlias);
+      
+      const result = await bucketManager.get(bucket, key) as RecallResult<Uint8Array>;
+      
+      if (!result.result) {
+        throw new Error(`No data found for key: ${key}`);
+      }
 
-    const decoded = new TextDecoder().decode(result.result);
-    const parsed = JSON.parse(decoded);
+      const decoded = new TextDecoder().decode(result.result);
+      const parsed = JSON.parse(decoded);
     return {
-      data: parsed.data,
-      metadata: parsed.metadata,
+        data: parsed.data,
+        metadata: parsed.metadata,
     };
+    });
   }
 
   async storeCoT(
@@ -183,33 +210,35 @@ export class RecallStorage {
   async getOrCreateBucket(bucketAlias: string): Promise<Address> {
     await this.waitForInitialization();
 
-    try {
-      const bucketManager = await this.client.bucketManager();
-      const buckets = await bucketManager.list() as RecallResult<{ buckets: RecallBucket[] }>;
-      
-      if (buckets?.result?.buckets) {
-        const bucket = buckets.result.buckets.find((b: RecallBucket) => 
-          b.metadata?.alias === bucketAlias
-        );
-        if (bucket) {
-          return bucket.addr;
+    return this.retryOperation(async () => {
+      try {
+        const bucketManager = await this.client.bucketManager();
+        const buckets = await bucketManager.list() as RecallResult<{ buckets: RecallBucket[] }>;
+        
+        if (buckets?.result?.buckets) {
+          const bucket = buckets.result.buckets.find((b: RecallBucket) => 
+            b.metadata?.alias === bucketAlias
+          );
+          if (bucket) {
+            return bucket.addr;
+          }
         }
+
+        const result = await bucketManager.create({
+          metadata: { alias: bucketAlias },
+        }) as RecallResult<{ bucket: Address }>;
+
+        if (!result.result) {
+          throw new Error(`Failed to create bucket: ${bucketAlias}`);
+        }
+
+        return result.result.bucket;
+      } catch (error) {
+        const err = error as Error;
+        console.error(`Error in getOrCreateBucket: ${err.message}`);
+        throw error;
       }
-
-      const result = await bucketManager.create({
-        metadata: { alias: bucketAlias },
-      }) as RecallResult<{ bucket: Address }>;
-
-      if (!result.result) {
-        throw new Error(`Failed to create bucket: ${bucketAlias}`);
-      }
-
-      return result.result.bucket;
-    } catch (error) {
-      const err = error as Error;
-      console.error(`Error in getOrCreateBucket: ${err.message}`);
-      throw error;
-    }
+    });
   }
 
   private startPeriodicSync(): void {
@@ -241,91 +270,95 @@ export class RecallStorage {
   private async syncLogsToRecall(): Promise<void> {
     await this.waitForInitialization();
 
-    try {
-      const bucketAddress = await this.getOrCreateBucket(this.bucketAlias);
-      const result = await this.client.bucketManager().query(bucketAddress, {
-        prefix: 'log:',
-      }) as RecallResult<{ objects: { key: string; data: Uint8Array }[] }>;
+    await this.retryOperation(async () => {
+      try {
+        const bucketAddress = await this.getOrCreateBucket(this.bucketAlias);
+        const result = await this.client.bucketManager().query(bucketAddress, {
+          prefix: 'log:',
+        }) as RecallResult<{ objects: { key: string; data: Uint8Array }[] }>;
 
-      if (!result.result?.objects) {
-        return;
-      }
-
-      let batch: string[] = [];
-      let batchSize = 0;
-
-      for (const obj of result.result.objects) {
-        try {
-          const decoded = new TextDecoder().decode(obj.data);
-          const parsed = JSON.parse(decoded);
-          
-          if (parsed.metadata?.synced) continue;
-
-          const logEntry = JSON.stringify({
-            key: obj.key,
-            data: parsed.data,
-            metadata: parsed.metadata,
-            timestamp: parsed.timestamp,
-          });
-
-          const logSize = new TextEncoder().encode(logEntry).length;
-          if (batchSize + logSize > this.batchSizeKB * 1024) {
-            await this.storeBatchToRecall(batch);
-            batch = [];
-            batchSize = 0;
-          }
-
-          batch.push(logEntry);
-          batchSize += logSize;
-        } catch (error) {
-          console.error('Error processing log entry:', error);
-          continue;
+        if (!result.result?.objects) {
+          return;
         }
-      }
 
-      if (batch.length > 0) {
-        await this.storeBatchToRecall(batch);
+        let batch: string[] = [];
+        let batchSize = 0;
+
+        for (const obj of result.result.objects) {
+          try {
+            const decoded = new TextDecoder().decode(obj.data);
+            const parsed = JSON.parse(decoded);
+            
+            if (parsed.metadata?.synced) continue;
+
+            const logEntry = JSON.stringify({
+              key: obj.key,
+              data: parsed.data,
+              metadata: parsed.metadata,
+              timestamp: parsed.timestamp,
+            });
+
+            const logSize = new TextEncoder().encode(logEntry).length;
+            if (batchSize + logSize > this.batchSizeKB * 1024) {
+              await this.storeBatchToRecall(batch);
+              batch = [];
+              batchSize = 0;
+            }
+
+            batch.push(logEntry);
+            batchSize += logSize;
+          } catch (error) {
+            console.error('Error processing log entry:', error);
+            continue;
+          }
+        }
+
+        if (batch.length > 0) {
+          await this.storeBatchToRecall(batch);
+        }
+      } catch (error) {
+        console.error('Error syncing logs to Recall:', error);
+        throw error;
       }
-    } catch (error) {
-      console.error('Error syncing logs to Recall:', error);
-      throw error;
-    }
+    });
   }
 
   private async storeBatchToRecall(batch: string[]): Promise<void> {
     await this.waitForInitialization();
 
-    try {
-      const bucketAddress = await this.getOrCreateBucket(this.bucketAlias);
-      const timestamp = Date.now();
-      const batchKey = `batch:${timestamp}`;
-      const batchData = batch.join('\n');
+    await this.retryOperation(async () => {
+      try {
+        const bucketAddress = await this.getOrCreateBucket(this.bucketAlias);
+        const timestamp = Date.now();
+        const batchKey = `batch:${timestamp}`;
+        const batchData = batch.join('\n');
 
-      await this.client.bucketManager().add(
-        bucketAddress,
-        batchKey,
-        new TextEncoder().encode(batchData),
-      );
-
-      // Mark logs as synced
-      for (const logEntry of batch) {
-        const parsed = JSON.parse(logEntry);
         await this.client.bucketManager().add(
           bucketAddress,
-          parsed.key,
-          new TextEncoder().encode(JSON.stringify({
-            ...parsed,
-            metadata: {
-              ...parsed.metadata,
-              synced: true,
-              syncedAt: timestamp,
-            },
-          }))
+          batchKey,
+          new TextEncoder().encode(batchData),
         );
+
+        // Mark logs as synced
+        for (const logEntry of batch) {
+          const parsed = JSON.parse(logEntry);
+          await this.client.bucketManager().add(
+            bucketAddress,
+            parsed.key,
+            new TextEncoder().encode(JSON.stringify({
+              ...parsed,
+              metadata: {
+                ...parsed.metadata,
+                synced: true,
+                syncedAt: timestamp,
+              },
+            }))
+          );
+        }
+      } catch (error) {
+        console.error('Error storing batch to Recall:', error);
+        throw error;
       }
-    } catch (error) {
-      console.error('Error storing batch to Recall:', error);
-      throw error;
-    }
+    });
   }
 } 
