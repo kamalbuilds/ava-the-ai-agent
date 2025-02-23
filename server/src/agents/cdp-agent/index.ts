@@ -16,8 +16,8 @@ import {
 } from "@coinbase/agentkit";
 import { getLangChainTools } from "@coinbase/agentkit-langchain";
 import { MemorySaver } from "@langchain/langgraph";
-import { wormholeActionProvider } from "./action-providers/customActionProvider";
 import env from "../../env";
+import { wormholeActionProvider } from "./action-providers/wormholeActionProvider";
 
 export class CdpAgent extends Agent {
   private agent: ReturnType<typeof createReactAgent>;
