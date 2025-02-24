@@ -228,6 +228,7 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [autonomousMode, setAutonomousMode] = useState(false);
+  const [isTTSEnabled, setIsTTSEnabled] = useState(false);
   
   // Sample prompts data
   const samplePrompts = [
@@ -703,54 +704,54 @@ export default function Home() {
         collaborationType: response.type as CollaborationType,
       };
 
-      // Convert the response to speech
-      try {
-        console.log("Starting text-to-speech conversion...");
-        const audioData = await convertToSpeech(newMessage.content);
-        
-        if (!audioData || audioData.length === 0) {
-          throw new Error('No audio data received from ElevenLabs');
-        }
-        
-        console.log("Got audio data, size:", audioData.length);
-        
-        // Create blob with explicit MIME type
-        const blob = new Blob([audioData], { 
-          type: 'audio/mpeg'
-        });
-        console.log("Created blob, size:", blob.size);
-        
-        // Create a base64 data URL
-        const base64data = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-        
-        console.log("Created base64 audio data");
-        
-        // Create and play audio
-        const audio = new Audio();
-        
-        // Set up event listeners
-        audio.addEventListener('loadeddata', () => console.log('Audio data loaded'));
-        audio.addEventListener('error', (e) => console.error('Audio loading error:', e));
-        audio.addEventListener('playing', () => console.log('Audio started playing'));
-        
-        // Set the source and play
-        audio.src = base64data;
-        
+      // Only convert to speech if TTS is enabled
+      if (isTTSEnabled) {
         try {
-          // Try to play the audio
-          await audio.play();
-          console.log("Audio playback started successfully");
-        } catch (playError) {
-          console.error("Audio playback failed:", playError);
+          console.log("Starting text-to-speech conversion...");
+          const audioData = await convertToSpeech(newMessage.content);
+          
+          if (!audioData || audioData.length === 0) {
+            throw new Error('No audio data received from ElevenLabs');
+          }
+          
+          console.log("Got audio data, size:", audioData.length);
+          
+          // Create blob with explicit MIME type
+          const blob = new Blob([audioData], { 
+            type: 'audio/mpeg'
+          });
+          console.log("Created blob, size:", blob.size);
+          
+          // Create a base64 data URL
+          const base64data = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          
+          console.log("Created base64 audio data");
+          
+          // Create and play audio
+          const audio = new Audio();
+          
+          // Set up event listeners
+          audio.addEventListener('loadeddata', () => console.log('Audio data loaded'));
+          audio.addEventListener('error', (e) => console.error('Audio loading error:', e));
+          audio.addEventListener('playing', () => console.log('Audio started playing'));
+          
+          // Set the source and play
+          audio.src = base64data;
+          
+          try {
+            await audio.play();
+            console.log("Audio playback started successfully");
+          } catch (playError) {
+            console.error("Audio playback failed:", playError);
+          }
+        } catch (error) {
+          console.error("Error in text-to-speech process:", error);
         }
-        
-      } catch (error) {
-        console.error("Error in text-to-speech process:", error);
       }
 
       setMessages(prev => deduplicateMessages([...prev, newMessage]));
@@ -986,13 +987,35 @@ export default function Home() {
           <div className="border-t border-white/10">
             <form onSubmit={handleSubmit} className="p-4">
               <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-end gap-2">
-                  <label className="text-sm text-gray-400">Autonomous Mode</label>
-                  <Switch
-                    checked={autonomousMode}
-                    onCheckedChange={setAutonomousMode}
-                    className="data-[state=checked]:bg-blue-500"
-                  />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={autonomousMode}
+                        onCheckedChange={setAutonomousMode}
+                        id="autonomous-mode"
+                      />
+                      <label
+                        htmlFor="autonomous-mode"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Autonomous Mode
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={isTTSEnabled}
+                        onCheckedChange={setIsTTSEnabled}
+                        id="tts-mode"
+                      />
+                      <label
+                        htmlFor="tts-mode"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Text to Speech
+                      </label>
+                    </div>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <input
