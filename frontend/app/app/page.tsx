@@ -75,11 +75,52 @@ interface AgentMessage {
   eventType?: "info" | "warning" | "error" | "success";
 }
 
+// Speech queue management
+const speechQueue: { text: string; resolve: () => void }[] = [];
+let isSpeaking = false;
+
+const processSpeechQueue = async () => {
+  if (isSpeaking || speechQueue.length === 0) return;
+  isSpeaking = true;
+  const { text, resolve } = speechQueue[0];
+  
+  try {
+    const audioData = await convertToSpeech(text);
+    const blob = new Blob([audioData], { type: 'audio/mpeg' });
+    const base64data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    
+    const audio = new Audio(base64data);
+    await new Promise((resolvePlay) => {
+      audio.onended = () => resolvePlay();
+      audio.play().catch(console.error);
+    });
+  } catch (error) {
+    console.error("Error in speech synthesis:", error);
+  } finally {
+    speechQueue.shift();
+    isSpeaking = false;
+    resolve();
+    processSpeechQueue();
+  }
+};
+
+const addToSpeechQueue = async (text: string): Promise<void> => {
+  return new Promise((resolve) => {
+    speechQueue.push({ text, resolve });
+    processSpeechQueue();
+  });
+};
+
 const convertToSpeech = async (text: string): Promise<Uint8Array> => {
   try {
     console.log("Starting text-to-speech conversion with text:", text);
     
-    const API_KEY = 'sk_8666b07f1f06e14745d9b9a8a7217459ee043721797cadbe';
+    const API_KEY = 'sk_ce8270a67aa44352ebda95e6730eee33cb799490e739748f';
     const VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb';
     
     // Make direct fetch request to ElevenLabs API
@@ -694,8 +735,6 @@ export default function Home() {
 
   const handleAgentResponse = async (response: any) => {
     try {
-      console.log("Converting message to speech:", response.content);
-
       const newMessage: Message = {
         role: "assistant",
         content: response.message || response.content,
@@ -703,58 +742,9 @@ export default function Home() {
         agentName: response.agentName || activeAgent,
         collaborationType: response.type as CollaborationType,
       };
-
-      // Only convert to speech if TTS is enabled
-      if (isTTSEnabled) {
-        try {
-          console.log("Starting text-to-speech conversion...");
-          const audioData = await convertToSpeech(newMessage.content);
-          
-          if (!audioData || audioData.length === 0) {
-            throw new Error('No audio data received from ElevenLabs');
-          }
-          
-          console.log("Got audio data, size:", audioData.length);
-          
-          // Create blob with explicit MIME type
-          const blob = new Blob([audioData], { 
-            type: 'audio/mpeg'
-          });
-          console.log("Created blob, size:", blob.size);
-          
-          // Create a base64 data URL
-          const base64data = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-          
-          console.log("Created base64 audio data");
-          
-          // Create and play audio
-          const audio = new Audio();
-          
-          // Set up event listeners
-          audio.addEventListener('loadeddata', () => console.log('Audio data loaded'));
-          audio.addEventListener('error', (e) => console.error('Audio loading error:', e));
-          audio.addEventListener('playing', () => console.log('Audio started playing'));
-          
-          // Set the source and play
-          audio.src = base64data;
-          
-          try {
-            await audio.play();
-            console.log("Audio playback started successfully");
-          } catch (playError) {
-            console.error("Audio playback failed:", playError);
-          }
-        } catch (error) {
-          console.error("Error in text-to-speech process:", error);
-        }
-      }
-
       setMessages(prev => deduplicateMessages([...prev, newMessage]));
+      await new Promise(r => setTimeout(r, 100));
+      if (isTTSEnabled) await addToSpeechQueue(newMessage.content);
     } catch (error) {
       console.error("Error handling agent response:", error);
     }
