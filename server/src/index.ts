@@ -66,7 +66,9 @@ async function initializeServices() {
       syncInterval: 2 * 60 * 1000, // 2 minutes
       batchSize: 4, // 4KB
       eventBus,
-      bucketAlias: 'ava'
+      bucketAlias: 'ava',
+      maxRetries: 5,
+      retryDelay: 1000 // Start with 1 second delay, will increase exponentially
     });
 
     // Wait for client initialization

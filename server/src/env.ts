@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const envSchema = z.object({
-  PORT: z.coerce.number().default(3000),
+  PORT: z.coerce.number().default(3001),
   GROQ_API_KEY: z.string(),
   NETWORK_ID: z.string(),
   SUPABASE_URL: z.string(),
@@ -32,6 +32,9 @@ const envSchema = z.object({
   STORY_PROTOCOL_ENDPOINT: z.string().default("https://api.storyprotocol.xyz/v1"),
   STORY_PROTOCOL_API_KEY: z.string(),
   STORY_RPC_PROVIDER_URL: z.string().default("https://aeneid.storyrpc.io"),
+  STORY_NFT_CONTRACT: z.string().default("0xBe54FB168b3c982b7AaE60dB6CF75Bd8447b390E"),
+  STORY_PRIVATE_KEY: z.string(),
+  STORY_ACCOUNT_ADDRESS: z.string(),
   RPC_PROVIDER_URL: z.string().default("https://base.llamarpc.com"),
 });
 

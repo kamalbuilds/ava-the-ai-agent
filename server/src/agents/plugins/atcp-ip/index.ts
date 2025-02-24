@@ -1,12 +1,14 @@
-import { StoryClient, StoryConfig, SupportedChainIds } from "@story-protocol/core-sdk";
+import { StoryClient, StoryConfig, SupportedChainIds, GenerateIpMetadataParam, RegisterPILTermsRequest, Transport } from "@story-protocol/core-sdk";
 import { IPLicenseTerms, IPMetadata } from '../../types/ip-agent';
-import { http, Address, toHex } from "viem";
+import { Address, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import env from "../../../env";
+import { createHash } from 'crypto';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
 const WIP_TOKEN_ADDRESS = '0x1514000000000000000000000000000000000000' as const;
-const DEFAULT_HASH = toHex('0', { size: 32 });
+const DEFAULT_HASH = '0x0000000000000000000000000000000000000000000000000000000000000000';
+const RoyaltyPolicyLAP = '0xBe54FB168b3c982b7AaE60dB6CF75Bd8447b390E' as `0x${string}`;
 
 export interface ATCPIPConfig {
   agentId: string;
@@ -19,13 +21,13 @@ export class ATCPIPProvider {
   constructor(config: ATCPIPConfig) {
     this.agentId = config.agentId;
 
-    // Initialize Story Protocol client
+    // Initialize Story Protocol client with proper configuration
     const privateKey = env.WALLET_PRIVATE_KEY as `0x${string}`;
-    const transport = http(env.STORY_RPC_PROVIDER_URL || 'https://rpc.ankr.com/eth_sepolia') as any;
-    
+    const account = privateKeyToAccount(privateKey);
+
     const storyConfig: StoryConfig = {
-      account: privateKey,
-      transport,
+      account: account.address,
+      transport: http(env.STORY_RPC_PROVIDER_URL) as unknown as Transport,
       chainId: "aeneid" as SupportedChainIds,
     };
 
@@ -37,23 +39,102 @@ export class ATCPIPProvider {
     return this.storyClient;
   }
 
+  private createCommercialRemixTerms(terms: IPLicenseTerms): RegisterPILTermsRequest {
+    const ipfsHash = createHash('sha256').update(JSON.stringify(terms)).digest('hex');
+    return {
+      transferable: terms.transferability || false,
+      royaltyPolicy: RoyaltyPolicyLAP,
+      commercialUse: true,
+      commercialAttribution: true,
+      commercializerChecker: ZERO_ADDRESS as `0x${string}`,
+      commercializerCheckerData: ZERO_ADDRESS as `0x${string}`,
+      commercialRevShare: Math.floor((terms.royalty_rate || 0.05) * 100),
+      derivativesAllowed: true,
+      derivativesAttribution: true,
+      derivativesApproval: false,
+      derivativesReciprocal: true,
+      currency: WIP_TOKEN_ADDRESS as `0x${string}`,
+      uri: `ipfs://${ipfsHash}`,
+      defaultMintingFee: '0',
+      expiration: '0',
+      commercialRevCeiling: '0',
+      derivativeRevCeiling: '0',
+    };
+  }
+
   async mintLicense(terms: IPLicenseTerms, metadata: IPMetadata): Promise<string> {
     const client = this.getStoryClient();
     
-    // Create IP asset with Story Protocol's mintAndRegisterIp
-    const response = await client.ipAsset.register({
-      nftContract: (process.env.SPG_NFT_CONTRACT_ADDRESS || ZERO_ADDRESS) as Address,
-      tokenId: BigInt(Date.now()),
-      ipMetadata: {
-        ipMetadataURI: metadata.link_to_terms || '',
-        ipMetadataHash: toHex(metadata.license_id || '0', { size: 32 }),
-        nftMetadataURI: metadata.link_to_terms || '',
-        nftMetadataHash: toHex(metadata.license_id || '0', { size: 32 }),
-      },
-      txOptions: { waitForTransaction: true }
-    });
+    try {
+      // Generate IP metadata using Story Protocol's format
+      const ipMetadata: GenerateIpMetadataParam = {
+        additionalProperties: {
+          agentId: this.agentId,
+          version: metadata.version,
+          issueDate: metadata.issue_date.toString(),
+          name: terms.name,
+          description: terms.description,
+          licenseType: terms.scope
+        }
+      };
 
-    return response.ipId || '';
+      // Create NFT metadata
+      const nftMetadata = {
+        name: `NFT representing ${terms.name}`,
+        description: terms.description,
+        agentId: this.agentId,
+      };
+
+      // Generate metadata hashes
+      const ipIpfsHash = createHash('sha256').update(JSON.stringify(ipMetadata)).digest('hex');
+      const nftIpfsHash = createHash('sha256').update(JSON.stringify(nftMetadata)).digest('hex');
+
+      // Register IP with Story Protocol
+      const response = await client.ipAsset.mintAndRegisterIpAssetWithPilTerms({
+        spgNftContract: (env.STORY_NFT_CONTRACT || ZERO_ADDRESS) as `0x${string}`,
+        allowDuplicates: true,
+        licenseTermsData: [{
+          terms: this.createCommercialRemixTerms(terms),
+          licensingConfig: {
+            isSet: false,
+            mintingFee: BigInt(0),
+            licensingHook: ZERO_ADDRESS as `0x${string}`,
+            hookData: DEFAULT_HASH,
+            commercialRevShare: Math.floor((terms.royalty_rate || 0.05) * 100),
+            disabled: false,
+            expectMinimumGroupRewardShare: 0,
+            expectGroupRewardPool: ZERO_ADDRESS as `0x${string}`,
+          }
+        }],
+        ipMetadata: {
+          ipMetadataURI: `ipfs://${ipIpfsHash}`,
+          ipMetadataHash: `0x${ipIpfsHash}`,
+          nftMetadataURI: `ipfs://${nftIpfsHash}`,
+          nftMetadataHash: `0x${nftIpfsHash}`,
+        },
+        txOptions: { waitForTransaction: true },
+      });
+
+      console.log(
+        `[Story] IP Asset created at transaction hash ${response.txHash}, IP ID: ${response.ipId}`,
+      );
+
+      return response.ipId || '';
+    } catch (error) {
+      console.error('[Story] Failed to mint license:', error);
+      throw error;
+    }
+  }
+
+  async getLicenses(address: string): Promise<any[]> {
+    const client = this.getStoryClient();
+    try {
+      const license = await client.ipAsset.getIpAssetsByAddress(address);
+      return license || [];
+    } catch (error) {
+      console.error('[Story] Failed to get licenses:', error);
+      return [];
+    }
   }
 
   async verifyLicense(licenseId: string): Promise<boolean> {
@@ -115,7 +196,7 @@ export class ATCPIPProvider {
     });
     
     return {
-      license_id: licenseId,
+      license_id: license.ipId || '',
       issuer_id: license.ipId || '',
       holder_id: license.ipId || '',
       issue_date: Date.now(),
