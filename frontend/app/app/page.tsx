@@ -13,51 +13,6 @@ import {Navbar} from "@/components/ui/navbar";
 import {Footer} from "@/components/ui/footer";
 import { useSettingsStore } from '../stores/settingsStore';
 
-type CollaborationType =
-  | "analysis"
-  | "execution"
-  | "report"
-  | "question"
-  | "response"
-  | "suggestion"
-  | "decision"
-  | "simulation"
-  | "transaction"
-  | "tool-result"
-  | "handoff"
-  | "task-creation";
-
-interface Message {
-  role: "user" | "assistant" | "system";
-  content: string;
-  timestamp: string;
-  agentName?: string | undefined;
-  collaborationType?: CollaborationType | undefined;
-}
-
-interface AgentState {
-  isInitialized: boolean;
-  isProcessing: boolean;
-  error: string | null;
-  activeAgent: string | null;
-  systemEvents: Array<{
-    timestamp: string;
-    event: string;
-    agent?: string;
-    type: "info" | "warning" | "error" | "success";
-  }>;
-}
-
-interface Agent {
-  id: string;
-  name: string;
-  type: string;
-  status: string;
-  description: string;
-  message?: string;
-  agent?: any;
-}
-
 // Add a mapping for agent images
 const agentImages = {
   trading: "/agent_trader.png",
@@ -118,6 +73,154 @@ interface AgentMessage {
   action?: string;
   event?: string;
   eventType?: "info" | "warning" | "error" | "success";
+}
+
+const convertToSpeech = async (text: string): Promise<Uint8Array> => {
+  try {
+    console.log("Starting text-to-speech conversion with text:", text);
+    
+    const API_KEY = 'sk_8666b07f1f06e14745d9b9a8a7217459ee043721797cadbe';
+    const VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb';
+    
+    // Make direct fetch request to ElevenLabs API
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/stream`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'audio/mpeg',
+        'Content-Type': 'application/json',
+        'xi-api-key': API_KEY.trim()
+      },
+      body: JSON.stringify({
+        text: text,
+        model_id: "eleven_multilingual_v2",
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.5
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details available');
+      console.error('ElevenLabs API Error Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorDetails: errorText,
+        requestHeaders: {
+          'Accept': 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': 'sk_****' // Masked for logging
+        }
+      });
+      throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}\nDetails: ${errorText}`);
+    }
+
+    // Get the response as ArrayBuffer
+    const arrayBuffer = await response.arrayBuffer();
+    console.log("Got response from ElevenLabs API, size:", arrayBuffer.byteLength);
+    
+    if (arrayBuffer.byteLength === 0) {
+      throw new Error('Received empty response from ElevenLabs API');
+    }
+    
+    return new Uint8Array(arrayBuffer);
+  } catch (error) {
+    console.error("Error in convertToSpeech:", error);
+    throw error;
+  }
+};
+
+// Test function with a very short text
+const testElevenLabs = async () => {
+  try {
+    console.log("Testing ElevenLabs API...");
+    const testText = "Test.";
+    
+    const audioData = await convertToSpeech(testText);
+    console.log("Test successful! Got audio data of size:", audioData.length);
+    
+    // Create blob with explicit MIME type
+    const blob = new Blob([audioData], { 
+      type: 'audio/mpeg'
+    });
+    
+    // Convert to base64
+    const base64data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    
+    console.log("Created base64 audio data for test");
+    
+    // Create and play audio
+    const audio = new Audio();
+    
+    // Set up event listeners
+    audio.addEventListener('loadeddata', () => console.log('Test audio data loaded'));
+    audio.addEventListener('error', (e) => console.error('Test audio loading error:', e));
+    audio.addEventListener('playing', () => console.log('Test audio started playing'));
+    audio.addEventListener('ended', () => console.log('Test audio finished playing'));
+    
+    // Set the source and play
+    audio.src = base64data;
+    
+    try {
+      await audio.play();
+      console.log("Test audio playing!");
+    } catch (playError) {
+      console.error("Test audio playback failed:", playError);
+    }
+  } catch (error) {
+    console.error("ElevenLabs test failed:", error);
+  }
+};
+
+type CollaborationType =
+  | "analysis"
+  | "execution"
+  | "report"
+  | "question"
+  | "response"
+  | "suggestion"
+  | "decision"
+  | "simulation"
+  | "transaction"
+  | "tool-result"
+  | "handoff"
+  | "task-creation";
+
+interface Message {
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: string;
+  agentName?: string | undefined;
+  collaborationType?: CollaborationType | undefined;
+  audioUrl?: string;
+}
+
+interface AgentState {
+  isInitialized: boolean;
+  isProcessing: boolean;
+  error: string | null;
+  activeAgent: string | null;
+  systemEvents: Array<{
+    timestamp: string;
+    event: string;
+    agent?: string;
+    type: "info" | "warning" | "error" | "success";
+  }>;
+}
+
+interface Agent {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  description: string;
+  message?: string;
+  agent?: any;
 }
 
 export default function Home() {
@@ -448,19 +551,11 @@ export default function Home() {
         { configurable: { sessionId: "user-1" } }
       );
 
-      console.log(initialAnalysis, "initialAnalysis", portfolioAgent);
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: initialAnalysis.output,
-          timestamp: new Date().toLocaleTimeString(),
-          agentId: "portfolio",
-          agentName: "Portfolio Manager",
-          collaborationType: "analysis",
-        },
-      ]);
+      await handleAgentResponse({
+        content: initialAnalysis.output,
+        agentName: "Portfolio Manager",
+        type: "analysis"
+      });
 
       const relevantAgents = agents.filter((agent) => {
         const messageContent = message.toLowerCase();
@@ -482,17 +577,11 @@ export default function Home() {
           { configurable: { sessionId: "user-1" } }
         );
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: agentResponse.output,
-            timestamp: new Date().toLocaleTimeString(),
-            agentId: agent.id,
-            agentName: agent.name,
-            collaborationType: "suggestion",
-          },
-        ]);
+        await handleAgentResponse({
+          content: agentResponse.output,
+          agentName: agent.name,
+          type: "suggestion"
+        });
       }
 
       const finalConsensus = await portfolioAgent?.agent?.invoke(
@@ -502,17 +591,11 @@ export default function Home() {
         { configurable: { sessionId: "user-1" } }
       );
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: finalConsensus.output,
-          timestamp: new Date().toLocaleTimeString(),
-          agentId: "portfolio",
-          agentName: "Portfolio Manager",
-          collaborationType: "decision",
-        },
-      ]);
+      await handleAgentResponse({
+        content: finalConsensus.output,
+        agentName: "Portfolio Manager",
+        type: "decision"
+      });
     } else {
       // Handle regular chat mode
       // Check if this is an example query
@@ -560,17 +643,11 @@ export default function Home() {
         { configurable: { sessionId: "user-1" } }
       );
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: initialAnalysis.output,
-          timestamp: new Date().toLocaleTimeString(),
-          agentId: "portfolio",
-          agentName: "Portfolio Manager",
-          collaborationType: "analysis",
-        },
-      ]);
+      await handleAgentResponse({
+        content: initialAnalysis.output,
+        agentName: "Portfolio Manager",
+        type: "analysis"
+      });
 
       const relevantAgents = agents.filter((agent) => {
         const messageContent = message.toLowerCase();
@@ -592,17 +669,11 @@ export default function Home() {
           { configurable: { sessionId: "user-1" } }
         );
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: agentResponse.output,
-            timestamp: new Date().toLocaleTimeString(),
-            agentId: agent.id,
-            agentName: agent.name,
-            collaborationType: "suggestion",
-          },
-        ]);
+        await handleAgentResponse({
+          content: agentResponse.output,
+          agentName: agent.name,
+          type: "suggestion"
+        });
       }
 
       const finalConsensus = await portfolioAgent?.agent?.invoke(
@@ -612,17 +683,79 @@ export default function Home() {
         { configurable: { sessionId: "user-1" } }
       );
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: finalConsensus.output,
-          timestamp: new Date().toLocaleTimeString(),
-          agentId: "portfolio",
-          agentName: "Portfolio Manager",
-          collaborationType: "decision",
-        },
-      ]);
+      await handleAgentResponse({
+        content: finalConsensus.output,
+        agentName: "Portfolio Manager",
+        type: "decision"
+      });
+    }
+  };
+
+  const handleAgentResponse = async (response: any) => {
+    try {
+      console.log("Converting message to speech:", response.content);
+
+      const newMessage: Message = {
+        role: "assistant",
+        content: response.message || response.content,
+        timestamp: new Date().toISOString(),
+        agentName: response.agentName || activeAgent,
+        collaborationType: response.type as CollaborationType,
+      };
+
+      // Convert the response to speech
+      try {
+        console.log("Starting text-to-speech conversion...");
+        const audioData = await convertToSpeech(newMessage.content);
+        
+        if (!audioData || audioData.length === 0) {
+          throw new Error('No audio data received from ElevenLabs');
+        }
+        
+        console.log("Got audio data, size:", audioData.length);
+        
+        // Create blob with explicit MIME type
+        const blob = new Blob([audioData], { 
+          type: 'audio/mpeg'
+        });
+        console.log("Created blob, size:", blob.size);
+        
+        // Create a base64 data URL
+        const base64data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        
+        console.log("Created base64 audio data");
+        
+        // Create and play audio
+        const audio = new Audio();
+        
+        // Set up event listeners
+        audio.addEventListener('loadeddata', () => console.log('Audio data loaded'));
+        audio.addEventListener('error', (e) => console.error('Audio loading error:', e));
+        audio.addEventListener('playing', () => console.log('Audio started playing'));
+        
+        // Set the source and play
+        audio.src = base64data;
+        
+        try {
+          // Try to play the audio
+          await audio.play();
+          console.log("Audio playback started successfully");
+        } catch (playError) {
+          console.error("Audio playback failed:", playError);
+        }
+        
+      } catch (error) {
+        console.error("Error in text-to-speech process:", error);
+      }
+
+      setMessages(prev => deduplicateMessages([...prev, newMessage]));
+    } catch (error) {
+      console.error("Error handling agent response:", error);
     }
   };
 

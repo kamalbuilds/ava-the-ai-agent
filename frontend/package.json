@@ -34,6 +34,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "crypto-browserify": "^3.12.1",
+    "elevenlabs": "^1.51.0",
     "ethers": "^5.7.2",
     "framer-motion": "^11.12.0",
     "hono": "^4.6.12",
