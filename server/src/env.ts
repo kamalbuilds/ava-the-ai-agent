@@ -26,7 +26,7 @@ const envSchema = z.object({
   GOLDRUSH_API: z.string(),
   PERPLEXITY_API_KEY: z.string(),
   ENABLE_PRIVATE_COMPUTE: z.boolean().default(false),
-  DEFAULT_AI_PROVIDER: z.enum(['openai', 'atoma']).default('openai'),
+  DEFAULT_AI_PROVIDER: z.enum(['openai', 'atoma' , 'venice' , 'groq']).default('openai'),
   COOKIE_API_KEY: z.string(),
   ATOMA_API_KEY: z.string().optional(),
   STORY_PROTOCOL_ENDPOINT: z.string().default("https://api.storyprotocol.xyz/v1"),
@@ -34,7 +34,6 @@ const envSchema = z.object({
   STORY_RPC_PROVIDER_URL: z.string().default("https://aeneid.storyrpc.io"),
   STORY_NFT_CONTRACT: z.string().default("0xBe54FB168b3c982b7AaE60dB6CF75Bd8447b390E"),
   STORY_PRIVATE_KEY: z.string(),
-  STORY_ACCOUNT_ADDRESS: z.string(),
   RPC_PROVIDER_URL: z.string().default("https://base.llamarpc.com"),
 });
 

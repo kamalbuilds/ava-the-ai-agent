@@ -1,4 +1,5 @@
-import { StoryClient, StoryConfig, SupportedChainIds, GenerateIpMetadataParam, RegisterPILTermsRequest, Transport } from "@story-protocol/core-sdk";
+import { StoryClient, StoryConfig, SupportedChainIds, GenerateIpMetadataParam, RegisterPILTermsRequest } from "@story-protocol/core-sdk";
+import { Transport } from "viem";
 import { IPLicenseTerms, IPMetadata } from '../../types/ip-agent';
 import { Address, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -129,8 +130,26 @@ export class ATCPIPProvider {
   async getLicenses(address: string): Promise<any[]> {
     const client = this.getStoryClient();
     try {
-      const license = await client.ipAsset.getIpAssetsByAddress(address);
-      return license || [];
+
+      const options = {
+        method: 'GET',
+        headers: {
+          accept: 'application/json',
+          'X-Api-Key': 'MhBsxkU1z9fG6TofE59KqiiWV-YlYE8Q4awlLQehF3U',
+          'X-Chain': 'story-aeneid'
+        }
+      };
+
+      const response = await fetch('https://api.storyapis.com/api/v3/licenses/ip/terms/ipId', options)
+      .then(res => res.json())
+      .then(res => console.log(res))
+      .catch(err => console.error(err));
+      
+      
+
+      // const license = await client.ipAsset.getIpAssetsByAddress(address);
+      // @ts-ignore
+      return response;
     } catch (error) {
       console.error('[Story] Failed to get licenses:', error);
       return [];

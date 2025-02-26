@@ -10,22 +10,42 @@ import { AIProvider } from "../services/ai/types";
  * Registers the agents and returns them
  * @returns The registered agents
  */
-export const registerAgents = (eventBus: EventBus, account: Account, aiprovider : AIProvider) => {
+export const registerAgents = (eventBus: EventBus, account: Account, aiProvider : AIProvider, recallStorage: any, atcpipProvider: any) => {
   console.log("======== Registering agents =========");
 
   // Initialize agents with account
-  const executorAgent = new ExecutorAgent("executor", eventBus, account);
+  const executorAgent = new ExecutorAgent(
+    'executor',
+    eventBus,
+    account,
+    recallStorage,
+    atcpipProvider
+  );
   console.log(`[registerAgents] executor agent initialized.`);
 
   console.log(`[registerAgents] initializing observer agent...`);
-  const observerAgent = new ObserverAgent("observer", eventBus , account , aiprovider);
+  
+  const observerAgent = new ObserverAgent(
+    'observer',
+    eventBus,
+    account,
+    aiProvider,
+    recallStorage,
+    atcpipProvider
+  );
   console.log(`[registerAgents] observer agent initialized with address: ${account.address}`);
 
-  const taskManagerAgent = new TaskManagerAgent("task-manager", eventBus);
+  const taskManagerAgent = new TaskManagerAgent(
+    'task-manager',
+    eventBus,
+    account,
+    recallStorage,
+    atcpipProvider
+  );
   console.log(`[registerAgents] task manager agent initialized.`);
 
   // Initialize CDP agent
-  const cdpagent = new CdpAgent("cdp-agent", eventBus);
+  const cdpagent = new CdpAgent("cdp-agent", eventBus  , recallStorage , atcpipProvider);
   console.log(`[registerAgents] cdp agent initialized.`);
 
   // Register event handlers

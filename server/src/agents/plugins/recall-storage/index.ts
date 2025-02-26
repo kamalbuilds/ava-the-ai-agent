@@ -1,13 +1,14 @@
+import { privateKeyToAccount } from 'viem/accounts';
 import { EventBus } from '../../../comms';
 import env from '../../../env';
 import type { Address, Hex } from 'viem';
 
 export interface RecallStorageConfig {
-  network?: string;
-  syncInterval?: number;
-  batchSize?: number;
-  eventBus?: EventBus;
-  bucketAlias?: string;
+  network: 'testnet' | 'mainnet';
+  syncInterval: number;
+  batchSize: number;
+  eventBus: any;
+  bucketAlias: string;
   maxRetries?: number;
   retryDelay?: number;
 }
@@ -34,12 +35,19 @@ interface RecallResult<T> {
 
 export class RecallStorage {
   private client: any;
-  private clientInitialized: Promise<void>;
+  private bucketManager: any;
+  private initialized: boolean = false;
+  private initPromise: Promise<void>;
   private syncIntervalId?: ReturnType<typeof setInterval>;
   private intervalMs: number;
   private batchSizeKB: number;
   private eventBus?: EventBus;
   private bucketAlias: string;
+  private lastNonce: number = 0;
+  private maxRetries: number = 3;
+  private retryDelay: number = 1000;
+  private bucketCache: Map<string, Address> = new Map();
+  private activeBucket?: Address;
 
   constructor(config: RecallStorageConfig) {
     const privateKey = env.WALLET_PRIVATE_KEY;
@@ -53,7 +61,19 @@ export class RecallStorage {
     this.bucketAlias = config.bucketAlias || 'default-bucket';
     
 
-    this.clientInitialized = this.initializeClient(privateKey).then(() => {
+    this.initPromise = this.initializeClient(privateKey).then(async () => {
+      // Initialize nonce
+      try {
+        const wallet = await this.client.walletClient();
+        const address = await wallet.account.address;
+        const nonce = await wallet.transport.request({
+          method: 'eth_getTransactionCount',
+          params: [address, 'latest']
+        });
+        this.lastNonce = parseInt(nonce, 16);
+      } catch (error) {
+        console.error('Failed to initialize nonce:', error);
+      }
       this.startPeriodicSync();
     });
   }
@@ -66,35 +86,96 @@ export class RecallStorage {
       
       const wallet = walletClientFromPrivateKey(privateKey as Hex, testnet);
       this.client = new RecallClient({ walletClient: wallet });
+      this.bucketManager = await this.client.bucketManager();
+      this.initialized = true;
+
+      // Initialize nonce with retry logic
+      await this.initializeNonce();
     } catch (error) {
       console.error('Failed to initialize Recall client:', error);
       throw error;
     }
   }
 
-  async waitForInitialization(): Promise<void> {
-    await this.clientInitialized;
+  private async initializeNonce(): Promise<void> {
+    let attempts = 0;
+    while (attempts < this.maxRetries) {
+      try {
+        // Access the wallet directly from the client
+        const address = this.client.walletClient.account.address;
+
+
+      
+        // Get both pending and latest nonce using the provider
+        const [pendingNonce, latestNonce] = await Promise.all([
+          this.client.walletClient.request({
+            method: 'eth_getTransactionCount',
+            params: [address, 'pending']
+          }),
+          this.client.walletClient.request({
+            method: 'eth_getTransactionCount',
+            params: [address, 'latest']
+          })
+        ]);
+
+        // Use the higher nonce value
+        const pendingNonceNum = parseInt(pendingNonce, 16);
+        const latestNonceNum = parseInt(latestNonce, 16);
+        this.lastNonce = Math.max(pendingNonceNum, latestNonceNum);
+        console.log(`Initialized nonce to ${this.lastNonce}`);
+        return;
+      } catch (error) {
+        attempts++;
+        if (attempts === this.maxRetries) {
+          throw error;
+        }
+        await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+      }
+    }
   }
 
-  async store(
-    key: string,
-    data: any,
-    metadata?: Record<string, any>
-  ): Promise<void> {
-    await this.waitForInitialization();
+  async waitForInitialization(): Promise<void> {
+    await this.initPromise;
+  }
 
-    const bucketManager = await this.client.bucketManager();
-    const bucket = await this.getOrCreateBucket(this.bucketAlias);
-    
-    await bucketManager.add(
-      bucket,
-      key,
-      new TextEncoder().encode(JSON.stringify({
+  private serializeData(data: any): Uint8Array {
+    return new TextEncoder().encode(JSON.stringify(data));
+  }
+
+  async store(key: string, data: any, metadata: Record<string, any> = {}): Promise<void> {
+    try {
+      await this.waitForInitialization();
+      
+      // Get the bucket
+      const bucketAddress = await this.getOrCreateBucket(this.bucketAlias);
+      
+      // Prepare the data
+      const serializedData = this.serializeData({
         data,
-        metadata: metadata || {},
-        timestamp: Date.now(),
-      }))
-    );
+        metadata: {
+          ...metadata,
+          timestamp: Date.now()
+        }
+      });
+
+      // Get next nonce
+      const nonce = await this.getNextNonce();
+
+      // Add to bucket with proper parameters
+      await this.bucketManager.add(
+        bucketAddress,
+        key,
+        serializedData,
+        {
+          nonce,
+          waitForTransaction: true,
+          overwrite: metadata.overwrite || false
+        }
+      );
+    } catch (err: any) {
+      console.error('[RecallStorage] Error storing data:', err);
+      throw new Error(`Failed to store data: ${err.message}`);
+    }
   }
 
   async retrieve(
@@ -182,8 +263,48 @@ export class RecallStorage {
       });
   }
 
-  async getOrCreateBucket(bucketAlias: string): Promise<Address> {
+  private async getNextNonce(): Promise<number> {
+    let attempts = 0;
+    while (attempts < this.maxRetries) {
+      try {
+        const address = this.client.walletClient.account.address;
+        
+        // Get current nonce from network
+        const currentNonce = await this.client.walletClient.request({
+          method: 'eth_getTransactionCount',
+          params: [address, 'pending']
+        });
+        
+        const networkNonce = parseInt(currentNonce, 16);
+        this.lastNonce = Math.max(this.lastNonce, networkNonce);
+        this.lastNonce++;
+        
+        return this.lastNonce;
+      } catch (error) {
+        attempts++;
+        if (attempts === this.maxRetries) {
+          throw error;
+        }
+        await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+      }
+    }
+    throw new Error('Failed to get next nonce after retries');
+  }
+
+  private async getOrCreateBucket(bucketAlias: string): Promise<Address> {
     await this.waitForInitialization();
+
+    // First check if we have an active bucket
+    if (this.activeBucket) {
+      return this.activeBucket;
+    }
+
+    // Then check the cache
+    const cachedBucket = this.bucketCache.get(bucketAlias);
+    if (cachedBucket) {
+      this.activeBucket = cachedBucket;
+      return cachedBucket;
+    }
 
     try {
       const bucketManager = await this.client.bucketManager();
@@ -194,19 +315,43 @@ export class RecallStorage {
           b.metadata?.alias === bucketAlias
         );
         if (bucket) {
+          this.bucketCache.set(bucketAlias, bucket.addr);
+          this.activeBucket = bucket.addr;
           return bucket.addr;
         }
       }
 
-      const result = await bucketManager.create({
-        metadata: { alias: bucketAlias },
-      }) as RecallResult<{ bucket: Address }>;
+      // Create new bucket only if none exists
+      let attempts = 0;
+      while (attempts < this.maxRetries) {
+        try {
+          const nonce = await this.getNextNonce();
+          console.log(`Creating new bucket for ${bucketAlias} with nonce: ${nonce}`);
+          
+          const result = await bucketManager.create({
+            metadata: { alias: bucketAlias },
+            nonce,
+            waitForTransaction: true
+          }) as RecallResult<{ bucket: Address }>;
 
-      if (!result.result) {
-        throw new Error(`Failed to create bucket: ${bucketAlias}`);
+          if (!result.result) {
+            throw new Error(`Failed to create bucket: ${bucketAlias}`);
+          }
+
+          // Cache the new bucket
+          this.bucketCache.set(bucketAlias, result.result.bucket);
+          this.activeBucket = result.result.bucket;
+          return result.result.bucket;
+        } catch (error) {
+          attempts++;
+          if (attempts === this.maxRetries) {
+            throw error;
+          }
+          await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+          await this.initializeNonce();
+        }
       }
-
-      return result.result.bucket;
+      throw new Error(`Failed to create bucket after ${this.maxRetries} attempts`);
     } catch (error) {
       const err = error as Error;
       console.error(`Error in getOrCreateBucket: ${err.message}`);
@@ -302,16 +447,19 @@ export class RecallStorage {
       const timestamp = Date.now();
       const batchKey = `batch:${timestamp}`;
       const batchData = batch.join('\n');
+      const nonce = await this.getNextNonce();
 
       await this.client.bucketManager().add(
         bucketAddress,
         batchKey,
         new TextEncoder().encode(batchData),
+        { nonce }
       );
 
       // Mark logs as synced
       for (const logEntry of batch) {
         const parsed = JSON.parse(logEntry);
+        const syncNonce = await this.getNextNonce();
         await this.client.bucketManager().add(
           bucketAddress,
           parsed.key,
@@ -322,12 +470,18 @@ export class RecallStorage {
               synced: true,
               syncedAt: timestamp,
             },
-          }))
+          })),
+          { nonce: syncNonce }
         );
       }
     } catch (error) {
       console.error('Error storing batch to Recall:', error);
       throw error;
     }
+  }
+
+  public async initializeBucket(bucketAlias: string): Promise<void> {
+    await this.waitForInitialization();
+    await this.getOrCreateBucket(bucketAlias);
   }
 } 
