@@ -6,9 +6,8 @@ import useWebSocket from "./hooks/useAgent";
 
 export default function Home() {
   const [input, setInput] = useState("");
-  // const { messages, sendMessage, isThinking } = useAgent();
 
-  const { messages, sendMessage } = useWebSocket("ws://localhost:8080");
+  const { messages, sendMessage, isThinking } = useWebSocket("ws://localhost:8080");
 
 
   // Ref for the messages container
@@ -25,7 +24,7 @@ export default function Home() {
   }, [messages]);
 
   const onSendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isThinking) return;
     const message = input;
     setInput("");
     await sendMessage(message);
@@ -61,6 +60,11 @@ export default function Home() {
             ))
           )}
 
+          {/* Thinking Indicator */}
+          {isThinking && (
+            <div className="text-right mr-2 text-gray-500 italic">🤖 Thinking...</div>
+          )}
+
           {/* Invisible div to track the bottom */}
           <div ref={messagesEndRef} />
         </div>
@@ -74,10 +78,15 @@ export default function Home() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && onSendMessage()}
+            disabled={isThinking}
           />
           <button
             onClick={onSendMessage}
-            className={`px-6 py-2 rounded-full font-semibold transition-all ${"bg-[#0052FF] hover:bg-[#003ECF] text-white shadow-md"}`}
+            className={`px-6 py-2 rounded-full font-semibold transition-all ${isThinking
+                ? "bg-gray-300 cursor-not-allowed text-gray-500"
+                : "bg-[#0052FF] hover:bg-[#003ECF] text-white shadow-md"
+              }`}
+            disabled={isThinking}
           >
             Send
           </button>

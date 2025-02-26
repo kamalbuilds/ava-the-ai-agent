@@ -37,19 +37,19 @@ wss.on("connection", async (ws: WebSocket) => {
     return;
   }
 
-  ws.on("message", async (message: string) => {
+  ws.on("message", async (message: Buffer) => {
     console.log("Received:", message);
+
+    const messageStr = message.toString("utf-8");
 
     if (agent === null) {
       console.log("Agent not initialized");
     }
 
     const stream = await agent.stream(
-      { messages: [{ content: message, role: "user" }] }, // The new message to send to the agent
+      { messages: [{ content: messageStr, role: "user" }] }, // The new message to send to the agent
       { configurable: { thread_id: "AgentKit Discussion" } } // Customizable thread ID for tracking conversations
     );
-
-    console.log("stream response >>>", stream);
 
     let agentResponse = "";
     for await (const chunk of stream) {
@@ -57,13 +57,13 @@ wss.on("connection", async (ws: WebSocket) => {
         agentResponse += chunk.agent.messages[0].content;
       }
     }
+
     console.log("agentResponse >>", agentResponse);
 
     const data = {
       type: "agent_response",
       message: `${agentResponse}`,
     };
-    // ws.send(`Server received: ${message}`);
 
     // Echo message back to client
     ws.send(JSON.stringify(data));
