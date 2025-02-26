@@ -1,3 +1,4 @@
+import EventEmitter from "events";
 import type { EventBus as IEventBus } from "./index";
 
 /**
@@ -7,17 +8,48 @@ import type { EventBus as IEventBus } from "./index";
  *  */
 
 export class EventBus implements IEventBus {
+
+  protected eventEmitter: EventEmitter;
+
   private subscribers: Map<string, Array<(data: any) => Promise<void>>>;
 
+
   constructor() {
+    this.eventEmitter = new EventEmitter();
     this.subscribers = new Map();
   }
 
-  async emit(event: string, data: any): Promise<void> {
-    const handlers = this.subscribers.get(event);
-    if (handlers) {
-      await Promise.all(handlers.map(handler => handler(data)));
+  register(event: string, callback: (data: any) => void) {
+
+    if (!this.eventEmitter.eventNames().includes(event)) {
+      this.eventEmitter.on(event, callback);
     }
+  }
+
+    /**
+   * Unregister a callback for an event.
+   * @param event - The event name.
+   * @param callback - The callback function.
+   */
+    unregister(event: string, callback: (data: any) => void) {
+      if (this.eventEmitter.eventNames().includes(event)) {
+        this.eventEmitter.off(event, callback);
+      }
+    }
+
+
+    
+
+  // async emit(event: string, data: any): Promise<void> {
+  //   const handlers = this.subscribers.get(event);
+  //   if (handlers) {
+  //     await Promise.all(handlers.map(handler => handler(data)));
+  //   }
+  // }
+
+ 
+  emit(event: string, data: any) {
+    this.eventEmitter.emit(event, data);
   }
 
   on(event: string, handler: (data: any) => Promise<void>): void {

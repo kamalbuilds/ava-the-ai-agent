@@ -56,7 +56,7 @@ export abstract class IPAgent extends Agent {
 
   private async initializeRecallBucket(): Promise<void> {
     try {
-      await this.recallStorage.getOrCreateBucket(this.bucketAlias);
+      await this.recallStorage.initializeBucket(this.bucketAlias);
     } catch (error) {
       console.error(`Error initializing Recall bucket for ${this.name}:`, error);
     }
@@ -95,6 +95,7 @@ export abstract class IPAgent extends Agent {
       agent: this.name,
       timestamp: Date.now(),
       type: 'intelligence',
+      overwrite: true
     });
   }
 

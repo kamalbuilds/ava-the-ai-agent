@@ -76,7 +76,13 @@ export class ObserverAgent extends IPAgent {
   private setupEventHandlers(): void {
     // Listen for task manager events
     this.eventBus.on('task-manager-observer', async (data) => {
-      console.log(`[${this.name}] Received task-manager-observer event:`, data);
+      console.log(`[${this.name}] ========== RECEIVED TASK MANAGER EVENT ==========`);
+      console.log(`[${this.name}] Event: task-manager-observer`);
+      console.log(`[${this.name}] Task ID: ${data.taskId}`);
+      console.log(`[${this.name}] Task Type: ${data.type}`);
+      console.log(`[${this.name}] Source: ${data.source}`);
+      console.log(`[${this.name}] Timestamp: ${new Date().toISOString()}`);
+      
       try {
         if (data.type === 'analyze') {
           await this.handleTaskManagerEvent(data);
@@ -85,18 +91,24 @@ export class ObserverAgent extends IPAgent {
         console.error(`[${this.name}] Error handling task-manager-observer event:`, error);
         this.eventBus.emit('agent-error', {
           agent: this.name,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : 'Unknown error',
+          taskId: data.taskId,
+          timestamp: Date.now()
         });
       }
     });
 
     // Listen for market updates
     this.eventBus.on('market-update', async (data) => {
+      console.log(`[${this.name}] ========== RECEIVED MARKET UPDATE ==========`);
+      console.log(`[${this.name}] Timestamp: ${new Date().toISOString()}`);
       await this.handleMarketUpdate(data);
     });
 
     // Listen for sentiment updates
     this.eventBus.on('sentiment-update', async (data) => {
+      console.log(`[${this.name}] ========== RECEIVED SENTIMENT UPDATE ==========`);
+      console.log(`[${this.name}] Timestamp: ${new Date().toISOString()}`);
       await this.handleSentimentUpdate(data);
     });
   }
@@ -165,182 +177,75 @@ export class ObserverAgent extends IPAgent {
    * @param data - The data to handle
    */
   private async handleTaskManagerEvent(data: any): Promise<void> {
-    // Initialize toolResults outside try block so it's accessible in catch
+    console.log(`[${this.name}] ========== Starting Task Manager Event Handler ==========`);
     const toolResults: ToolResult[] = [];
     
     try {
-      console.log(`[${this.name}] Processing task manager event:`, data);
+      if (!data.taskId || !data.task) {
+        throw new Error('Invalid task data: missing taskId or task');
+      }
+
+      const taskId = data.taskId;
+      console.log(`[${this.name}] Received task from Task Manager:`);
+      console.log(`[${this.name}] Task ID: ${taskId}`);
+      console.log(`[${this.name}] Task Description: ${data.task}`);
 
       // Store task in Recall
-      await this.storeIntelligence(`task:${data.taskId}`, {
+      console.log(`[${this.name}] Storing task in Recall...`);
+      await this.storeIntelligence(`task:${taskId}`, {
         task: data.task,
         type: 'analysis',
+        status: 'in_progress',
         timestamp: Date.now()
       });
+      console.log(`[${this.name}] Task stored successfully`);
       
-      // System event for task start
-      this.eventBus.emit('agent-action', {
-        agent: this.name,
-        action: `Starting analysis of task: ${data.taskId}`
-      });
+      // Process the task
+      console.log(`[${this.name}] Starting task processing...`);
+      const result = await this.processTask(data.task);
+      console.log(`[${this.name}] Task processing completed`);
 
-      // Execute tools from toolkit
-      console.log(`[${this.name}] ========== Starting Tool Execution ==========`);
-      let hasAllToolsFailed = true;
-
-      // Helper function to execute tool with error handling
-      const executeTool = async (toolName: string, args: any = {}) => {
-        try {
-          console.log(`[${this.name}] Executing ${toolName} tool...`);
-          const result = await this.tools[toolName].execute(args, {
-            toolCallId: `${toolName}-${data.taskId}`,
-            messages: [],
-            severity: 'info'
-          });
-          
-          if (result.success) {
-            hasAllToolsFailed = false;
-            toolResults.push({
-              tool: toolName,
-              result: result.result,
-              status: 'success'
-            });
-
-            // Store tool result as IP
-            const toolResultLicenseTerms: IPLicenseTerms = {
-              name: `${toolName} Analysis - ${data.taskId}`,
-              description: `Analysis results from ${toolName} for task ${data.taskId}`,
-              scope: 'commercial',
-              transferability: true,
-              onchain_enforcement: true,
-              royalty_rate: 0.05
-            };
-
-            const licenseId = await this.mintLicense(toolResultLicenseTerms, {
-              issuer_id: this.name,
-              holder_id: 'task-manager',
-              issue_date: Date.now(),
-              version: '1.0'
-            });
-
-            // Store tool result with license
-            await this.storeIntelligence(`${toolName}:${data.taskId}`, {
-              result: result.result,
-              licenseId,
-              timestamp: Date.now()
-            });
-
-            // Emit successful tool result
-            this.eventBus.emit('agent-message', {
-              role: 'assistant',
-              content: `${toolName} Analysis:\n${JSON.stringify(result.result, null, 2)}`,
-              timestamp: new Date().toLocaleTimeString(),
-              agentName: this.name,
-              collaborationType: 'tool-result',
-              licenseId
-            });
-          } else {
-            console.warn(`[${this.name}] ${toolName} tool execution failed:`, result.error || 'Unknown error');
-            toolResults.push({
-              tool: toolName,
-              error: result.error || 'Unknown error',
-              status: 'error'
-            });
-
-            // Store error in Recall
-            await this.storeIntelligence(`error:${toolName}:${data.taskId}`, {
-              error: result.error || 'Unknown error',
-              timestamp: Date.now(),
-              tool: toolName
-            });
-          }
-        } catch (error) {
-          console.error(`[${this.name}] Error executing ${toolName}:`, error);
-          toolResults.push({
-            tool: toolName,
-            error: error instanceof Error ? error.message : 'Unknown error',
-            status: 'error'
-          });
-        }
-      };
-
-      // Execute market data tool
-      await executeTool('getMarketData');
-
-      // Execute wallet balances tool
-      await executeTool('getWalletBalances');
-
-      // Execute top agents tool
-      await executeTool('getTopAgents', {
-        interval: '_7Days',
-        page: 1,
-        pageSize: 3
-      });
-
-      // Execute tweets tool
-      const today = new Date();
-      const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      await executeTool('searchCookieTweets', {
-        query: "crypto trading strategy",
-        fromDate: lastWeek.toISOString().split('T')[0],
-        toDate: today.toISOString().split('T')[0]
-      });
-
-      // Store all tool results together
-      await this.storeIntelligence(`analysis:${data.taskId}`, {
-        toolResults,
-        timestamp: Date.now()
-      });
-
-      // Generate final analysis
-      const analysisLicenseTerms: IPLicenseTerms = {
-        name: `Market Analysis - ${data.taskId}`,
-        description: 'Comprehensive market analysis combining multiple data sources',
-        scope: 'commercial',
-        transferability: true,
-        onchain_enforcement: true,
-        royalty_rate: 0.1,
-        rev_share: 0.05
-      };
-
-      const analysisLicenseId = await this.mintLicense(analysisLicenseTerms, {
-        issuer_id: this.name,
-        holder_id: 'task-manager',
-        issue_date: Date.now(),
-        version: '1.0'
-      });
-
-      // Store analysis with license
-      await this.storeIntelligence(`final-analysis:${data.taskId}`, {
-        analysis: toolResults,
-        licenseId: analysisLicenseId,
-        timestamp: Date.now()
-      });
-
-      // Send results back to task manager
-      this.eventBus.emit('observer-task-manager', {
-        taskId: data.taskId,
-        result: toolResults,
+      // Store the result in Recall
+      console.log(`[${this.name}] Storing task result in Recall...`);
+      await this.storeIntelligence(`result:${taskId}`, {
+        result,
         status: 'completed',
-        timestamp: new Date().toISOString(),
-        licenseId: analysisLicenseId
+        timestamp: Date.now()
+      });
+      console.log(`[${this.name}] Result stored successfully`);
+
+      // Emit result back to task manager
+      console.log(`[${this.name}] Emitting result back to Task Manager...`);
+      this.eventBus.emit('observer-task-manager', {
+        taskId,
+        result,
+        status: 'completed',
+        toolResults,
+        timestamp: Date.now(),
+        source: 'observer',
+        destination: 'task-manager'
       });
 
+      console.log(`[${this.name}] ========== Task Manager Event Handler Complete ==========\n`);
     } catch (error) {
-      console.error(`[${this.name}] Error in handleTaskManagerEvent:`, error);
+      console.error(`[${this.name}] Error processing task:`, error);
       
       // Store error in Recall
       await this.storeIntelligence(`error:${data.taskId}`, {
         error: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        task: data.task
       });
-
-      // Send error back to task manager
+      
+      // Emit error result to task manager
       this.eventBus.emit('observer-task-manager', {
         taskId: data.taskId,
-        result: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : 'Unknown error',
         status: 'failed',
-        timestamp: new Date().toISOString()
+        toolResults,
+        timestamp: Date.now(),
+        source: 'observer',
+        destination: 'task-manager'
       });
     }
   }
@@ -430,108 +335,273 @@ export class ObserverAgent extends IPAgent {
     });
   }
 
-  async processTask(task: string): Promise<void> {
-    try {
-      const taskId = uuidv4();
-      console.log(`[${this.name}] Starting to process task with ID: ${taskId}`);
-      
-      // Execute tools from toolkit
-      console.log(`[${this.name}] ========== Starting Tool Execution ==========`);
-      const toolResults: ToolResult[] = [];
+  async processTask(task: string): Promise<ToolResult[]> {
+    console.log(`[${this.name}] ========== Starting Task Processing ==========`);
+    const toolResults: ToolResult[] = [];
+    const startTime = Date.now();
+    const bucketId = `task-bucket-${startTime}`; // Single bucket for entire task
+    
+    console.log(`[${this.name}] Using bucket ID: ${bucketId}`);
+    console.log(`[${this.name}] Task: ${task}`);
+    console.log(`[${this.name}] Start Time: ${new Date(startTime).toISOString()}`);
 
-      // Helper function to execute tool with error handling
-      const executeTool = async (toolName: string, args: any = {}) => {
-        try {
-          console.log(`[${this.name}] Executing ${toolName} tool...`);
-          const result = await this.tools[toolName].execute(args, {
-            toolCallId: taskId,
-            messages: [],
-            severity: 'info'
+    // Emit task start event
+    this.eventBus.emit('agent-message', {
+      role: 'assistant',
+      content: `Starting task analysis: ${task}`,
+      timestamp: new Date().toLocaleTimeString(),
+      agentName: this.name,
+      collaborationType: 'analysis'
+    });
+
+    try {
+      // Execute getMarketData tool
+      console.log(`[${this.name}] ========== Executing getMarketData Tool ==========`);
+      try {
+        // Emit tool execution start
+        this.eventBus.emit('agent-message', {
+          role: 'assistant',
+          content: 'Fetching market data...',
+          timestamp: new Date().toLocaleTimeString(),
+          agentName: this.name,
+          collaborationType: 'execution'
+        });
+
+        const marketDataResult = await this.tools.getMarketData.execute({
+          bucketId
+        }, {
+          toolCallId: `market-data-${startTime}`,
+          messages: [],
+          severity: 'info'
+        });
+        
+        if (marketDataResult.success) {
+          console.log(`[${this.name}] Market data retrieved successfully`);
+          toolResults.push({
+            tool: 'getMarketData',
+            result: marketDataResult.result,
+            status: 'success'
+          });
+
+          // Emit market data result
+          this.eventBus.emit('agent-message', {
+            role: 'assistant',
+            content: marketDataResult.result,
+            timestamp: new Date().toLocaleTimeString(),
+            agentName: this.name,
+            collaborationType: 'tool-result',
+            status: 'success'
           });
           
-          if (result.success) {
-            toolResults.push({
-              tool: toolName,
-              result: result.result,
-              status: 'success'
-            });
-            return result;
-          } else {
-            console.warn(`[${this.name}] ${toolName} tool execution failed:`, result.error || 'Unknown error');
-            toolResults.push({
-              tool: toolName,
-              error: result.error || 'Unknown error',
-              status: 'error'
-            });
-            return null;
-          }
-        } catch (error) {
-          console.error(`[${this.name}] Error executing ${toolName}:`, error);
+          await this.storeIntelligence(`market-data:${startTime}`, {
+            data: marketDataResult.result,
+            timestamp: Date.now(),
+            bucketId
+          });
+        } else {
+          console.error(`[${this.name}] Error executing getMarketData:`, marketDataResult.error);
           toolResults.push({
-            tool: toolName,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            tool: 'getMarketData',
+            error: marketDataResult.error,
             status: 'error'
           });
-          return null;
+
+          // Emit error message
+          this.eventBus.emit('agent-message', {
+            role: 'assistant',
+            content: `Error fetching market data: ${marketDataResult.error}`,
+            timestamp: new Date().toLocaleTimeString(),
+            agentName: this.name,
+            collaborationType: 'tool-result',
+            status: 'error'
+          });
         }
-      };
+      } catch (error) {
+        console.error(`[${this.name}] Error executing getMarketData:`, error);
+        toolResults.push({
+          tool: 'getMarketData',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          status: 'error'
+        });
+      }
 
-      // Execute market data tool
-      const marketDataResult = await executeTool('getMarketData');
+      // Execute getTopAgents tool
+      console.log(`[${this.name}] ========== Executing getTopAgents Tool ==========`);
+      try {
+        // Emit tool execution start
+        this.eventBus.emit('agent-message', {
+          role: 'assistant',
+          content: 'Fetching top agents data...',
+          timestamp: new Date().toLocaleTimeString(),
+          agentName: this.name,
+          collaborationType: 'execution'
+        });
 
-      // Execute top agents tool
-      const topAgentsResult = await executeTool('getTopAgents', {
-        interval: '_7Days',
-        page: 1,
-        pageSize: 3
-      });
+        const topAgentsResult = await this.tools.getTopAgents.execute({
+          bucketId
+        }, {
+          toolCallId: `top-agents-${startTime}`,
+          messages: [],
+          severity: 'info'
+        });
 
-      // Execute tweets tool
-      const today = new Date();
-      const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const tweetsResult = await executeTool('searchCookieTweets', {
-        query: "crypto trading strategy",
-        fromDate: lastWeek.toISOString().split('T')[0],
-        toDate: today.toISOString().split('T')[0]
-      });
+        if (topAgentsResult.success) {
+          console.log(`[${this.name}] Top agents data retrieved successfully`);
+          toolResults.push({
+            tool: 'getTopAgents',
+            result: topAgentsResult.result,
+            status: 'success'
+          });
 
-      console.log(`[${this.name}] ========== Tool Execution Complete ==========`);
+          // Emit top agents result
+          this.eventBus.emit('agent-message', {
+            role: 'assistant',
+            content: topAgentsResult.result,
+            timestamp: new Date().toLocaleTimeString(),
+            agentName: this.name,
+            collaborationType: 'tool-result',
+            status: 'success'
+          });
+          
+          await this.storeIntelligence(`top-agents:${startTime}`, {
+            data: topAgentsResult.result,
+            timestamp: Date.now(),
+            bucketId
+          });
+        } else {
+          console.error(`[${this.name}] Error executing getTopAgents:`, topAgentsResult.error);
+          toolResults.push({
+            tool: 'getTopAgents',
+            error: topAgentsResult.error,
+            status: 'error'
+          });
+
+          // Emit error message
+          this.eventBus.emit('agent-message', {
+            role: 'assistant',
+            content: `Error fetching top agents: ${topAgentsResult.error}`,
+            timestamp: new Date().toLocaleTimeString(),
+            agentName: this.name,
+            collaborationType: 'tool-result',
+            status: 'error'
+          });
+        }
+      } catch (error) {
+        console.error(`[${this.name}] Error executing getTopAgents:`, error);
+        toolResults.push({
+          tool: 'getTopAgents',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          status: 'error'
+        });
+      }
+
+      // Execute searchCookieTweets tool
+      console.log(`[${this.name}] ========== Executing searchCookieTweets Tool ==========`);
+      try {
+        // Emit tool execution start
+        this.eventBus.emit('agent-message', {
+          role: 'assistant',
+          content: 'Searching relevant tweets...',
+          timestamp: new Date().toLocaleTimeString(),
+          agentName: this.name,
+          collaborationType: 'execution'
+        });
+
+        const tweetResult = await this.tools.searchCookieTweets.execute({
+          bucketId
+        }, {
+          toolCallId: `tweets-${startTime}`,
+          messages: [],
+          severity: 'info'
+        });
+
+        if (tweetResult.success) {
+          console.log(`[${this.name}] Tweet data retrieved successfully`);
+          toolResults.push({
+            tool: 'searchCookieTweets',
+            result: tweetResult.result,
+            status: 'success'
+          });
+
+          // Emit tweet search result
+          this.eventBus.emit('agent-message', {
+            role: 'assistant',
+            content: tweetResult.result,
+            timestamp: new Date().toLocaleTimeString(),
+            agentName: this.name,
+            collaborationType: 'tool-result',
+            status: 'success'
+          });
+          
+          await this.storeIntelligence(`tweets:${startTime}`, {
+            data: tweetResult.result,
+            timestamp: Date.now(),
+            bucketId
+          });
+        } else {
+          console.error(`[${this.name}] Error executing searchCookieTweets:`, tweetResult.error);
+          toolResults.push({
+            tool: 'searchCookieTweets',
+            error: tweetResult.error,
+            status: 'error'
+          });
+
+          // Emit error message
+          this.eventBus.emit('agent-message', {
+            role: 'assistant',
+            content: `Error searching tweets: ${tweetResult.error}`,
+            timestamp: new Date().toLocaleTimeString(),
+            agentName: this.name,
+            collaborationType: 'tool-result',
+            status: 'error'
+          });
+        }
+      } catch (error) {
+        console.error(`[${this.name}] Error executing searchCookieTweets:`, error);
+        toolResults.push({
+          tool: 'searchCookieTweets',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          status: 'error'
+        });
+      }
+
+      console.log(`[${this.name}] ========== Task Processing Complete ==========`);
+      console.log(`[${this.name}] Total tools executed: ${toolResults.length}`);
+      console.log(`[${this.name}] Successful tools: ${toolResults.filter(r => r.status === 'success').length}`);
+      console.log(`[${this.name}] Failed tools: ${toolResults.filter(r => r.status === 'error').length}`);
       
-      // Generate analysis even if some tools failed
-      console.log(`[${this.name}] Generating final analysis...`);
-      const systemPrompt = getObserverSystemPrompt(this.address);
-      
-      // Prepare context for AI based on available results
-      const context = `Here's the available market data and social sentiment analysis. Note that some tools may have failed:\n${JSON.stringify(toolResults, null, 2)}`;
-      
-      const response = await this.aiProvider?.generateText(
-        context,
-        systemPrompt.content
-      );
-
-      // Send analysis to task manager
-      this.eventBus.emit('observer-task-manager', {
-        taskId,
-        type: 'analysis',
-        result: response?.text,
-        toolResults,
-        timestamp: new Date().toISOString()
+      // Store all tool results together
+      await this.storeIntelligence(`tool-results:${startTime}`, {
+        results: toolResults,
+        timestamp: Date.now(),
+        bucketId
       });
 
-      // Save the thought
-      await saveThought({
-        agent: this.name,
-        text: response?.text || '',
-        toolCalls: response?.toolCalls || [],
-        toolResults
+      // Emit task completion summary
+      this.eventBus.emit('agent-message', {
+        role: 'assistant',
+        content: `Task processing complete.\nTotal tools executed: ${toolResults.length}\nSuccessful tools: ${toolResults.filter(r => r.status === 'success').length}\nFailed tools: ${toolResults.filter(r => r.status === 'error').length}`,
+        timestamp: new Date().toLocaleTimeString(),
+        agentName: this.name,
+        collaborationType: 'report',
+        status: 'success'
       });
-
+      
+      return toolResults;
     } catch (error) {
-      console.error(`[${this.name}] Error processing task:`, error);
-      this.eventBus.emit('agent-error', {
-        agent: this.name,
-        error: error instanceof Error ? error.message : 'Unknown error'
+      console.error(`[${this.name}] Error in processTask:`, error);
+      
+      // Emit error message
+      this.eventBus.emit('agent-message', {
+        role: 'assistant',
+        content: `Error processing task: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timestamp: new Date().toLocaleTimeString(),
+        agentName: this.name,
+        collaborationType: 'report',
+        status: 'error'
       });
+      
+      throw error;
     }
   }
 
