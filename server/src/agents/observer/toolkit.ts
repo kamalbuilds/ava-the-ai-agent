@@ -99,29 +99,45 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
     getMarketData: {
       description: "A tool that returns the current market data for USDC and EURC.",
       parameters: z.object({}),
-      execute: async (options?: ToolExecutionOptions) => {
+      execute: async (options?: ToolExecutionOptions): Promise<ToolResult> => {
         console.log("======== getMarketData Tool =========");
         console.log(`[getMarketData] fetching market data...`);
-        const marketData = await getMarketData();
+        
+        try {
+          const marketData = await getMarketData();
 
-        const formatTokens = (data: any) => {
-          if (!data?.tokens || data.tokens.length === 0) {
-            return "No opportunities found";
-          }
+          const formatTokens = (data: any) => {
+            if (!data?.tokens || data.tokens.length === 0) {
+              return "No opportunities found";
+            }
 
-          return data.tokens
-            .map(
-              (token: any) =>
-                `[${token.name}] APY: ${token.metrics.apy}% - volume 1d: $${token.metrics.volumeUsd1d} - volume 7d: $${token.metrics.volumeUsd7d}`
-            )
-            .join("\n");
-        };
+            return data.tokens
+              .map(
+                (token: any) =>
+                  `[${token.name}] APY: ${token.metrics.apy}% - volume 1d: $${token.metrics.volumeUsd1d} - volume 7d: $${token.metrics.volumeUsd7d}`
+              )
+              .join("\n");
+          };
 
-        const usdcFormatted = formatTokens(marketData.usdc);
-        const eurcFormatted = formatTokens(marketData.eurc);
+          const usdcFormatted = formatTokens(marketData[0]?.usdc);
+          const eurcFormatted = formatTokens(marketData[0]?.eurc);
 
-        console.log(`[getMarketData] market data fetched correctly.`);
-        return `These are the current market opportunities:\n\nUSDC Opportunities:\n${usdcFormatted}\n\nEURC Opportunities:\n${eurcFormatted}`;
+          console.log(`[getMarketData] market data fetched correctly.`);
+          
+          const formattedResult = `These are the current market opportunities:\n\nUSDC Opportunities:\n${usdcFormatted}\n\nEURC Opportunities:\n${eurcFormatted}`;
+          
+          return {
+            success: true,
+            result: formattedResult
+          };
+        } catch (error) {
+          console.error(`[getMarketData] Error:`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            result: null
+          };
+        }
       },
     },
     getCurrentEurUsdRate: {
@@ -257,10 +273,21 @@ export const getObserverToolkit = (address: Hex): Record<string, Tool> => {
 
         try {
           const data = await cookieApi.searchTweets(args.query, args.fromDate, args.toDate);
-          return { success: true, result: data };
+          
+          // Format the tweets data
+          console.log("Tweets data", data);
+          
+          return { 
+            success: true, 
+            result: data 
+          };
         } catch (error) {
           console.error("Error searching tweets:", error);
-          return { success: false, error: `Error searching tweets: ${error}`, result: null };
+          return { 
+            success: false, 
+            error: `Error searching tweets: ${error}`, 
+            result: null 
+          };
         }
       }
     },

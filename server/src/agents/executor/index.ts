@@ -1,20 +1,29 @@
 import { generateText } from "ai";
 import type { EventBus } from "../../comms";
-import { Agent } from "../agent";
+import { IPAgent } from "../types/ip-agent";
 import { getExecutorToolkit } from "./toolkit";
 import { openai } from "@ai-sdk/openai";
 import { getExecutorSystemPrompt } from "../../system-prompts";
 import { saveThought } from "../../memory";
 import type { Account } from "viem";
+import { RecallStorage } from "../plugins/recall-storage/index.js";
+import { ATCPIPProvider } from "../plugins/atcp-ip";
+import type { IPLicenseTerms, IPMetadata } from "../types/ip-agent";
 
 // Task types
 type TaskType = 'defi_execution' | 'observation' | 'analysis' | 'unknown';
 
-export class ExecutorAgent extends Agent {
+export class ExecutorAgent extends IPAgent {
   private account: Account;
 
-  constructor(name: string, eventBus: EventBus, account: Account) {
-    super(name, eventBus);
+  constructor(
+    name: string, 
+    eventBus: EventBus, 
+    account: Account,
+    recallStorage: RecallStorage,
+    atcpipProvider: ATCPIPProvider
+  ) {
+    super(name, eventBus, recallStorage, atcpipProvider);
     this.account = account;
     this.setupEventHandlers();
   }
@@ -22,14 +31,22 @@ export class ExecutorAgent extends Agent {
   private setupEventHandlers(): void {
     // Listen for task manager events
     this.eventBus.on('task-manager-executor', async (data) => {
-      console.log(`[${this.name}] Received task from task-manager:`, data);
+      console.log(`[${this.name}] ========== RECEIVED TASK MANAGER EVENT ==========`);
+      console.log(`[${this.name}] Event: task-manager-executor`);
+      console.log(`[${this.name}] Task ID: ${data.taskId}`);
+      console.log(`[${this.name}] Task Type: ${data.type}`);
+      console.log(`[${this.name}] Source: ${data.source}`);
+      console.log(`[${this.name}] Timestamp: ${new Date().toISOString()}`);
+      
       try {
         await this.handleTaskManagerEvent(data);
       } catch (error) {
         console.error(`[${this.name}] Error handling task:`, error);
         this.eventBus.emit('agent-error', {
           agent: this.name,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : 'Unknown error',
+          taskId: data.taskId,
+          timestamp: Date.now()
         });
       }
     });
@@ -86,62 +103,102 @@ export class ExecutorAgent extends Agent {
   }
 
   private async handleTaskManagerEvent(data: any): Promise<void> {
+    console.log(`[${this.name}] ========== Starting Task Manager Event Handler ==========`);
+    const toolResults: any[] = [];
+    const startTime = Date.now();
+    const bucketId = `task-bucket-${startTime}`; // Single bucket for entire task
+    
+    console.log(`[${this.name}] Using bucket ID: ${bucketId}`);
+    console.log(`[${this.name}] Task: ${data.task}`);
+    console.log(`[${this.name}] Start Time: ${new Date(startTime).toISOString()}`);
+    
     try {
-      console.log(`[${this.name}] ========== Starting Task Execution ==========`);
-      console.log(`[${this.name}] Processing task:`, data);
-
+      // Validate task data
       if (!data.taskId || !data.task) {
         throw new Error('Invalid task data: missing taskId or task');
       }
 
-      // Determine task type
+      const taskId = data.taskId;
       const taskType = this.determineTaskType(data.task);
-      console.log(`[${this.name}] Determined task type: ${taskType}`);
+      
+      console.log(`[${this.name}] Task Type Determined: ${taskType}`);
 
-      // System event for task start
-      this.eventBus.emit('agent-action', {
-        agent: this.name,
-        action: `Starting execution of task: ${data.taskId} (Type: ${taskType})`
+      // Store task in Recall
+      await this.storeIntelligence(`task:${taskId}`, {
+        task: data.task,
+        timestamp: startTime,
+        status: 'in_progress',
+        type: taskType,
+        bucketId
       });
 
       // Handle task based on type
       switch (taskType) {
         case 'defi_execution': {
+          console.log(`[${this.name}] ========== Processing DeFi Execution Task ==========`);
           const executorTools = getExecutorToolkit(this.account);
           
           // Process DeFi execution task
-          console.log(`[${this.name}] Processing DeFi execution task...`);
-          
+          console.log(`[${this.name}] Fetching transaction data...`);
           const storeResult = await executorTools.getTransactionData.execute({
             tasks: [{
               task: data.task,
-              taskId: data.taskId
-            }]
+              taskId
+            }],
+            bucketId
           });
 
           if (!storeResult.success) {
             throw new Error(`Failed to process DeFi task: ${storeResult.error}`);
           }
 
+          console.log(`[${this.name}] Transaction data fetched successfully`);
+          toolResults.push({
+            tool: 'getTransactionData',
+            result: storeResult.result,
+            status: 'success'
+          });
+
+          // Store transaction data
+          await this.storeIntelligence(`tx:${taskId}`, {
+            data: storeResult.result,
+            timestamp: Date.now(),
+            status: 'pending',
+            bucketId
+          });
+
           // Simulate the transaction
-          const simulationResult = await executorTools.simulateTasks.execute({});
+          console.log(`[${this.name}] ========== Starting Transaction Simulation ==========`);
+          const simulationResult = await executorTools.simulateTasks.execute({
+            bucketId
+          });
           
           if (simulationResult.success) {
-            // Emit simulation result
-            this.eventBus.emit('agent-message', {
-              role: 'assistant',
-              content: `DeFi Task Simulation:\n${JSON.stringify(simulationResult.result, null, 2)}`,
-              timestamp: new Date().toLocaleTimeString(),
-              agentName: this.name,
-              collaborationType: 'simulation'
+            console.log(`[${this.name}] Transaction simulation completed successfully`);
+            toolResults.push({
+              tool: 'simulateTasks',
+              result: simulationResult.result,
+              status: 'success'
+            });
+
+            // Store simulation result
+            await this.storeIntelligence(`simulation:${taskId}`, {
+              result: simulationResult.result,
+              timestamp: Date.now(),
+              status: 'completed',
+              bucketId
             });
 
             // Send result back to task manager
+            console.log(`[${this.name}] ========== Emitting Result to Task Manager ==========`);
             this.eventBus.emit('executor-task-manager', {
-              taskId: data.taskId,
+              taskId,
               result: simulationResult.result,
               status: 'completed',
-              timestamp: new Date().toISOString()
+              toolResults,
+              timestamp: Date.now(),
+              source: 'executor',
+              destination: 'task-manager'
             });
           } else {
             throw new Error(simulationResult.error || 'Simulation failed');
@@ -150,68 +207,74 @@ export class ExecutorAgent extends Agent {
         }
 
         case 'observation': {
-          // Route observation tasks back to task manager for observer
-          console.log(`[${this.name}] Routing observation task to observer...`);
+          console.log(`[${this.name}] ========== Routing Observation Task ==========`);
           this.eventBus.emit('executor-task-manager', {
-            taskId: data.taskId,
+            taskId,
             result: 'Task requires observation. Routing to observer.',
             status: 'routing',
             type: 'observation',
-            timestamp: new Date().toISOString()
+            toolResults,
+            timestamp: Date.now(),
+            source: 'executor',
+            destination: 'task-manager'
           });
           break;
         }
 
         case 'analysis': {
-          // Route analysis tasks back to task manager
-          console.log(`[${this.name}] Routing analysis task to task manager...`);
+          console.log(`[${this.name}] ========== Routing Analysis Task ==========`);
           this.eventBus.emit('executor-task-manager', {
-            taskId: data.taskId,
+            taskId,
             result: 'Task requires analysis. Routing back to task manager.',
             status: 'routing',
             type: 'analysis',
-            timestamp: new Date().toISOString()
+            toolResults,
+            timestamp: Date.now(),
+            source: 'executor',
+            destination: 'task-manager'
           });
           break;
         }
 
         default: {
-          // For unknown task types, route back to task manager for clarification
-          console.log(`[${this.name}] Unknown task type. Routing back to task manager...`);
+          console.log(`[${this.name}] ========== Routing Unknown Task Type ==========`);
           this.eventBus.emit('executor-task-manager', {
-            taskId: data.taskId,
+            taskId,
             result: 'Task type unclear. Please clarify the required action.',
             status: 'routing',
             type: 'unknown',
-            timestamp: new Date().toISOString()
+            toolResults,
+            timestamp: Date.now(),
+            source: 'executor',
+            destination: 'task-manager'
           });
         }
       }
 
+      console.log(`[${this.name}] ========== Task Manager Event Handler Complete ==========\n`);
+
     } catch (error) {
-      console.error(`[${this.name}] Error in handleTaskManagerEvent:`, error);
+      console.error(`[${this.name}] Error processing task:`, error);
       
+      // Store error in Recall
+      await this.storeIntelligence(`error:${data.taskId}`, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: Date.now(),
+        task: data.task,
+        toolResults,
+        bucketId
+      });
+
       // Send error back to task manager
+      console.log(`[${this.name}] ========== Emitting Error to Task Manager ==========`);
       this.eventBus.emit('executor-task-manager', {
         taskId: data.taskId,
-        result: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : 'Unknown error',
         status: 'failed',
-        timestamp: new Date().toISOString()
-      });
-
-      // System event for task failure
-      this.eventBus.emit('agent-action', {
-        agent: this.name,
-        action: `Failed to execute task: ${data.taskId}`
-      });
-
-      // Emit error message
-      this.eventBus.emit('agent-message', {
-        role: 'assistant',
-        content: `Failed to execute task: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        timestamp: new Date().toLocaleTimeString(),
-        agentName: this.name,
-        collaborationType: 'error'
+        toolResults,
+        timestamp: Date.now(),
+        source: 'executor',
+        destination: 'task-manager'
       });
     }
   }
@@ -224,6 +287,12 @@ export class ExecutorAgent extends Agent {
       }`
     );
     if (text) {
+      // Store thought in Recall
+      await this.storeChainOfThought(`thought:${Date.now()}`, [text], {
+        toolCalls,
+        toolResults
+      });
+
       await saveThought({
         agent: "executor",
         text,
