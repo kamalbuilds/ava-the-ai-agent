@@ -14,6 +14,8 @@ import {
 } from "@cowprotocol/cow-sdk";
 import { TOKEN_DETAILS } from "../helpers/utils";
 import { ethers } from "ethers";
+import dotenv from "dotenv";
+dotenv.config();
 
 export const SwapSchema = z.object({
     sellToken: z.string().describe("Sell Token is required"),

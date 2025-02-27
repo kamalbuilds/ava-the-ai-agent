@@ -16,6 +16,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { ChatGroq } from "@langchain/groq";
 import { defiActionProvider } from "./actions/DefiAction";
 import { cowSwapActionProvider } from "./actions/CowSwap";
+import { wormholeActionProvider } from "./actions/WormholeTransfer";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -51,6 +52,7 @@ const getOrInitializeAgent = async (): Promise<
         erc20ActionProvider(),
         defiActionProvider(),
         cowSwapActionProvider(),
+        wormholeActionProvider(),
         // The CDP API Action Provider provides faucet functionality on base-sepolia. Can be removed if you do not need this functionality.
         cdpApiActionProvider({
           apiKeyName: process.env.CDP_API_KEY_NAME,
@@ -72,9 +74,8 @@ const getOrInitializeAgent = async (): Promise<
       checkpointSaver: memory,
       messageModifier: `
               You are a helpful agent that can interact onchain using the Coinbase Developer Platform AgentKit. You are 
-              empowered to interact onchain using your tools. ${
-                canUseFaucet ? faucetMessage : cantUseFaucetMessage
-              }.
+              empowered to interact onchain using your tools. ${canUseFaucet ? faucetMessage : cantUseFaucetMessage
+        }.
               Before executing your first action, get the wallet details to see what network 
               you're on. If there is a 5XX (internal) HTTP error code, ask the user to try again later. If someone 
               asks you to do something you can't do with your currently available tools, you must say so, and 

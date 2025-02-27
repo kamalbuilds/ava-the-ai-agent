@@ -5,6 +5,8 @@ import {
   Network,
   CreateAction,
 } from "@coinbase/agentkit";
+import dotenv from "dotenv";
+dotenv.config();
 
 export const DefiActionSchema = z.object({
   address: z.string().optional().describe("Wallet Address is required"),
