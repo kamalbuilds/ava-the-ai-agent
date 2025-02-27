@@ -7,4 +7,4 @@ export interface EventBus {
     isConnected(): boolean;
     onMessage(handler: (ev: MessageEvent) => void): void;
     getWebSocket(): WebSocket | null;
-} 
+}

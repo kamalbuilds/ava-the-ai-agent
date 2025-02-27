@@ -37,34 +37,31 @@ export const getAccountBalances = async (owner: Hex) => {
  * @dev Gets the market data for both USDC and EURC
  * @returns The market data for both tokens
  */
-export const getMarketData = async (
-  minApy: number = 3,
-  maxApy: number = 60
-) => {
-  const fetchTokenData = async (search: string, minLiquidity: number) => {
-    const url = `https://api.portals.fi/v2/tokens?networks=${env.CHAIN_NAME}&minLiquidity=${minLiquidity}&minApy=${minApy}&maxApy=${maxApy}&search=${search}`;
-    console.log("======== fetchTokenData =========", url);
-    const response = await fetch(url, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env.PORTALS_API_KEY}`,
-      },
-    });
-    
-    console.log("response from portals api", response.json());
-    return response.json();
-  };
+async function fetchTokenData(url: string) {
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching token data:', error);
+    return null;
+  }
+}
 
-  const [usdcData, eurcData] = await Promise.all([
-    fetchTokenData("usdc", 10000000),
-    fetchTokenData("eurc", 2000000),
-  ]);
+export async function getMarketData() {
+  const urls = [
+    'https://api.portals.fi/v2/tokens?networks=base&minLiquidity=10000000&minApy=3&maxApy=60&search=usdc',
+    'https://api.portals.fi/v2/tokens?networks=base&minLiquidity=2000000&minApy=3&maxApy=60&search=eurc'
+  ];
 
-  return {
-    usdc: usdcData,
-    eurc: eurcData,
-  };
-};
+  try {
+    const responses = await Promise.all(urls.map(url => fetchTokenData(url)));
+    return responses.filter(response => response !== null);
+  } catch (error) {
+    console.error('Error in getMarketData:', error);
+    throw error;
+  }
+}
 
 /**
  * @dev Gets the market data for multiple protocol/token combinations

@@ -128,14 +128,15 @@ export default function Home() {
   
   // Sample prompts data
   const samplePrompts = [
-    { icon: "💱", text: "Swap 1 USDC to WETH" },
-    { icon: "📈", text: "Create investment plan for 5 SOL to make 7 SOL" },
+    { icon : "💱", text: "I have 10 AVAX and want to optimize my portfolio between lending, liquidity provision, and trading. What's the best strategy right now?" },
+    { icon: "💱", text: "Swap 1 USDC to WETH on Base" },
+    { icon: "📈", text: "Create investment plan with 1 ETH to make 500 USDC" },
     { icon: "🔄", text: "Bridge 2 ETH to Polygon" },
     { icon: "💰", text: "Find best yield farming opportunities" },
     { icon: "📊", text: "Analyze my portfolio performance" },
     { icon: "📉", text: "Show price chart for PEPE" },
     { icon: "🏦", text: "Deposit 100 USDC to Aave" },
-    { icon: "💎", text: "Find undervalued NFT collections" },
+    { icon: "💎", text: "Find undervalued NFT collections on Base" },
     { icon: "🔍", text: "Check my wallet health" },
     { icon: "⚡", text: "Find gas-optimized DEX route" }
   ];
@@ -518,7 +519,7 @@ export default function Home() {
       // Check if this is an example query
       if (message in EXAMPLE_RESPONSES) {
         addSystemEvent({
-          event: "Processing example scenario",
+          event: "Processing given scenario",
           type: "info",
         });
 
