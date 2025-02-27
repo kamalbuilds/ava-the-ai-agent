@@ -12,9 +12,9 @@ const PORT = process.env.PORT || 8080;
 const server = app.listen(PORT, async () => {
   console.log(`Server running on http://localhost:${PORT}`);
 
-  // const agent = await getOrInitializeAgent();
+  const agent = await getOrInitializeAgent();
 
-  // runChatMode(agent);
+  runChatMode(agent);
 });
 
 // Create a WebSocket server

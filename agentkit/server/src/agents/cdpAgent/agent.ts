@@ -14,6 +14,8 @@ import { MemorySaver } from "@langchain/langgraph";
 import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { ChatGroq } from "@langchain/groq";
+import { defiActionProvider } from "./actions/DefiAction";
+import { cowSwapActionProvider } from "./actions/CowSwap";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -47,6 +49,8 @@ const getOrInitializeAgent = async (): Promise<
         pythActionProvider(),
         walletActionProvider(),
         erc20ActionProvider(),
+        defiActionProvider(),
+        cowSwapActionProvider(),
         // The CDP API Action Provider provides faucet functionality on base-sepolia. Can be removed if you do not need this functionality.
         cdpApiActionProvider({
           apiKeyName: process.env.CDP_API_KEY_NAME,
