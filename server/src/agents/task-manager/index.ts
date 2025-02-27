@@ -296,73 +296,85 @@ export class TaskManagerAgent extends IPAgent {
     }
   }
 
-  async assignTask(taskId: string, agentType: 'executor' | 'observer'): Promise<void> {
-    console.log(`[${this.name}] ========== ASSIGNING TASK ==========`);
-    console.log(`[${this.name}] Task ID: ${taskId}`);
+  // Get a task by ID
+  async getTaskById(taskId: string): Promise<Task | null> {
+    let task = this.tasks.get(taskId);
+    
+    if (!task) {
+      console.warn(`[${this.name}] Task ${taskId} not found in memory, attempting recovery`);
+      try {
+        const storedTask = await this.recallStorage.retrieve(`task:${taskId}`);
+        if (storedTask.data) {
+          task = storedTask.data as Task;
+          this.tasks.set(taskId, task);
+          console.log(`[${this.name}] Successfully recovered task ${taskId} from storage`);
+          return task;
+        }
+      } catch (error) {
+        console.error(`[${this.name}] Failed to recover task ${taskId}:`, error);
+      }
+      return null;
+    }
+    
+    return task;
+  }
+
+  public async assignTask(task: Task): Promise<void> {
+    console.log(`[${this.name}] ========= ASSIGNING TASK =========`);
+    console.log(`[${this.name}] Task ID: ${task.id}`);
+
+    let agentType = 'observer'; // Default agent
+    
+    // Check if the task is related to Hedera
+    if (task.description.toLowerCase().includes('hedera')) {
+      agentType = 'hedera-agent';
+    }
+    
     console.log(`[${this.name}] Assigning to: ${agentType}`);
     console.log(`[${this.name}] Timestamp: ${new Date().toISOString()}`);
+
+    task.assignedTo = agentType;
+    task.status = 'in_progress';
+    this.tasks.set(task.id, task);
+
+    // Store task assignment in Recall
+    await this.storeIntelligence(`assignment:${task.id}`, {
+      taskId: task.id,
+      assignedTo: agentType,
+      status: 'in_progress',
+      timestamp: Date.now()
+    });
+
+    // Store updated task in Recall
+    await this.storeIntelligence(`task:${task.id}`, {
+      ...task,
+      timestamp: Date.now()
+    });
+
+    // Emit task to appropriate agent with enhanced logging
+    console.log(`[${this.name}] ========== EMITTING TASK TO ${agentType.toUpperCase()} ==========`);
     
-    try {
-      let task = this.tasks.get(taskId);
-      
-      if (!task) {
-        console.warn(`[${this.name}] Task ${taskId} not found in memory, attempting recovery`);
-        try {
-          const storedTask = await this.recallStorage.retrieve(`task:${taskId}`);
-          if (storedTask.data) {
-            task = storedTask.data as Task;
-            this.tasks.set(taskId, task);
-            console.log(`[${this.name}] Recovered task ${taskId} from storage`);
-          } else {
-            throw new Error(`No task found with ID: ${taskId}`);
-          }
-        } catch (error) {
-          console.error(`[${this.name}] Failed to recover task ${taskId}:`, error);
-          throw new Error(`No task found with ID: ${taskId}`);
-        }
-      }
-
-      task.assignedTo = agentType;
-      task.status = 'in_progress';
-      this.tasks.set(taskId, task);
-
-      // Store task assignment in Recall
-      await this.storeIntelligence(`assignment:${taskId}`, {
-        taskId,
-        assignedTo: agentType,
-        status: 'in_progress',
-        timestamp: Date.now()
+    if (agentType === 'hedera-agent') {
+      // Use the hedera-agent event for Hedera tasks
+      this.eventBus.emit('hedera-agent', {
+        type: 'hedera-agent',
+        action: 'process-task',
+        taskId: task.id,
+        task: task
       });
-
-      // Store updated task in Recall
-      await this.storeIntelligence(`task:${taskId}`, {
-        ...task,
-        timestamp: Date.now()
-      });
-
-      // Emit task to appropriate agent with enhanced logging
-      console.log(`[${this.name}] ========== EMITTING TASK TO ${agentType.toUpperCase()} ==========`);
+    } else {
+      // Use the original format for other agents
       this.eventBus.emit(`task-manager-${agentType}`, {
-        taskId,
+        taskId: task.id,
         task: task.description,
         type: agentType === 'observer' ? 'analyze' : 'execute',
         timestamp: Date.now(),
         source: 'task-manager',
         destination: agentType
       });
-      console.log(`[${this.name}] Task ${taskId} emitted to ${agentType}`);
-
-    } catch (error) {
-      console.error(`[${this.name}] Error assigning task:`, error);
-      this.eventBus.emit('task-update', {
-        taskId,
-        status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown error',
-        source: 'task-manager',
-        destination: 'system'
-      });
-      throw error;
     }
+    
+    console.log(`[${this.name}] Task ${task.id} emitted to ${agentType}`);
   }
 
   async onStepFinish({ text, toolCalls, toolResults }: any): Promise<void> {

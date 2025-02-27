@@ -82,6 +82,32 @@ export function getTaskManagerToolkit(eventBus: EventBus): Record<string, Tool> 
         }
       }
     },
+    sendMessageToHederaAgent: {
+      description: "Send a Hedera blockchain-related task to the Hedera agent for execution",
+      parameters: z.object({
+        message: z.string().describe("The Hedera task to execute (can be a natural language description or a JSON string with operation and params)"),
+        taskId: z.string().describe("The ID of the task")
+      }),
+      execute: async (args: Record<string, any>, options?: ToolExecutionOptions): Promise<ToolResult> => {
+        try {
+          eventBus.emit('task-manager-hedera', {
+            taskId: args.taskId,
+            task: args.message,
+            type: 'execute'
+          });
+          return {
+            success: true,
+            result: `Message sent to Hedera agent: ${args.message}`
+          };
+        } catch (error) {
+          return {
+            success: false,
+            result: null,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      }
+    },
     sendMessageToSafeWallet: {
       description: "Send a transaction or spending limit request to the Safe Wallet agent",
       parameters: z.object({
