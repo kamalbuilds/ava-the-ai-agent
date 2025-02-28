@@ -29,17 +29,18 @@ const SupportedChains = [
 ] as const;
 
 export const WormholeActionTransferSchema = z.object({
-    sourceChain: z.enum(SupportedChains).describe("Source chain for the transfer (ethereum, base, arbitrum, optimism, or polygon)"),
-    destinationChain: z.enum(SupportedChains).describe("Source chain for the transfer (ethereum, base, arbitrum, optimism, or polygon)"),
+    sourceChain: z.enum(SupportedChains).describe("Source chain for the transfer (ethereum, base, arbitrum, optimism, polygon, or their Sepolia testnet versions)"),
+    destinationChain: z.enum(SupportedChains).describe("Destination chain for the transfer (ethereum, base, arbitrum, optimism, polygon, or their Sepolia testnet versions)"),
     amount_value: z.string().describe('Amount of native token that will be transferred from source chain to destination chain')
 });
 
 export const WormholeActionRedeemSchema = z.object({
-    sourceChain: z.enum(SupportedChains).describe("Source chain for the transfer (ethereum, base, arbitrum, optimism, or polygon)"),
-    destinationChain: z.enum(SupportedChains).describe("Source chain for the transfer (ethereum, base, arbitrum, optimism, or polygon)"),
+    sourceChain: z.enum(SupportedChains).describe("Source chain for the transfer (ethereum, base, arbitrum, optimism, polygon, or their Sepolia testnet versions)"),
+    destinationChain: z.enum(SupportedChains).describe("Destination chain for the transfer (ethereum, base, arbitrum, optimism, polygon, or their Sepolia testnet versions)"),
     amount_value: z.string().describe('Amount of native token that will be transferred from source chain to destination chain'),
     transaction_id: z.string().describe('Transaction ID of the transaction by which the agent can redeem the token')
 });
+
 export class WormholeActionProvider extends ActionProvider<WalletProvider> {
     private wh!: Wormhole<"Testnet">;
     constructor() {
@@ -48,11 +49,17 @@ export class WormholeActionProvider extends ActionProvider<WalletProvider> {
     }
 
     private async initializeWormhole() {
-        const wh = await wormhole("Testnet", [
-            evm,
-        ]);
-
-        this.wh = wh;
+        console.log("[WormholeAction] Initializing Wormhole SDK");
+        try {
+            const wh = await wormhole("Testnet", [
+                evm,
+            ]);
+            console.log("[WormholeAction] Wormhole initialized successfully");
+            this.wh = wh;
+        } catch (error) {
+            console.error("[WormholeAction] Error initializing Wormhole:", error);
+            throw error;
+        }
     }
 
     @CreateAction({
@@ -68,12 +75,19 @@ export class WormholeActionProvider extends ActionProvider<WalletProvider> {
     ): Promise<string> {
         const { sourceChain, destinationChain, amount_value } = params;
 
+        console.log(`[Wormhole] Starting transfer from ${sourceChain} to ${destinationChain} for amount ${amount_value}`);
+        console.log(`[Wormhole] InitializeWormhole completed: ${this.wh ? 'Yes' : 'No'}`);
+
         try {
+            console.log(`[Wormhole] Getting chain objects for ${sourceChain} and ${destinationChain}`);
             const srcChain = this.wh.getChain(sourceChain);
             const dstChain = this.wh.getChain(destinationChain);
+            console.log(`[Wormhole] Successfully got chain objects`);
 
+            console.log(`[Wormhole] Getting signers for source and destination chains`);
             const sender = await getSigner(srcChain);
             const receiver = await getSigner(dstChain);
+            console.log(`[Wormhole] Signers obtained. Sender address: ${sender.address.address}`);
 
             const token = await srcChain.getNativeWrappedTokenId();
             const destTokenBridge = await dstChain.getTokenBridge();

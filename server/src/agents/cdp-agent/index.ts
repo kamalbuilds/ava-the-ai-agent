@@ -167,81 +167,128 @@ Your task is to extract structured information from user requests about blockcha
   }
 
   async processMessage(message: string) {
+    console.log(`[${this.name}] processMessage called with: "${message}"`);
+    
     if (!this.agent) {
+      console.log(`[${this.name}] Agent not initialized, initializing now...`);
       await this.initialize();
       if (!this.agent) {
+        console.error(`[${this.name}] Agent initialization failed`);
         throw new Error("CDP Agent initialization failed");
       }
+      console.log(`[${this.name}] Agent initialization successful`);
     }
     
     try {
+      console.log(`[${this.name}] Starting stream with message`);
       const stream = await this.agent.stream(
         { messages: [{ role: "user", content: message }] },
         { configurable: { thread_id: "AgentKit Discussion" } }
       );
+      console.log(`[${this.name}] Stream created successfully`);
 
       let responseMessage = "";
-      for await (const chunk of stream) {
-        if ("agent" in chunk) {
-          responseMessage = chunk.agent.messages[0].content;
+      console.log(`[${this.name}] Beginning to process stream chunks`);
+      
+      try {
+        for await (const chunk of stream) {
+          console.log(`[${this.name}] Received chunk type: ${Object.keys(chunk).join(', ')}`);
+          
+          if ("agent" in chunk) {
+            console.log(`[${this.name}] Processing agent chunk`);
+            responseMessage = chunk.agent.messages[0].content;
+            console.log(`[${this.name}] Agent response: ${responseMessage.substring(0, 100)}...`);
 
-          // License the agent's response
-          const responseLicenseTerms: IPLicenseTerms = {
-            name: `CDP Agent Response - ${Date.now()}`,
-            description: "License for CDP agent's response to user message",
-            scope: 'commercial',
-            transferability: true,
-            onchain_enforcement: true,
-            royalty_rate: 0.05
-          };
+            try {
+              // License the agent's response
+              const responseLicenseTerms: IPLicenseTerms = {
+                name: `CDP Agent Response - ${Date.now()}`,
+                description: "License for CDP agent's response to user message",
+                scope: 'commercial',
+                transferability: true,
+                onchain_enforcement: true,
+                royalty_rate: 0.05
+              };
 
-          const licenseId = await this.mintLicense(responseLicenseTerms, {
-            issuer_id: this.name,
-            holder_id: 'user',
-            issue_date: Date.now(),
-            version: '1.0'
-          });
+              console.log(`[${this.name}] Minting license for agent response`);
+              const licenseId = await this.mintLicense(responseLicenseTerms, {
+                issuer_id: this.name,
+                holder_id: 'user',
+                issue_date: Date.now(),
+                version: '1.0'
+              });
+              console.log(`[${this.name}] License minted with ID: ${licenseId}`);
 
-          // Store response with license
-          await this.storeIntelligence(`response:${Date.now()}`, {
-            message: responseMessage,
-            licenseId,
-            timestamp: Date.now()
-          });
+              // Store response with license
+              console.log(`[${this.name}] Storing intelligence for agent response`);
+              await this.storeIntelligence(`response:${Date.now()}`, {
+                message: responseMessage,
+                licenseId,
+                timestamp: Date.now()
+              });
+              console.log(`[${this.name}] Intelligence stored successfully`);
+            } catch (licenseError) {
+              console.error(`[${this.name}] Error in licensing agent response:`, licenseError);
+              // Continue despite licensing error
+            }
 
-        } else if ("tools" in chunk) {
-          responseMessage = chunk.tools.messages[0].content;
+          } else if ("tools" in chunk) {
+            console.log(`[${this.name}] Processing tools chunk`);
+            responseMessage = chunk.tools.messages[0].content;
+            console.log(`[${this.name}] Tools response: ${responseMessage.substring(0, 100)}...`);
+            console.log(`[${this.name}] Tool execution details:`, JSON.stringify(chunk.tools.toolsExecutionHistory || {}, null, 2));
 
-          // License the tool result
-          const toolResultLicenseTerms: IPLicenseTerms = {
-            name: `CDP Tool Result - ${Date.now()}`,
-            description: "License for CDP tool execution result",
-            scope: 'commercial',
-            transferability: true,
-            onchain_enforcement: true,
-            royalty_rate: 0.05
-          };
+            try {
+              // License the tool result
+              const toolResultLicenseTerms: IPLicenseTerms = {
+                name: `CDP Tool Result - ${Date.now()}`,
+                description: "License for CDP tool execution result",
+                scope: 'commercial',
+                transferability: true,
+                onchain_enforcement: true,
+                royalty_rate: 0.05
+              };
 
-          const licenseId = await this.mintLicense(toolResultLicenseTerms, {
-            issuer_id: this.name,
-            holder_id: 'user',
-            issue_date: Date.now(),
-            version: '1.0'
-          });
+              console.log(`[${this.name}] Minting license for tool result`);
+              const licenseId = await this.mintLicense(toolResultLicenseTerms, {
+                issuer_id: this.name,
+                holder_id: 'user',
+                issue_date: Date.now(),
+                version: '1.0'
+              });
+              console.log(`[${this.name}] License minted with ID: ${licenseId}`);
 
-          // Store tool result with license
-          await this.storeIntelligence(`tool:${Date.now()}`, {
-            result: responseMessage,
-            licenseId,
-            timestamp: Date.now()
-          });
+              // Store tool result with license
+              console.log(`[${this.name}] Storing intelligence for tool result`);
+              await this.storeIntelligence(`tool:${Date.now()}`, {
+                result: responseMessage,
+                licenseId,
+                timestamp: Date.now()
+              });
+              console.log(`[${this.name}] Intelligence stored successfully`);
+            } catch (licenseError) {
+              console.error(`[${this.name}] Error in licensing tool result:`, licenseError);
+              // Continue despite licensing error
+            }
+          }
         }
+      } catch (streamError) {
+        console.error(`[${this.name}] Error processing stream chunks:`, streamError);
+        // If we have a partial response, return it, otherwise rethrow
+        if (responseMessage) {
+          return `Partial response (error occurred): ${responseMessage}`;
+        }
+        throw streamError;
       }
 
-      console.log(`[${this.name}] Response message:`, responseMessage);
+      console.log(`[${this.name}] Stream processing complete`);
+      console.log(`[${this.name}] Final response message:`, responseMessage);
       return responseMessage;
     } catch (error) {
       console.error(`[${this.name}] Error in processMessage:`, error);
+      if (error instanceof Error) {
+        console.error(`[${this.name}] Error stack:`, error.stack);
+      }
       return `Error processing your request: ${error instanceof Error ? error.message : String(error)}`;
     }
   }
@@ -255,6 +302,8 @@ Your task is to extract structured information from user requests about blockcha
     );
 
     if (text) {
+
+      console.log("i m on the step finish");
       // Store chain of thought with license
       const thoughtLicenseTerms: IPLicenseTerms = {
         name: `CDP Chain of Thought - ${Date.now()}`,
@@ -265,7 +314,7 @@ Your task is to extract structured information from user requests about blockcha
         royalty_rate: 0.05
       };
 
-      const licenseId = await this.mintLicense(thoughtLicenseTerms, {
+              const licenseId = await this.mintLicense(thoughtLicenseTerms, {
         issuer_id: this.name,
         holder_id: 'user',
         issue_date: Date.now(),
