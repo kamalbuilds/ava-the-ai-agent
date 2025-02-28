@@ -26,6 +26,7 @@ interface Task {
   toolResults?: any[];
   licenseId?: string;
   timestamp: string;
+  operationType?: string;
 }
 
 /**
@@ -57,34 +58,24 @@ export class TaskManagerAgent extends IPAgent {
   }
 
   private setupEventHandlers(): void {
-    // Listen for executor results
-    this.eventBus.on('executor-task-manager', async (data) => {
-      console.log(`[${this.name}] ========== RECEIVED EXECUTOR EVENT ==========`);
-      console.log(`[${this.name}] Event: executor-task-manager`);
-      console.log(`[${this.name}] Task ID: ${data.taskId}`);
-      console.log(`[${this.name}] Status: ${data.status}`);
-      console.log(`[${this.name}] Timestamp: ${new Date().toISOString()}`);
-      
-      try {
-        await this.handleExecutorResult(data);
-      } catch (error) {
-        console.error(`[${this.name}] Error handling executor result:`, error);
-      }
+    // Listen for hedera agent responses
+    this.eventBus.register('hedera-task-manager', async (data: any) => {
+      await this.handleHederaResult(data);
     });
 
-    // Listen for observer results
-    this.eventBus.on('observer-task-manager', async (data) => {
-      console.log(`[${this.name}] ========== RECEIVED OBSERVER EVENT ==========`);
-      console.log(`[${this.name}] Event: observer-task-manager`);
-      console.log(`[${this.name}] Task ID: ${data.taskId}`);
-      console.log(`[${this.name}] Status: ${data.status}`);
-      console.log(`[${this.name}] Timestamp: ${new Date().toISOString()}`);
-      
-      try {
-        await this.handleObserverResult(data);
-      } catch (error) {
-        console.error(`[${this.name}] Error handling observer result:`, error);
-      }
+    // Listen for executor agent responses
+    this.eventBus.register('executor-task-manager', async (data: any) => {
+      await this.handleExecutorResult(data);
+    });
+
+    // Listen for observer agent responses
+    this.eventBus.register('observer-task-manager', async (data: any) => {
+      await this.handleObserverResult(data);
+    });
+    
+    // Listen for CDP agent responses
+    this.eventBus.register('cdp-agent-task-manager', async (data: any) => {
+      await this.handleCDPResult(data);
     });
 
     // Listen for task updates
@@ -264,7 +255,211 @@ export class TaskManagerAgent extends IPAgent {
     }
   }
 
-  async createTask(description: string): Promise<string> {
+  private async handleCDPResult(data: any): Promise<void> {
+    console.log(`[${this.name}] ========== Handling CDP Agent Result ==========`);
+    console.log(`[${this.name}] Received result from CDP agent for task: ${data.taskId}`);
+    console.log(`[${this.name}] Result status: ${data.status}`);
+    
+    try {
+      let task = this.tasks.get(data.taskId);
+      
+      if (!task) {
+        console.warn(`[${this.name}] Task ${data.taskId} not found in memory, attempting recovery`);
+        try {
+          const storedTask = await this.recallStorage.retrieve(`task:${data.taskId}`);
+          if (storedTask.data) {
+            task = storedTask.data as Task;
+            this.tasks.set(data.taskId, task);
+            console.log(`[${this.name}] Successfully recovered task ${data.taskId} from storage`);
+          } else {
+            throw new Error('Task not found in storage');
+          }
+        } catch (error) {
+          console.error(`[${this.name}] Failed to recover task ${data.taskId}:`, error);
+          // Create a new task if recovery fails
+          task = {
+            id: data.taskId,
+            description: data.task || 'Unknown task',
+            status: 'pending',
+            timestamp: new Date().toISOString()
+          };
+          this.tasks.set(data.taskId, task);
+          console.log(`[${this.name}] Created new task ${data.taskId} for untracked result`);
+        }
+      }
+
+      // Store result in Recall with detailed logging
+      console.log(`[${this.name}] Storing CDP execution result in Recall for task: ${data.taskId}`);
+      await this.storeIntelligence(`cdp-execution:${data.taskId}`, {
+        result: data.result,
+        status: data.status,
+        toolResults: data.toolResults,
+        error: data.error,
+        timestamp: Date.now()
+      });
+      console.log(`[${this.name}] Successfully stored CDP execution result`);
+
+      // Update task status with logging
+      console.log(`[${this.name}] Updating task status to: ${data.status}`);
+      task.status = data.status;
+      task.result = data.result;
+      task.error = data.error;
+      task.toolResults = data.toolResults;
+      this.tasks.set(data.taskId, task);
+
+      // Store task update in Recall
+      console.log(`[${this.name}] Storing updated task in Recall`);
+      await this.storeIntelligence(`task:${data.taskId}`, {
+        ...task,
+        timestamp: Date.now()
+      });
+
+      // Format and send the result to the client
+      const formattedResult = {
+        type: 'cdp-agent-response',
+        taskId: data.taskId,
+        status: data.status,
+        message: typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2),
+        result: data.result,
+        timestamp: new Date().toLocaleTimeString(),
+        role: 'assistant',
+        agentName: 'CDP Agent'
+      };
+
+      // Emit the formatted result to the client through the event bus
+      this.eventBus.emit('agent-message', formattedResult);
+      
+      // Emit task update with detailed event
+      console.log(`[${this.name}] Emitting task update event`);
+      this.eventBus.emit('task-update', {
+        taskId: data.taskId,
+        status: data.status,
+        result: data.result,
+        error: data.error,
+        toolResults: data.toolResults,
+        timestamp: Date.now(),
+        source: 'cdp-agent',
+        destination: 'task-manager'
+      });
+
+      console.log(`[${this.name}] ========== CDP Agent Result Handling Complete ==========\n`);
+
+    } catch (error) {
+      console.error(`[${this.name}] Error handling CDP agent result:`, error);
+      this.eventBus.emit('task-update', {
+        taskId: data.taskId,
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: Date.now(),
+        source: 'cdp-agent',
+        destination: 'task-manager'
+      });
+    }
+  }
+
+  private async handleHederaResult(data: any): Promise<void> {
+    console.log(`[${this.name}] ========== Handling Hedera Agent Result ==========`);
+    console.log(`[${this.name}] Received result from Hedera agent for task: ${data.taskId}`);
+    console.log(`[${this.name}] Result status: ${data.status}`);
+    
+    try {
+      let task = this.tasks.get(data.taskId);
+      
+      if (!task) {
+        console.warn(`[${this.name}] Task ${data.taskId} not found in memory, attempting recovery`);
+        try {
+          const storedTask = await this.recallStorage.retrieve(`task:${data.taskId}`);
+          if (storedTask.data) {
+            task = storedTask.data as Task;
+            this.tasks.set(data.taskId, task);
+            console.log(`[${this.name}] Successfully recovered task ${data.taskId} from storage`);
+          } else {
+            throw new Error('Task not found in storage');
+          }
+        } catch (error) {
+          console.error(`[${this.name}] Failed to recover task ${data.taskId}:`, error);
+          // Create a new task if recovery fails
+          task = {
+            id: data.taskId,
+            description: data.task || 'Unknown task',
+            status: 'pending',
+            timestamp: new Date().toISOString()
+          };
+          this.tasks.set(data.taskId, task);
+          console.log(`[${this.name}] Created new task ${data.taskId} for untracked result`);
+        }
+      }
+
+      // Store result in Recall with detailed logging
+      console.log(`[${this.name}] Storing Hedera execution result in Recall for task: ${data.taskId}`);
+      await this.storeIntelligence(`hedera-execution:${data.taskId}`, {
+        result: data.result,
+        status: data.status,
+        toolResults: data.toolResults,
+        error: data.error,
+        timestamp: Date.now()
+      });
+      console.log(`[${this.name}] Successfully stored Hedera execution result`);
+
+      // Update task status with logging
+      console.log(`[${this.name}] Updating task status to: ${data.status}`);
+      task.status = data.status;
+      task.result = data.result;
+      task.error = data.error;
+      task.toolResults = data.toolResults;
+      this.tasks.set(data.taskId, task);
+
+      // Store task update in Recall
+      console.log(`[${this.name}] Storing updated task in Recall`);
+      await this.storeIntelligence(`task:${data.taskId}`, {
+        ...task,
+        timestamp: Date.now()
+      });
+
+      // Format and send the result to the client
+      const formattedResult = {
+        type: 'hedera-response',
+        taskId: data.taskId,
+        status: data.status,
+        message: typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2),
+        result: data.result,
+        timestamp: new Date().toLocaleTimeString(),
+        role: 'assistant',
+        agentName: 'Hedera Agent'
+      };
+
+      // Emit the formatted result to the client through the event bus
+      this.eventBus.emit('agent-message', formattedResult);
+      
+      // Emit task update with detailed event
+      console.log(`[${this.name}] Emitting task update event`);
+      this.eventBus.emit('task-update', {
+        taskId: data.taskId,
+        status: data.status,
+        result: data.result,
+        error: data.error,
+        toolResults: data.toolResults,
+        timestamp: Date.now(),
+        source: 'hedera-agent',
+        destination: 'task-manager'
+      });
+
+      console.log(`[${this.name}] ========== Hedera Agent Result Handling Complete ==========\n`);
+
+    } catch (error) {
+      console.error(`[${this.name}] Error handling Hedera agent result:`, error);
+      this.eventBus.emit('task-update', {
+        taskId: data.taskId,
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: Date.now(),
+        source: 'hedera-agent',
+        destination: 'task-manager'
+      });
+    }
+  }
+
+  async createTask(description: string, options?: { targetAgent?: string; operationType?: string }): Promise<string> {
     const taskId = uuidv4();  // Use UUID for consistent task IDs
     console.log(`[${this.name}] Creating new task with ID: ${taskId} and description: ${description}`);
     
@@ -272,7 +467,9 @@ export class TaskManagerAgent extends IPAgent {
       id: taskId,
       description,
       status: 'pending',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      assignedTo: options?.targetAgent,
+      operationType: options?.operationType
     };
 
     try {
@@ -325,9 +522,19 @@ export class TaskManagerAgent extends IPAgent {
 
     let agentType = 'observer'; // Default agent
     
+    // If task already has an assigned agent, use that
+    if (task.assignedTo) {
+      agentType = task.assignedTo;
+      console.log(`[${this.name}] Using pre-assigned agent: ${agentType}`);
+    }
     // Check if the task is related to Hedera
-    if (task.description.toLowerCase().includes('hedera')) {
+    else if (task.description.toLowerCase().includes('hedera')) {
       agentType = 'hedera-agent';
+    }
+    // Check if the task is related to CDP
+    else if (task.description.toLowerCase().includes('cdp')) {
+      agentType = 'cdp-agent';
+      console.log(`[${this.name}] Detected CDP-related task, routing to CDP agent`);
     }
     
     console.log(`[${this.name}] Assigning to: ${agentType}`);
@@ -562,6 +769,12 @@ Please process the given task and provide clear, executable instructions.`;
           break;
         case 'observer-task-manager':
           await this.handleObserverResult(data);
+          break;
+        case 'cdp-agent-task-manager':
+          await this.handleCDPResult(data);
+          break;
+        case 'hedera-task-manager':
+          await this.handleHederaResult(data);
           break;
         default:
           console.log(`[${this.name}] Unhandled event: ${event}`);

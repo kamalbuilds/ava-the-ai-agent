@@ -228,6 +228,14 @@ export default function Home() {
       agent: null
     },
     {
+      id: 'cdp-agent',
+      name: 'CDP Agent',
+      type: 'blockchain',
+      status: 'active',
+      description: 'Specialized agent for cross-chain operations, bridges, and CDP-based transactions across multiple networks.',
+      agent: null
+    },
+    {
       id: 'ip-manager',
       name: 'IP Rights Manager',
       type: 'system',
@@ -575,99 +583,136 @@ export default function Home() {
     });
 
     if (autonomousMode) {
-      // Check if this is an example query
-      const example = Object.values(AUTONOMOUS_EXAMPLES).find(ex => ex.query === message);
-
-      if (example) {
+      // Check if this is a CDP-related query
+      const isCDPQuery = message.toLowerCase().includes('cdp');
+      
+      if (isCDPQuery) {
         addSystemEvent({
-          event: "Processing given scenario",
+          event: "Detected CDP operation, routing to CDP agent",
           type: "info",
         });
+        
+        // Send command with CDP agent flag
+        eventBusRef.current?.emit('command', {
+          type: 'command',
+          command: message,
+          agentPreference: 'cdp-agent',
+          operationType: 'cdp-operation'
+        });
+      } else {
+        // Check if this is an example query
+        const example = Object.values(AUTONOMOUS_EXAMPLES).find(ex => ex.query === message);
 
-        // Add system prompt
+        if (example) {
+          addSystemEvent({
+            event: "Processing given scenario",
+            type: "info",
+          });
+
+          // Add system prompt
+          addSystemEvent({
+            event: example.systemPrompt,
+            type: "info",
+            timestamp
+          });
+
+          // Simulate responses with delays
+          for (const response of example.responses) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            setMessages(prev => [...prev, {
+              ...response,
+              timestamp: new Date().toLocaleTimeString()
+            }]);
+
+            addSystemEvent({
+              event: `${response.agentName} providing ${response.collaborationType}`,
+              agent: response.agentName,
+              type: "info"
+            });
+          }
+
+          addSystemEvent({
+            event: "Task completed successfully",
+            type: "success"
+          });
+          return;
+        }
+
+        // Continue with regular autonomous mode handling
+        eventBusRef.current?.emit('command', {
+          type: 'command',
+          command: message
+        });
+
         addSystemEvent({
-          event: example.systemPrompt,
-          type: "info",
+          event: `Task received: ${message}`,
+          type: 'info',
           timestamp
         });
 
-        // Simulate responses with delays
-        for (const response of example.responses) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          setMessages(prev => [...prev, {
-            ...response,
-            timestamp: new Date().toLocaleTimeString()
-          }]);
+        addSystemEvent({
+          event: "Starting agent collaboration",
+          type: "info",
+        });
 
-          addSystemEvent({
-            event: `${response.agentName} providing ${response.collaborationType}`,
-            agent: response.agentName,
-            type: "info"
-          });
+        const portfolioAgent = agents.find((agent) => agent.id === "portfolio");
+        const initialAnalysis = await portfolioAgent?.agent?.invoke(
+          {
+            input: `Analyze this request and determine which other agents should be involved: ${message}`,
+          },
+          { configurable: { sessionId: "user-1" } }
+        );
+
+        console.log(initialAnalysis, "initialAnalysis", portfolioAgent);
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: initialAnalysis.output,
+            timestamp: new Date().toLocaleTimeString(),
+            agentId: "portfolio",
+            agentName: "Portfolio Manager",
+            collaborationType: "analysis",
+          },
+        ]);
+
+        const relevantAgents = agents.filter((agent) => {
+          const messageContent = message.toLowerCase();
+          return (
+            (messageContent.includes("trade") && agent.id === "trading") ||
+            (messageContent.includes("liquidity") && agent.id === "liquidity") ||
+            (messageContent.includes("analytics") &&
+              agent.id === "defi-analytics")
+          );
+        });
+
+        console.log(relevantAgents, "relevantAgents selected are");
+
+        for (const agent of relevantAgents) {
+          const agentResponse = await agent?.agent?.invoke(
+            {
+              input: `Given the user request "${message}" and portfolio analysis "${initialAnalysis.output}", what is your perspective and recommendation?`,
+            },
+            { configurable: { sessionId: "user-1" } }
+          );
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: agentResponse.output,
+              timestamp: new Date().toLocaleTimeString(),
+              agentId: agent.id,
+              agentName: agent.name,
+              collaborationType: "suggestion",
+            },
+          ]);
         }
 
-        addSystemEvent({
-          event: "Task completed successfully",
-          type: "success"
-        });
-        return;
-      }
-
-      // Continue with regular autonomous mode handling
-      eventBusRef.current?.emit('command', {
-        type: 'command',
-        command: message
-      });
-
-      addSystemEvent({
-        event: `Task received: ${message}`,
-        type: 'info',
-        timestamp
-      });
-
-      addSystemEvent({
-        event: "Starting agent collaboration",
-        type: "info",
-      });
-
-      const portfolioAgent = agents.find((agent) => agent.id === "portfolio");
-      const initialAnalysis = await portfolioAgent?.agent?.invoke(
-        {
-          input: `Analyze this request and determine which other agents should be involved: ${message}`,
-        },
-        { configurable: { sessionId: "user-1" } }
-      );
-
-      console.log(initialAnalysis, "initialAnalysis", portfolioAgent);
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: initialAnalysis.output,
-          timestamp: new Date().toLocaleTimeString(),
-          agentId: "portfolio",
-          agentName: "Portfolio Manager",
-          collaborationType: "analysis",
-        },
-      ]);
-
-      const relevantAgents = agents.filter((agent) => {
-        const messageContent = message.toLowerCase();
-        return (
-          (messageContent.includes("trade") && agent.id === "trading") ||
-          (messageContent.includes("liquidity") && agent.id === "liquidity") ||
-          (messageContent.includes("analytics") &&
-            agent.id === "defi-analytics")
-        );
-      });
-
-      console.log(relevantAgents, "relevantAgents selected are");
-
-      for (const agent of relevantAgents) {
-        const agentResponse = await agent?.agent?.invoke(
+        const finalConsensus = await portfolioAgent?.agent?.invoke(
           {
-            input: `Given the user request "${message}" and portfolio analysis "${initialAnalysis.output}", what is your perspective and recommendation?`,
+            input: `Based on all suggestions, provide a final recommendation for: ${message}`,
           },
           { configurable: { sessionId: "user-1" } }
         );
@@ -676,33 +721,14 @@ export default function Home() {
           ...prev,
           {
             role: "assistant",
-            content: agentResponse.output,
+            content: finalConsensus.output,
             timestamp: new Date().toLocaleTimeString(),
-            agentId: agent.id,
-            agentName: agent.name,
-            collaborationType: "suggestion",
+            agentId: "portfolio",
+            agentName: "Portfolio Manager",
+            collaborationType: "decision",
           },
         ]);
       }
-
-      const finalConsensus = await portfolioAgent?.agent?.invoke(
-        {
-          input: `Based on all suggestions, provide a final recommendation for: ${message}`,
-        },
-        { configurable: { sessionId: "user-1" } }
-      );
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: finalConsensus.output,
-          timestamp: new Date().toLocaleTimeString(),
-          agentId: "portfolio",
-          agentName: "Portfolio Manager",
-          collaborationType: "decision",
-        },
-      ]);
     } else {
       // Handle regular chat mode
       // Check if this is an example query
@@ -918,6 +944,22 @@ export default function Home() {
         content: data.report || data.result || '',
         timestamp: new Date().toLocaleTimeString(),
         agentName: 'Executor',
+        collaborationType: 'execution'
+      };
+
+      setMessages(prev => {
+        const updatedMessages = [...prev, newMessage];
+        return deduplicateMessages(updatedMessages);
+      });
+    });
+    
+    // Subscribe to CDP agent responses
+    eventBus.subscribe('cdp-agent-response', (data: { report?: string; result?: string }) => {
+      const newMessage: Message = {
+        role: 'assistant',
+        content: data.report || data.result || '',
+        timestamp: new Date().toLocaleTimeString(),
+        agentName: 'CDP Agent',
         collaborationType: 'execution'
       };
 

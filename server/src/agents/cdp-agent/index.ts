@@ -57,21 +57,18 @@ export class CdpAgent extends IPAgent {
   }
 
   private setupEventHandlers(): void {
-    this.eventBus.on('cdp-agent', async (data: any) => {
-      console.log(`[${this.name}] Received event:`, data);
-    });
-
-    // Also keep the original event handler for backward compatibility
-    this.eventBus.register(`task-manager-agentkit`, (data) =>
-      this.handleEvent(`task-manager-agentkit`, data)
-    );
+    // Subscribe to events relevant to this agent
+    this.eventBus.register('task-manager-cdp-agent', (data: any) => this.handleEvent('task-manager-cdp-agent', data));
+    this.eventBus.register('task-manager-agentkit', (data: any) => this.handleEvent('task-manager-agentkit', data));
+    
+    console.log(`[${this.name}] Event handlers set up for CDP agent`);
   }
 
   async handleEvent(event: string, data: any): Promise<void> {
     // Handle events from other agents
     console.log(`[${this.name}] Received event: ${event}`, data);
 
-    if (event === 'task-manager-agentkit') {
+    if (event === 'task-manager-agentkit' || event === 'task-manager-cdp-agent') {
       await this.handleTaskManagerRequest(data);
     }
   }
@@ -87,14 +84,14 @@ export class CdpAgent extends IPAgent {
     try {
       console.log(`[${this.name}] Processing task: ${task}`);
 
-      // Parse the task to determine what Hedera operation to perform
+      // Parse the task to determine what CDP operation to perform
       const result = await this.executeTask(task);
 
       // Store the result
       this.taskResults.set(taskId, result);
 
       // Send the result back to the task manager
-      this.eventBus.emit('agentkit-task-manager', {
+      this.eventBus.emit('cdp-agent-task-manager', {
         taskId,
         result,
         status: 'completed'
@@ -104,7 +101,7 @@ export class CdpAgent extends IPAgent {
       console.error(`[${this.name}] Error processing task:`, error);
 
       // Send error back to task manager
-      this.eventBus.emit('hedera-task-manager', {
+      this.eventBus.emit('cdp-agent-task-manager', {
         taskId,
         error: error instanceof Error ? error.message : 'Unknown error',
         status: 'failed'
@@ -113,114 +110,140 @@ export class CdpAgent extends IPAgent {
   }
 
   private async executeTask(task: string): Promise<any> {
-    // If we have AI provider, we can use it to parse the task
-    if (this.aiProvider) {
-      // Use AI to determine the operation and parameters
-      const { operation, params } = await this.parseTaskWithAI(task);
-
-      const response = this.processMessage(task)
-      console.log("Response from the cdp agent 1>>>", response);
-
-      return response
-
-      // return this.executeOperation(operation, params);
-    } else {
-      // Simple parsing logic for direct commands
-      try {
-        const taskObj = JSON.parse(task);
-        // return this.executeOperation(taskObj.operation, taskObj.params);
-
-        const response = this.processMessage(taskObj)
-        console.log("Response from the cdp agent 2>>>", response);
-
-        return response
-
-
-      } catch (error: unknown) {
-        throw new Error(`Invalid task format: ${error instanceof Error ? error.message : String(error)}`);
-      }
+    console.log(`[${this.name}] Executing task as text: "${task}"`);
+    
+    try {
+      // Process the text message directly instead of trying to parse it as JSON
+      const response = await this.processMessage(task);
+      console.log(`[${this.name}] Response from the cdp agent:`, response);
+      return response;
+    } catch (error: unknown) {
+      console.error(`[${this.name}] Error processing message:`, error);
+      throw new Error(`Failed to process task: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   private async parseTaskWithAI(task: string): Promise<{ operation: string, params: any }> {
-    // This would use the AI provider to parse natural language into structured operations
-    // For now, we'll implement a simple version
+    // Use AI to extract structured operation and parameters from natural language
+    if (!this.aiProvider) {
+      throw new Error("AI provider not initialized");
+    }
+    
     try {
-      return JSON.parse(task);
+      const systemPrompt = `You are a CDP (Coinbase Developer Platform) agent specialized in blockchain operations.
+Your task is to extract structured information from user requests about blockchain operations.`;
+      
+      const userPrompt = `
+      Extract the operation details from this request:
+      "${task}"
+      
+      Return a JSON object with the following structure:
+      {
+        "operation": "bridge/swap/transfer/etc",
+        "params": {
+          // All relevant parameters like amount, source chain, destination chain, etc.
+        }
+      }
+      `;
+      
+      const aiResponse = await this.aiProvider.generateText(userPrompt, systemPrompt);
+      // Try to parse the AI response as JSON
+      try {
+        return JSON.parse(aiResponse.text);
+      } catch (parseError) {
+        // If parsing fails, return a simple object
+        return {
+          operation: "process",
+          params: { message: task }
+        };
+      }
     } catch (error: unknown) {
-      throw new Error(`Failed to parse task: ${error instanceof Error ? error.message : String(error)}`);
+      // Default fallback if AI parsing fails
+      return {
+        operation: "process",
+        params: { message: task }
+      };
     }
   }
 
   async processMessage(message: string) {
     if (!this.agent) {
-      throw new Error("CDP Agent not initialized");
-    }
-    const stream = await this.agent.stream(
-      { messages: [{ role: "user", content: message }] },
-      { configurable: { thread_id: "AgentKit Discussion" } }
-    );
-
-    let responseMessage = "";
-    for await (const chunk of stream) {
-      if ("agent" in chunk) {
-        responseMessage = chunk.agent.messages[0].content;
-
-        // License the agent's response
-        const responseLicenseTerms: IPLicenseTerms = {
-          name: `CDP Agent Response - ${Date.now()}`,
-          description: "License for CDP agent's response to user message",
-          scope: 'commercial',
-          transferability: true,
-          onchain_enforcement: true,
-          royalty_rate: 0.05
-        };
-
-        const licenseId = await this.mintLicense(responseLicenseTerms, {
-          issuer_id: this.name,
-          holder_id: 'user',
-          issue_date: Date.now(),
-          version: '1.0'
-        });
-
-        // Store response with license
-        await this.storeIntelligence(`response:${Date.now()}`, {
-          message: responseMessage,
-          licenseId,
-          timestamp: Date.now()
-        });
-
-      } else if ("tools" in chunk) {
-        responseMessage = chunk.tools.messages[0].content;
-
-        // License the tool result
-        const toolResultLicenseTerms: IPLicenseTerms = {
-          name: `CDP Tool Result - ${Date.now()}`,
-          description: "License for CDP tool execution result",
-          scope: 'commercial',
-          transferability: true,
-          onchain_enforcement: true,
-          royalty_rate: 0.05
-        };
-
-        const licenseId = await this.mintLicense(toolResultLicenseTerms, {
-          issuer_id: this.name,
-          holder_id: 'user',
-          issue_date: Date.now(),
-          version: '1.0'
-        });
-
-        // Store tool result with license
-        await this.storeIntelligence(`tool:${Date.now()}`, {
-          result: responseMessage,
-          licenseId,
-          timestamp: Date.now()
-        });
+      await this.initialize();
+      if (!this.agent) {
+        throw new Error("CDP Agent initialization failed");
       }
     }
+    
+    try {
+      const stream = await this.agent.stream(
+        { messages: [{ role: "user", content: message }] },
+        { configurable: { thread_id: "AgentKit Discussion" } }
+      );
 
-    console.log(responseMessage, "response message");
-    return responseMessage;
+      let responseMessage = "";
+      for await (const chunk of stream) {
+        if ("agent" in chunk) {
+          responseMessage = chunk.agent.messages[0].content;
+
+          // License the agent's response
+          const responseLicenseTerms: IPLicenseTerms = {
+            name: `CDP Agent Response - ${Date.now()}`,
+            description: "License for CDP agent's response to user message",
+            scope: 'commercial',
+            transferability: true,
+            onchain_enforcement: true,
+            royalty_rate: 0.05
+          };
+
+          const licenseId = await this.mintLicense(responseLicenseTerms, {
+            issuer_id: this.name,
+            holder_id: 'user',
+            issue_date: Date.now(),
+            version: '1.0'
+          });
+
+          // Store response with license
+          await this.storeIntelligence(`response:${Date.now()}`, {
+            message: responseMessage,
+            licenseId,
+            timestamp: Date.now()
+          });
+
+        } else if ("tools" in chunk) {
+          responseMessage = chunk.tools.messages[0].content;
+
+          // License the tool result
+          const toolResultLicenseTerms: IPLicenseTerms = {
+            name: `CDP Tool Result - ${Date.now()}`,
+            description: "License for CDP tool execution result",
+            scope: 'commercial',
+            transferability: true,
+            onchain_enforcement: true,
+            royalty_rate: 0.05
+          };
+
+          const licenseId = await this.mintLicense(toolResultLicenseTerms, {
+            issuer_id: this.name,
+            holder_id: 'user',
+            issue_date: Date.now(),
+            version: '1.0'
+          });
+
+          // Store tool result with license
+          await this.storeIntelligence(`tool:${Date.now()}`, {
+            result: responseMessage,
+            licenseId,
+            timestamp: Date.now()
+          });
+        }
+      }
+
+      console.log(`[${this.name}] Response message:`, responseMessage);
+      return responseMessage;
+    } catch (error) {
+      console.error(`[${this.name}] Error in processMessage:`, error);
+      return `Error processing your request: ${error instanceof Error ? error.message : String(error)}`;
+    }
   }
 
   async onStepFinish({ text, toolCalls, toolResults }: any): Promise<void> {
@@ -287,11 +310,11 @@ export async function initializeAgent() {
     actionProviders: [
       wethActionProvider(),
       pythActionProvider(),
+      wormholeActionProvider(),
       walletActionProvider(),
       erc20ActionProvider(),
       defiActionProvider(),
       cowSwapActionProvider(),
-      wormholeActionProvider(),
       // The CDP API Action Provider provides faucet functionality on base-sepolia. Can be removed if you do not need this functionality.
       cdpApiActionProvider({
         apiKeyName: env.CDP_API_KEY_NAME,
@@ -300,25 +323,35 @@ export async function initializeAgent() {
     ],
   });
 
-  const tools = await getLangChainTools(agentkit);
-  const memory = new MemorySaver();
+  try {
+    // Get LangChain-compatible tools
+    const agentTools = await getLangChainTools(agentkit);
+    const memory = new MemorySaver();
 
-  const agent = createReactAgent({
-    llm: groqModel,
-    tools,
-    checkpointSaver: memory,
-    messageModifier: `
-            You are a helpful agent that can interact onchain using the Coinbase Developer Platform AgentKit. You are 
-            empowered to interact onchain using your tools.
-            Remember to use:
-            - Cow Swap when user asks to swap/change/exchage from one token to another token.
-            - Wormhole Transfer and Redeem when user asks to bridge or transfer native token from one chain to another Chain.
-            Before executing your first action, get the wallet details to see what network 
-            you're on. If there is a 5XX (internal) HTTP error code, ask the user to try again later. 
-            If user ask for some action that is not mentioned or tools that is not present ask the user to try something else.
-            `,
-  });
+    // Create the agent - we're wrapping this in a try/catch to handle type issues
+    console.log("[CDP Agent] Creating agent with LangChain tools");
+    
+    // Type assertion to handle compatibility with createReactAgent
+    const agent = createReactAgent({
+      llm: groqModel,
+      tools: agentTools as any, // Force type compatibility
+      checkpointSaver: memory,
+      messageModifier: `
+              You are a helpful agent that can interact onchain using the Coinbase Developer Platform AgentKit. You are 
+              empowered to interact onchain using your tools.
+              Remember to use:
+              - Cow Swap when user asks to swap/change/exchage from one token to another token.
+              - Wormhole Transfer and Redeem when user asks to bridge or transfer native token from one chain to another Chain.
+              Before executing your first action, get the wallet details to see what network 
+              you're on. If there is a 5XX (internal) HTTP error code, ask the user to try again later. 
+              If user ask for some action that is not mentioned or tools that is not present ask the user to try something else.
+              `,
+    });
 
-  return agent;
-
+    console.log("[CDP Agent] Agent creation successful");
+    return agent;
+  } catch (error) {
+    console.error("[CDP Agent] Error creating agent:", error);
+    throw new Error(`Failed to initialize CDP agent: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }

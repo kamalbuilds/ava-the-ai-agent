@@ -98,7 +98,7 @@ export abstract class IPAgent extends Agent {
       overwrite: true
     });
 
-    console.log(`[${this.name}] Stored intelligence for ${key}:`, result);
+    console.log(`[${this.name}] Stored intelligence for ${key}:`);
   }
 
   protected async retrieveIntelligence(

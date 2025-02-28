@@ -17,9 +17,15 @@ import evm from "@wormhole-foundation/sdk/evm";
 import { getSigner } from "../helpers/signer";
 
 const SupportedChains = [
+    'Base',
+    'Arbitrum',
+    'Ethereum',
+    'Polygon',
+    'Optimism',
     'BaseSepolia',
     'ArbitrumSepolia',
-    'Sepolia',
+    'PolygonSepolia',
+    'OptimismSepolia',
 ] as const;
 
 export const WormholeActionTransferSchema = z.object({
