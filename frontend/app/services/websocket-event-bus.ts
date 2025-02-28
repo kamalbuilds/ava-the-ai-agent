@@ -6,16 +6,17 @@ export class WebSocketEventBus implements EventBus {
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
     private reconnectDelay = 1000;
+    private rawMessageSubscribers: Array<(data: any) => void> = [];
 
     constructor(url: string = process.env['NEXT_PUBLIC_WEBSOCKET_URL'] || 'ws://localhost:3001') {
         this.connect(url);
     }
 
-    public register(event: string, callback: Function): void {
+    public register(event: string, callback: (data: any) => void): void {
         this.subscribe(event, callback);
     }
 
-    public unregister(event: string, callback: Function): void {
+    public unregister(event: string, callback: (data: any) => void): void {
         this.unsubscribe(event, callback);
     }
 
@@ -41,6 +42,11 @@ export class WebSocketEventBus implements EventBus {
         this.ws.onmessage = (ev) => {
             try {
                 const data = JSON.parse(ev.data);
+                
+                // Notify raw message subscribers
+                this.rawMessageSubscribers.forEach(callback => callback(data));
+                
+                // Notify type-specific subscribers
                 const subscribers = this.subscribers.get(data.type);
                 if (subscribers) {
                     subscribers.forEach((callback) => callback(data));
@@ -94,12 +100,24 @@ export class WebSocketEventBus implements EventBus {
         }
     }
 
+    public subscribeToAllMessages(callback: (data: any) => void): void {
+        this.rawMessageSubscribers.push(callback);
+    }
+
+    public unsubscribeFromAllMessages(callback: (data: any) => void): void {
+        const index = this.rawMessageSubscribers.indexOf(callback);
+        if (index !== -1) {
+            this.rawMessageSubscribers.splice(index, 1);
+        }
+    }
+
     public disconnect(): void {
         if (this.ws) {
             this.ws.close();
             this.ws = null;
         }
         this.subscribers.clear();
+        this.rawMessageSubscribers = [];
     }
 
     public isConnected(): boolean {
@@ -114,5 +132,11 @@ export class WebSocketEventBus implements EventBus {
 
     public getWebSocket(): WebSocket | null {
         return this.ws;
+    }
+
+    public sendRaw(data: any): void {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(data));
+        }
     }
 }

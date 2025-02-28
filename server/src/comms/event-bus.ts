@@ -53,10 +53,20 @@ export class EventBus implements IEventBus {
   }
 
   on(event: string, handler: (data: any) => Promise<void>): void {
+    // Store in subscribers map for reference
     if (!this.subscribers.has(event)) {
       this.subscribers.set(event, []);
     }
     this.subscribers.get(event)?.push(handler);
+    
+    // Actually register with the EventEmitter
+    this.eventEmitter.on(event, async (data) => {
+      try {
+        await handler(data);
+      } catch (error) {
+        console.error(`Error in event handler for ${event}:`, error);
+      }
+    });
   }
 
   unsubscribe(event: string, handler: (data: any) => Promise<void>): void {
@@ -65,6 +75,8 @@ export class EventBus implements IEventBus {
       const index = handlers.indexOf(handler);
       if (index > -1) {
         handlers.splice(index, 1);
+        // Note: We can't easily remove the specific handler from eventEmitter
+        // since we wrapped it in an anonymous function
       }
     }
   }

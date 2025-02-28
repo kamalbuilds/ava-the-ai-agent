@@ -1,6 +1,6 @@
-# 🤖 Ava the Portfolio Manager AI Agent
+# 🤖 Ava the MultiChain IP powered Defi Portfolio Managing AI Agents Platform
 
-> Group of Multiple specialized autonomous AI agents with powerful tools that work together in collaberation to analyze, recommend, and execute the most optimal DeFi strategies while maintaining user-defined risk parameters and portfolio goals currently live on Sui , Avalanche , Mode , Arbitrium , Sei, powered by Brian AI and LangChain.
+> Group of Multiple specialized autonomous AI agents with powerful tools that work together in collaberation to analyze, recommend, and execute the most optimal DeFi strategies while maintaining user-defined risk parameters and portfolio goals currently live on Flow, Hedera , Sui , Avalanche , Mode , Arbitrium, powered by Story Protocol , and LangChain.
 
 ## 🎯 Problem Statement
 Managing DeFi portfolios across multiple protocols across different chains can be complex and time-consuming.
