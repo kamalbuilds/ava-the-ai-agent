@@ -1,49 +1,155 @@
-import { CdpAgentkit } from "@coinbase/cdp-agentkit-core";
-import { CdpTool, CdpToolkit } from "@coinbase/cdp-langchain";
-import { Coinbase } from "@coinbase/coinbase-sdk";
 import { ChatGroq } from "@langchain/groq";
 import { MemorySaver } from "@langchain/langgraph";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { IPAgent } from "../types/ip-agent";
 import type { EventBus } from "../../comms";
 import env from "../../env";
-import {
-  SIGN_MESSAGE_PROMPT,
-  signMessage,
-  SignMessageInput,
-} from "./actions/sign_message";
-import {
-  CREATE_PREDICTION_MESSAGE,
-  createPrediction,
-  CreatePredictionInput,
-} from "./actions/create_prediction";
 import { RecallStorage } from "../plugins/recall-storage";
 import { ATCPIPProvider } from "../plugins/atcp-ip";
 import type { IPLicenseTerms, IPMetadata } from "../types/ip-agent";
-
-// Arbitrium Track
+import { AIProvider, Tool } from "../../services/ai/types";
+import { privateKeyToAccount } from "viem/accounts";
+import { createWalletClient, http } from "viem";
+import {
+  AgentKit,
+  cdpApiActionProvider,
+  erc20ActionProvider,
+  NETWORK_ID_TO_VIEM_CHAIN,
+  pythActionProvider,
+  ViemWalletProvider,
+  walletActionProvider,
+  wethActionProvider,
+} from "@coinbase/agentkit";
+import { getLangChainTools } from "@coinbase/agentkit-langchain";
+import { cowSwapActionProvider } from "./actions/CowSwap.action";
+import { wormholeActionProvider } from "./actions/Wormhole.action";
+import { defiActionProvider } from "./actions/Defi.action";
 export class CdpAgent extends IPAgent {
-  private agent: any;
-  private config: any;
+  private agent: ReturnType<typeof createReactAgent> | undefined;
+  public eventBus: EventBus;
+  private taskResults: Map<string, any>;
+  public aiProvider?: AIProvider;
 
   constructor(
-    name: string, 
+    name: string,
     eventBus: EventBus,
     recallStorage: RecallStorage,
-    atcpipProvider: ATCPIPProvider
+    atcpipProvider: ATCPIPProvider,
+    aiProvider?: AIProvider
   ) {
     super(name, eventBus, recallStorage, atcpipProvider);
+
+    this.eventBus = eventBus;
+    this.taskResults = new Map();
+    this.aiProvider = aiProvider;
+
+    this.initialize();
+
+    // Setup event handlers
+    this.setupEventHandlers();
+
   }
 
   async initialize() {
-    const { agent, config } = await initializeAgent();
+    const agent = await initializeAgent();
+    console.log(`[CDP Agent] Agentkit Initialized `);
     this.agent = agent;
-    this.config = config;
+  }
+
+  private setupEventHandlers(): void {
+    this.eventBus.on('cdp-agent', async (data: any) => {
+      console.log(`[${this.name}] Received event:`, data);
+    });
+
+    // Also keep the original event handler for backward compatibility
+    this.eventBus.register(`task-manager-agentkit`, (data) =>
+      this.handleEvent(`task-manager-agentkit`, data)
+    );
   }
 
   async handleEvent(event: string, data: any): Promise<void> {
     // Handle events from other agents
-    console.log(`CDP Agent handling event: ${event}`);
+    console.log(`[${this.name}] Received event: ${event}`, data);
+
+    if (event === 'task-manager-agentkit') {
+      await this.handleTaskManagerRequest(data);
+    }
+  }
+
+  private async handleTaskManagerRequest(data: any): Promise<void> {
+    const { taskId, task, type } = data;
+
+    if (!taskId) {
+      console.error(`[${this.name}] No taskId provided in the request`);
+      return;
+    }
+
+    try {
+      console.log(`[${this.name}] Processing task: ${task}`);
+
+      // Parse the task to determine what Hedera operation to perform
+      const result = await this.executeTask(task);
+
+      // Store the result
+      this.taskResults.set(taskId, result);
+
+      // Send the result back to the task manager
+      this.eventBus.emit('agentkit-task-manager', {
+        taskId,
+        result,
+        status: 'completed'
+      });
+
+    } catch (error: any) {
+      console.error(`[${this.name}] Error processing task:`, error);
+
+      // Send error back to task manager
+      this.eventBus.emit('hedera-task-manager', {
+        taskId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        status: 'failed'
+      });
+    }
+  }
+
+  private async executeTask(task: string): Promise<any> {
+    // If we have AI provider, we can use it to parse the task
+    if (this.aiProvider) {
+      // Use AI to determine the operation and parameters
+      const { operation, params } = await this.parseTaskWithAI(task);
+
+      const response = this.processMessage(task)
+      console.log("Response from the cdp agent 1>>>", response);
+
+      return response
+
+      // return this.executeOperation(operation, params);
+    } else {
+      // Simple parsing logic for direct commands
+      try {
+        const taskObj = JSON.parse(task);
+        // return this.executeOperation(taskObj.operation, taskObj.params);
+
+        const response = this.processMessage(taskObj)
+        console.log("Response from the cdp agent 2>>>", response);
+
+        return response
+
+
+      } catch (error: unknown) {
+        throw new Error(`Invalid task format: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+
+  private async parseTaskWithAI(task: string): Promise<{ operation: string, params: any }> {
+    // This would use the AI provider to parse natural language into structured operations
+    // For now, we'll implement a simple version
+    try {
+      return JSON.parse(task);
+    } catch (error: unknown) {
+      throw new Error(`Failed to parse task: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   async processMessage(message: string) {
@@ -52,7 +158,7 @@ export class CdpAgent extends IPAgent {
     }
     const stream = await this.agent.stream(
       { messages: [{ role: "user", content: message }] },
-      this.config
+      { configurable: { thread_id: "AgentKit Discussion" } }
     );
 
     let responseMessage = "";
@@ -163,62 +269,56 @@ export async function initializeAgent() {
     apiKey: env.GROQ_API_KEY,
   });
 
-  const apiKeyName = env.CDP_API_KEY_NAME;
-  const apiKeyPrivateKey = env.CDP_API_KEY_PRIVATE_KEY;
+  const account = privateKeyToAccount(
+    env.PRIVATE_KEY as `0x${string}`
+  );
 
-  Coinbase.configure({
-    apiKeyName,
-    privateKey: apiKeyPrivateKey,
+  const networkId = env.NETWORK_ID
+
+  const client = createWalletClient({
+    account,
+    chain: NETWORK_ID_TO_VIEM_CHAIN[networkId],
+    transport: http(),
+  });
+  const walletProvider = await new ViemWalletProvider(client);
+
+  const agentkit = await AgentKit.from({
+    walletProvider,
+    actionProviders: [
+      wethActionProvider(),
+      pythActionProvider(),
+      walletActionProvider(),
+      erc20ActionProvider(),
+      defiActionProvider(),
+      cowSwapActionProvider(),
+      wormholeActionProvider(),
+      // The CDP API Action Provider provides faucet functionality on base-sepolia. Can be removed if you do not need this functionality.
+      cdpApiActionProvider({
+        apiKeyName: env.CDP_API_KEY_NAME,
+        apiKeyPrivateKey: env.CDP_API_KEY_PRIVATE_KEY,
+      }),
+    ],
   });
 
-  // Configure CDP AgentKit
-  const walletDataConfig = {
-    networkId: env.NETWORK_ID || "base-sepolia",
-    mnemonicPhrase: env.MNEMONIC_PHRASE,
-  };
-
-  // Initialize CDP AgentKit
-  const agentkit = await CdpAgentkit.configureWithWallet(walletDataConfig);
-
-  // Initialize CDP AgentKit Toolkit and get tools
-  const cdpToolkit = new CdpToolkit(agentkit);
-  const tools = cdpToolkit.getTools();
-
-  const signMessageTool = new CdpTool(
-    {
-      name: "Sign Message",
-      description: SIGN_MESSAGE_PROMPT,
-      argsSchema: SignMessageInput,
-      func: signMessage,
-    },
-    agentkit
-  );
-  tools.push(signMessageTool);
-
-  const PredictionTool = new CdpTool(
-    {
-      name: "Create Prediction",
-      description: CREATE_PREDICTION_MESSAGE,
-      argsSchema: CreatePredictionInput,
-      func: createPrediction,
-    },
-    agentkit
-  );
-  tools.push(PredictionTool);
-
-  // Store buffered conversation history in memory
+  const tools = await getLangChainTools(agentkit);
   const memory = new MemorySaver();
-  const agentConfig = {
-    configurable: { thread_id: "CDP AgentKit Chatbot" },
-  };
 
-  // Create React Agent using the LLM and CDP AgentKit tools
   const agent = createReactAgent({
     llm: groqModel,
     tools,
     checkpointSaver: memory,
-    messageModifier: "You are AI Agent built by Coinbase Developer Agent Kit",
+    messageModifier: `
+            You are a helpful agent that can interact onchain using the Coinbase Developer Platform AgentKit. You are 
+            empowered to interact onchain using your tools.
+            Remember to use:
+            - Cow Swap when user asks to swap/change/exchage from one token to another token.
+            - Wormhole Transfer and Redeem when user asks to bridge or transfer native token from one chain to another Chain.
+            Before executing your first action, get the wallet details to see what network 
+            you're on. If there is a 5XX (internal) HTTP error code, ask the user to try again later. 
+            If user ask for some action that is not mentioned or tools that is not present ask the user to try something else.
+            `,
   });
 
-  return { agent, config: agentConfig };
+  return agent;
+
 }
