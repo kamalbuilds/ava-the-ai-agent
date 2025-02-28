@@ -173,7 +173,11 @@ async function initializeServices() {
               
               // Create and process task through task manager
               const taskId = await agents.taskManagerAgent.createTask(data.command);
-              await agents.taskManagerAgent.assignTask(taskId, 'observer');
+              // Get the task from the task manager and then assign it
+              const task = await agents.taskManagerAgent.getTaskById(taskId);
+              if (task) {
+                await agents.taskManagerAgent.assignTask(task);
+              }
             }
           }
         } catch (error) {

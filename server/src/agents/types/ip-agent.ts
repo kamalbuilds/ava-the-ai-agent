@@ -90,13 +90,15 @@ export abstract class IPAgent extends Agent {
     data: any,
     metadata?: Record<string, any>
   ): Promise<void> {
-    await this.recallStorage.store(key, data, {
+    const result = await this.recallStorage.store(key, data, {
       ...metadata,
       agent: this.name,
       timestamp: Date.now(),
       type: 'intelligence',
       overwrite: true
     });
+
+    console.log(`[${this.name}] Stored intelligence for ${key}:`, result);
   }
 
   protected async retrieveIntelligence(
