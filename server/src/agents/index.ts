@@ -56,6 +56,9 @@ export const registerAgents = (eventBus: EventBus, account: Account, aiProvider 
     network: (process.env.HEDERA_NETWORK || 'testnet') as 'mainnet' | 'testnet' | 'previewnet'
   };
   
+  console.log(`[registerAgents] Initializing Hedera agent with account ID: ${hederaConfig.accountId} on network: ${hederaConfig.network}`);
+  console.log(`[registerAgents] Private key available: ${!!hederaConfig.privateKey}`);
+  
   const hederaAgent = new HederaAgent(
     'hedera-agent',
     eventBus,

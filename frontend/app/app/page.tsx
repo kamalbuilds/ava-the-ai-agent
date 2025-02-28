@@ -125,6 +125,8 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [autonomousMode, setAutonomousMode] = useState(false);
+  const [currentAgentPage, setCurrentAgentPage] = useState(1);
+  const agentsPerPage = 5;
   
   // Sample prompts data
   const samplePrompts = [
@@ -183,6 +185,79 @@ export default function Home() {
     scrollToBottom();
   }, [messages]);
 
+  // Define additional system agents to add to those returned by initializeAgents
+  const additionalSystemAgents: Agent[] = [
+    {
+      id: 'task-manager',
+      name: 'Task Manager Agent',
+      type: 'system',
+      status: 'active',
+      description: 'Manages and coordinates tasks across the agent ecosystem, ensuring efficient workflow and task completion.',
+      agent: null
+    },
+    {
+      id: 'executor',
+      name: 'Executor Agent',
+      type: 'system',
+      status: 'active',
+      description: 'Executes transactions and operations on various blockchain networks with security validation.',
+      agent: null
+    },
+    {
+      id: 'observer',
+      name: 'Observer Agent',
+      type: 'system',
+      status: 'active',
+      description: 'Monitors blockchain events, market conditions, and system state to provide real-time insights.',
+      agent: null
+    },
+    {
+      id: 'validator',
+      name: 'Validator Agent',
+      type: 'system',
+      status: 'active',
+      description: 'Validates transaction parameters and security constraints before execution.',
+      agent: null
+    },
+    {
+      id: 'hedera-agent',
+      name: 'Hedera Agent',
+      type: 'blockchain',
+      status: 'active',
+      description: 'Specialized agent for interacting with the Hedera network, providing token operations and balance checks.',
+      agent: null
+    },
+    {
+      id: 'ip-manager',
+      name: 'IP Rights Manager',
+      type: 'system',
+      status: 'active',
+      description: 'Manages intellectual property rights for AI agent outputs using ATCP/IP protocol.',
+      agent: null
+    }
+  ];
+  
+  // Calculate total number of pages
+  const totalAgentPages = Math.ceil(agents.length / agentsPerPage);
+  
+  // Get current page agents
+  const indexOfLastAgent = currentAgentPage * agentsPerPage;
+  const indexOfFirstAgent = indexOfLastAgent - agentsPerPage;
+  const currentAgents = agents.slice(indexOfFirstAgent, indexOfLastAgent);
+  
+  // Change page
+  const nextAgentPage = () => {
+    if (currentAgentPage < totalAgentPages) {
+      setCurrentAgentPage(prev => prev + 1);
+    }
+  };
+  
+  const prevAgentPage = () => {
+    if (currentAgentPage > 1) {
+      setCurrentAgentPage(prev => prev - 1);
+    }
+  };
+
   useEffect(() => {
     const setupAgents = async () => {
       try {
@@ -203,8 +278,15 @@ export default function Home() {
         }));
 
         const initializedAgents = await initializeAgents();
-        setAgents(initializedAgents);
-        console.log(agents, "initializedAgents");
+        
+        // Combine initialized agents with additional system agents
+        // Avoid duplicates by filtering out any additional system agents with IDs that already exist
+        const existingIds = initializedAgents.map(a => a.id);
+        const filteredSystemAgents = additionalSystemAgents.filter(a => !existingIds.includes(a.id));
+        const allAgents = [...initializedAgents, ...filteredSystemAgents];
+        
+        setAgents(allAgents);
+        console.log("All agents initialized:", allAgents);
 
         setAgentState((prev) => ({
           ...prev,
@@ -353,19 +435,126 @@ export default function Home() {
         event: data.action,
         agent: data.agent,
         type: data.eventType || 'info',
-        timestamp: data.timestamp
       });
     });
 
     // Handle agent messages for chat
     eventBusRef.current.subscribe('agent-message', (data: any) => {
-      setMessages(prev => [...prev, {
-        role: data.role,
-        content: data.content,
-        timestamp: data.timestamp,
-        agentName: data.agentName,
-        collaborationType: data.collaborationType
-      }]);
+      console.log('Agent message received:', data);
+      
+      // Add the message to the chat
+      setMessages(prev => {
+        const newMessage = {
+          role: data.role as "user" | "assistant" | "system",
+          content: data.content,
+          timestamp: data.timestamp || new Date().toLocaleTimeString(),
+          agentName: data.agentName || 'System',
+          collaborationType: data.collaborationType || 'response'
+        } as Message;
+        
+        const updatedMessages = [...prev, newMessage];
+        return deduplicateMessages(updatedMessages);
+      });
+      
+      // Also add a system event
+      addSystemEvent({
+        event: `${data.agentName || 'Agent'} message: ${data.content.substring(0, 50)}${data.content.length > 50 ? '...' : ''}`,
+        agent: data.agentName,
+        type: "info",
+      });
+    });
+
+    // Handle direct Hedera responses
+    eventBusRef.current.subscribe('hedera-response', (data: any) => {
+      console.log('Direct Hedera response received:', data);
+      
+      // Add the message to the chat
+      setMessages(prev => {
+        const newMessage = {
+          role: data.role as "user" | "assistant" | "system",
+          content: data.message,
+          timestamp: data.timestamp || new Date().toLocaleTimeString(),
+          agentName: data.agentName || 'Hedera Agent',
+          collaborationType: data.collaborationType || 'response'
+        } as Message;
+        
+        const updatedMessages = [...prev, newMessage];
+        return deduplicateMessages(updatedMessages);
+      });
+      
+      // Also add a system event
+      addSystemEvent({
+        event: `Hedera response: ${data.message.substring(0, 50)}${data.message.length > 50 ? '...' : ''}`,
+        agent: 'Hedera Agent',
+        type: "success",
+      });
+    });
+
+    // Subscribe to all WebSocket messages to capture agent communications
+    eventBusRef.current.subscribeToAllMessages((data: any) => {
+      console.log('Raw WebSocket message:', data);
+      
+      // Process agent-specific messages
+      if (data.source && data.message) {
+        // Add agent communications to system events
+        addSystemEvent({
+          event: data.message,
+          agent: data.source,
+          type: data.level === 'error' ? 'error' : 
+                data.level === 'warning' ? 'warning' : 'info',
+        });
+      }
+      
+      // Process task-manager messages
+      if (data.type === 'task-manager' || data.source === 'task-manager') {
+        addSystemEvent({
+          event: data.message || `Task ${data.taskId || ''}: ${data.status || 'updated'}`,
+          agent: 'Task Manager',
+          type: data.status === 'failed' ? 'error' : 'info',
+        });
+      }
+      
+      // Process observer messages
+      if (data.type === 'observer' || data.source === 'observer') {
+        addSystemEvent({
+          event: data.message || `Observer: ${data.action || 'processing'}`,
+          agent: 'Observer',
+          type: 'info',
+        });
+      }
+      
+      // Process hedera-agent messages
+      if (data.type === 'hedera-agent' || data.source === 'hedera-agent') {
+        addSystemEvent({
+          event: data.message || `Hedera: ${data.action || 'processing'}`,
+          agent: 'Hedera Agent',
+          type: 'info',
+        });
+      }
+      
+      // Process task results
+      if (data.type === 'task-result' && data.result) {
+        // Add the task result to the messages if it's a meaningful result
+        if (typeof data.result === 'object' && Object.keys(data.result).length > 0) {
+          setMessages(prev => {
+            const newMessage: Message = {
+              role: 'assistant',
+              content: typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2),
+              timestamp: new Date().toLocaleTimeString(),
+              agentName: data.agent || 'System',
+              collaborationType: 'tool-result' as CollaborationType
+            };
+            return [...prev, newMessage];
+          });
+        }
+        
+        // Add system event for the task result
+        addSystemEvent({
+          event: `Task completed: ${data.taskId || ''}`,
+          agent: data.agent,
+          type: 'success',
+        });
+      }
     });
   };
 
@@ -517,21 +706,27 @@ export default function Home() {
     } else {
       // Handle regular chat mode
       // Check if this is an example query
-      if (message in EXAMPLE_RESPONSES) {
+      const exampleKeys = Object.keys(EXAMPLE_RESPONSES);
+      const isExampleQuery = exampleKeys.includes(message);
+      
+      if (isExampleQuery) {
         addSystemEvent({
           event: "Processing given scenario",
           type: "info",
         });
 
-        for (const response of EXAMPLE_RESPONSES[message]) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          setMessages((prev) => [
-            ...prev,
-            {
+        const responses = EXAMPLE_RESPONSES[message as keyof typeof EXAMPLE_RESPONSES];
+        for (const response of responses) {
+          await new Promise((resolve) => setTimeout(resolve, 40000)); // 40 second delay between responses
+          setMessages((prev) => {
+            const updatedMessages = [...prev, {
               ...response,
               timestamp: new Date().toLocaleTimeString(),
-            },
-          ]);
+              role: response.role as "user" | "assistant" | "system",
+              collaborationType: response.collaborationType as CollaborationType
+            } as Message];
+            return deduplicateMessages(updatedMessages);
+          });
 
           addSystemEvent({
             event: `${response.agentName} providing ${response.collaborationType}`,
@@ -747,39 +942,108 @@ export default function Home() {
         {/* Left Sidebar - Agent Details */}
         <div className="w-1/4 border-r border-white/10 overflow-y-auto custom-scrollbar">
           <div className="p-4">
-            <h2 className="text-lg font-semibold mb-4">Available Agents</h2>
-            {agents.map((agent) => (
-              <div
-                key={agent.id}
-                className={`p-4 mb-4 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id
-                  ? "bg-blue-50 border border-blue-200"
-                  : "bg-white border"
-                  }`}
-              >
-                <div className="flex items-center mb-2">
-                  <div className="relative w-12 h-12 mr-3">
-                    <Image
-                      src={agentImages[agent.id as keyof typeof agentImages] || agentImages.default}
-                      alt={`${agent.name} avatar`}
-                      fill
-                      className="rounded-full object-cover"
-                      priority
-                    />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-900">{agent.name}</h3>
-                    <p className="text-xs text-gray-500">AI Assistant</p>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
-                {agentState.activeAgent === agent.id && (
-                  <div className="mt-2 text-xs text-blue-600 flex items-center">
-                    <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
-                    Active
-                  </div>
-                )}
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Available Agents</h2>
+              <div className="flex items-center space-x-2">
+                <button 
+                  onClick={prevAgentPage} 
+                  disabled={currentAgentPage === 1}
+                  className={`px-2 py-1 rounded ${currentAgentPage === 1 ? 'bg-gray-200 text-gray-400' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
+                >
+                  ←
+                </button>
+                <span className="text-sm">{currentAgentPage} / {totalAgentPages || 1}</span>
+                <button 
+                  onClick={nextAgentPage} 
+                  disabled={currentAgentPage === totalAgentPages || agents.length === 0}
+                  className={`px-2 py-1 rounded ${currentAgentPage === totalAgentPages || agents.length === 0 ? 'bg-gray-200 text-gray-400' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
+                >
+                  →
+                </button>
               </div>
-            ))}
+            </div>
+            
+            {currentAgents.length === 0 ? (
+              <div className="p-4 text-center text-gray-400">
+                No agents available
+              </div>
+            ) : (
+              <>
+                {/* Group agents by type */}
+                {(() => {
+                  // Get unique agent types from current page
+                  const agentTypes = [...new Set(currentAgents.map(agent => agent.type))];
+                  
+                  return agentTypes.map(type => (
+                    <div key={type} className="mb-4">
+                      <div className="mb-2 border-b border-gray-200 pb-1">
+                        <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                          {type === 'system' ? 'System Agents' : 
+                           type === 'blockchain' ? 'Blockchain Agents' :
+                           type === 'wallet' ? 'Wallet Agents' :
+                           type === 'defi' ? 'DeFi Agents' :
+                           type === 'bridge' ? 'Bridge Agents' :
+                           type === 'trading' ? 'Trading Agents' :
+                           type === 'assistant' ? 'Assistant Agents' :
+                           `${type.charAt(0).toUpperCase() + type.slice(1)} Agents`}
+                        </h3>
+                      </div>
+                      
+                      {currentAgents
+                        .filter(agent => agent.type === type)
+                        .map(agent => (
+                          <div
+                            key={agent.id}
+                            className={`p-4 mb-3 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
+                              agentState.activeAgent === agent.id
+                                ? "bg-blue-50 border border-blue-200"
+                                : "bg-white border"
+                            }`}
+                            onClick={() => setAgentState(prev => ({ ...prev, activeAgent: agent.id }))}
+                          >
+                            <div className="flex items-center mb-2">
+                              <div className="relative w-12 h-12 mr-3">
+                                <Image
+                                  src={agentImages[agent.id as keyof typeof agentImages] || agentImages.default}
+                                  alt={`${agent.name} avatar`}
+                                  fill
+                                  className="rounded-full object-cover"
+                                  priority
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex justify-between items-center">
+                                  <h3 className="font-medium text-gray-900">{agent.name}</h3>
+                                  <span className={`text-xs px-2 py-1 rounded-full ${
+                                    agent.status === 'active' ? 'bg-green-100 text-green-800' : 
+                                    agent.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                                    'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                    {agent.status}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-500">{agent.type || "AI Assistant"}</p>
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
+                            {agentState.activeAgent === agent.id && (
+                              <div className="mt-2 text-xs text-blue-600 flex items-center">
+                                <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
+                                Active
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  ));
+                })()}
+              </>
+            )}
+
+            {/* Total agent count */}
+            <div className="text-xs text-gray-500 text-center mt-2">
+              Total Agents: {agents.length}
+            </div>
           </div>
         </div>
 

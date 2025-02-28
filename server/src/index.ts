@@ -80,12 +80,6 @@ async function initializeServices() {
     // Initialize agents
     console.log("======== Registering agents =========");
 
-
-
-
-
-
-
         // Register all agents
         const agents = registerAgents(eventBus, account, aiProvider , recallStorage , atcpipProvider);
         console.log("[initializeServices] All agents registered");
@@ -131,7 +125,7 @@ async function initializeServices() {
       ws.on("message", async (message: string) => {
         try {
           const data = JSON.parse(message.toString());
-
+          console.log("[WebSocket] Received message:", data);
           if (data.type === "settings") {
             // Update AI provider based on settings
             const newProvider = AIFactory.createProvider({

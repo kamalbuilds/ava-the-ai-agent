@@ -334,6 +334,8 @@ export class RecallStorage {
             waitForTransaction: true
           }) as RecallResult<{ bucket: Address }>;
 
+          console.log(`[RecallStorage] Created new bucket for ${bucketAlias} with address: ${result.result.bucket}`);
+
           if (!result.result) {
             throw new Error(`Failed to create bucket: ${bucketAlias}`);
           }
