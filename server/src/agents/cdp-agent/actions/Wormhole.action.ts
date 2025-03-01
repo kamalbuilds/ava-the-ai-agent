@@ -129,8 +129,8 @@ export class WormholeActionProvider extends ActionProvider<WalletProvider> {
             let senderAddress;
             try {
                 // Check if getAddress is a function, otherwise use the address property
-                if (typeof sender.getAddress === 'function') {
-                    senderAddress = await sender.getAddress();
+                if (typeof sender.address === 'function') {
+                    senderAddress = await sender.address;
                 } else if (sender.address) {
                     senderAddress = sender.address;
                     console.log(`[Wormhole] Using sender address property: ${senderAddress}`);
@@ -147,8 +147,8 @@ export class WormholeActionProvider extends ActionProvider<WalletProvider> {
             let receiverAddress;
             try {
                 // Similar check for getAddress or address property
-                if (typeof receiver.getAddress === 'function') {
-                    receiverAddress = await receiver.getAddress();
+                if (typeof receiver.address === 'function') {
+                    receiverAddress = await receiver.address;
                 } else if (receiver.address) {
                     receiverAddress = receiver.address;
                     console.log(`[Wormhole] Using receiver address property: ${receiverAddress}`);
@@ -163,11 +163,13 @@ export class WormholeActionProvider extends ActionProvider<WalletProvider> {
 
             // First, create the transfer with the correct chain context
             console.log(`[Wormhole] Creating token bridge transfer with proper context`);
+
+            console.log(sender , receiver ,"sender and receiver")
             
             // This is the key fix - we need to use the correct chain context
             const transfer = sourceTokenBridge.transfer(
-                senderAddress.toString(),
-                receiverAddress.toString(),
+                sender.address.address,
+                receiver.address,
                 tokenId.address,
                 amt
             );
@@ -176,7 +178,7 @@ export class WormholeActionProvider extends ActionProvider<WalletProvider> {
             
             // Use the Wormhole SDK's signSendWait function to handle the transfer properly
             // This ensures the chain context is maintained correctly
-            const txids = await signSendWait(srcChain, transfer, sender);
+            const txids = await signSendWait(srcChain, transfer, sender.signer);
             
             console.log(`[Wormhole] Transfer completed, transaction IDs:`, txids);
             
@@ -224,8 +226,8 @@ export class WormholeActionProvider extends ActionProvider<WalletProvider> {
             let receiverAddress;
             try {
                 // Check if getAddress is a function, otherwise use the address property
-                if (typeof receiver.getAddress === 'function') {
-                    receiverAddress = await receiver.getAddress();
+                if (typeof receiver.address === 'function') {
+                    receiverAddress = await receiver.address;
                 } else if (receiver.address) {
                     receiverAddress = receiver.address;
                     console.log(`[Wormhole] Using receiver address property: ${receiverAddress}`);
@@ -263,14 +265,14 @@ export class WormholeActionProvider extends ActionProvider<WalletProvider> {
             const rcvTb = await dstChain.getTokenBridge();
 
             console.log(`[Wormhole] Preparing redemption transaction`);
-            const redeem = rcvTb.redeem(receiverAddress.toString(), vaa);
+            const redeem = rcvTb.redeem(receiver.address.address, vaa);
             console.log("[Wormhole] Redemption transaction prepared");
 
             console.log(`[Wormhole] Using signSendWait for redemption with destination chain ${dstChain.chain}`);
             
             // Use the Wormhole SDK's signSendWait function to handle the redemption properly
             // This ensures the chain context is maintained correctly
-            const rcvTxids = await signSendWait(dstChain, redeem, receiver);
+            const rcvTxids = await signSendWait(dstChain, redeem, receiver.signer);
             
             console.log(`[Wormhole] Redemption transactions sent, transaction IDs:`, rcvTxids);
             
