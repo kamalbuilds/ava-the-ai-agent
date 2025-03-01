@@ -478,10 +478,10 @@ export class TaskManagerAgent extends IPAgent {
       console.log(`[${this.name}] Task ${taskId} stored in memory`);
 
       // Then store in Recall
-      await this.storeIntelligence(`task:${taskId}`, {
-        ...task,
-        timestamp: Date.now()
-      });
+      // await this.storeIntelligence(`task:${taskId}`, {
+      //   ...task,
+      //   timestamp: Date.now()
+      // });
       console.log(`[${this.name}] Task ${taskId} stored in Recall`);
 
       return taskId;

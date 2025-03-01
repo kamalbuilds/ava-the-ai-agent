@@ -131,7 +131,7 @@ export default function Home() {
   // Sample prompts data
   const samplePrompts = [
     { icon : "💱", text: "I have 10 AVAX and want to optimize my portfolio between lending, liquidity provision, and trading. What's the best strategy right now?" },
-    { icon: "💱", text: "Swap 1 USDC to WETH on Base" },
+    { icon: "💱", text: "bridge 0.0001 ETH from BaseSepolia to ArbitriumSepolia using cdp agent kit" },
     { icon: "📈", text: "Create investment plan with 1 ETH to make 500 USDC" },
     { icon: "🔄", text: "Bridge 2 ETH to Polygon" },
     { icon: "💰", text: "Find best yield farming opportunities" },
