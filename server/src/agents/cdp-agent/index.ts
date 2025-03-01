@@ -31,6 +31,7 @@ export class CdpAgent extends IPAgent {
   public eventBus: EventBus;
   private taskResults: Map<string, any>;
   public aiProvider?: AIProvider;
+  private currentTaskId: string | null = null;
 
   constructor(
     name: string,
@@ -83,8 +84,18 @@ export class CdpAgent extends IPAgent {
       return;
     }
 
+    this.currentTaskId = taskId;
+    
     try {
       console.log(`[${this.name}] Processing task: ${task}`);
+      
+      // Emit an event to the frontend that we're starting to process a task
+      this.emitToFrontend({
+        type: 'TASK_STARTED',
+        taskId,
+        message: `Starting to process: ${task}`,
+        timestamp: new Date().toISOString()
+      });
 
       // Parse the task to determine what CDP operation to perform
       const result = await this.executeTask(task);
@@ -99,8 +110,24 @@ export class CdpAgent extends IPAgent {
         status: 'completed'
       });
 
+      // Emit an event to the frontend that we've completed the task
+      this.emitToFrontend({
+        type: 'TASK_COMPLETED',
+        taskId,
+        result,
+        timestamp: new Date().toISOString()
+      });
+
     } catch (error: any) {
       console.error(`[${this.name}] Error processing task:`, error);
+
+      // Emit an error event to the frontend
+      this.emitToFrontend({
+        type: 'TASK_ERROR',
+        taskId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
 
       // Send error back to task manager
       this.eventBus.emit('cdp-agent-task-manager', {
@@ -109,6 +136,23 @@ export class CdpAgent extends IPAgent {
         status: 'failed'
       });
     }
+    
+    this.currentTaskId = null;
+  }
+
+  /**
+   * Emit an event to the frontend with the given data
+   */
+  private emitToFrontend(data: any): void {
+    // Add source information
+    const eventData = {
+      ...data,
+      source: this.name,
+    };
+    
+    // Emit the event to the frontend via the event bus
+    this.eventBus.emit('frontend-event', eventData);
+    console.log(`[${this.name}] Emitted frontend event:`, eventData.type);
   }
 
   private async executeTask(task: string): Promise<any> {
@@ -171,6 +215,14 @@ Your task is to extract structured information from user requests about blockcha
   async processMessage(message: string) {
     console.log(`[${this.name}] processMessage called with: "${message}"`);
     
+    // Emit message received event to frontend
+    this.emitToFrontend({
+      type: 'MESSAGE_RECEIVED',
+      taskId: this.currentTaskId,
+      message,
+      timestamp: new Date().toISOString()
+    });
+    
     if (!this.agent) {
       console.log(`[${this.name}] Agent not initialized, initializing now...`);
       await this.initialize();
@@ -189,6 +241,13 @@ Your task is to extract structured information from user requests about blockcha
       );
       console.log(`[${this.name}] Stream created successfully`);
 
+      // Emit stream started event
+      this.emitToFrontend({
+        type: 'STREAM_STARTED',
+        taskId: this.currentTaskId,
+        timestamp: new Date().toISOString()
+      });
+
       let responseMessage = "";
       console.log(`[${this.name}] Beginning to process stream chunks`);
       
@@ -200,6 +259,14 @@ Your task is to extract structured information from user requests about blockcha
             console.log(`[${this.name}] Processing agent chunk`);
             responseMessage = chunk.agent.messages[0].content;
             console.log(`[${this.name}] Agent response: ${responseMessage.substring(0, 100)}...`);
+
+            // Emit agent thinking event
+            this.emitToFrontend({
+              type: 'AGENT_THINKING',
+              taskId: this.currentTaskId,
+              content: responseMessage,
+              timestamp: new Date().toISOString()
+            });
 
             // try {
             //   // License the agent's response
@@ -240,6 +307,15 @@ Your task is to extract structured information from user requests about blockcha
             console.log(`[${this.name}] Tools response: ${responseMessage.substring(0, 100)}...`);
             console.log(`[${this.name}] Tool execution details:`, JSON.stringify(chunk.tools.toolsExecutionHistory || {}, null, 2));
 
+            // Emit tool execution event with details
+            this.emitToFrontend({
+              type: 'TOOL_EXECUTION',
+              taskId: this.currentTaskId,
+              content: responseMessage,
+              toolDetails: chunk.tools.toolsExecutionHistory || {},
+              timestamp: new Date().toISOString()
+            });
+
             // try {
             //   // License the tool result
             //   const toolResultLicenseTerms: IPLicenseTerms = {
@@ -276,6 +352,15 @@ Your task is to extract structured information from user requests about blockcha
         }
       } catch (streamError) {
         console.error(`[${this.name}] Error processing stream chunks:`, streamError);
+        
+        // Emit stream error event
+        this.emitToFrontend({
+          type: 'STREAM_ERROR',
+          taskId: this.currentTaskId,
+          error: streamError instanceof Error ? streamError.message : String(streamError),
+          timestamp: new Date().toISOString()
+        });
+        
         // If we have a partial response, return it, otherwise rethrow
         if (responseMessage) {
           return `Partial response (error occurred): ${responseMessage}`;
@@ -285,12 +370,30 @@ Your task is to extract structured information from user requests about blockcha
 
       console.log(`[${this.name}] Stream processing complete`);
       console.log(`[${this.name}] Final response message:`, responseMessage);
+      
+      // Emit final response event
+      this.emitToFrontend({
+        type: 'FINAL_RESPONSE',
+        taskId: this.currentTaskId,
+        content: responseMessage,
+        timestamp: new Date().toISOString()
+      });
+      
       return responseMessage;
     } catch (error) {
       console.error(`[${this.name}] Error in processMessage:`, error);
       if (error instanceof Error) {
         console.error(`[${this.name}] Error stack:`, error.stack);
       }
+      
+      // Emit error event
+      this.emitToFrontend({
+        type: 'PROCESSING_ERROR',
+        taskId: this.currentTaskId,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      });
+      
       return `Error processing your request: ${error instanceof Error ? error.message : String(error)}`;
     }
   }
@@ -303,8 +406,16 @@ Your task is to extract structured information from user requests about blockcha
       }`
     );
 
-    if (text) {
+    // Emit step finish event
+    this.emitToFrontend({
+      type: 'STEP_FINISHED',
+      taskId: this.currentTaskId,
+      text,
+      toolCalls: toolCalls?.map((tool: any) => tool.toolName) || [],
+      timestamp: new Date().toISOString()
+    });
 
+    if (text) {
       console.log("i m on the step finish");
       // Store chain of thought with license
       const thoughtLicenseTerms: IPLicenseTerms = {

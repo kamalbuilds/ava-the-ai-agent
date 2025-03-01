@@ -125,6 +125,23 @@ async function initializeServices() {
         }));
       });
 
+      // Forward CDP Agent frontend events to WebSocket clients
+      eventBus.on("frontend-event", async (data) => {
+        ws.send(JSON.stringify({
+          type: "cdp-event",
+          timestamp: new Date().toLocaleTimeString(),
+          eventType: data.type,
+          taskId: data.taskId,
+          content: data.content || data.message || data.result || null,
+          error: data.error || null,
+          source: data.source,
+          details: data
+        }));
+        
+        // Also log the event to the console
+        console.log(`[WebSocket] Forwarded CDP event: ${data.type}`);
+      });
+
       ws.on("message", async (message: string) => {
         try {
           const data = JSON.parse(message.toString());
@@ -193,6 +210,7 @@ async function initializeServices() {
         eventBus.unsubscribe("agent-action", async (data: any) => Promise.resolve());
         eventBus.unsubscribe("agent-response", async (data: any) => Promise.resolve());
         eventBus.unsubscribe("agent-error", async (data: any) => Promise.resolve());
+        eventBus.unsubscribe("frontend-event", async (data: any) => Promise.resolve());
       });
     });
 

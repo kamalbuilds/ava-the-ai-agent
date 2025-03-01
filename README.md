@@ -82,54 +82,33 @@ https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f
    - Cross-chain bridging via SuperchainBridge
    - Automated slippage protection
 
-4. **Treasury Management**
+4. Treasury Management
    - Portfolio rebalancing across protocols
    - Yield optimization strategies
    - Risk-adjusted position management
    - Liquid staking automation
    - Cross-chain asset allocation
 
-5. **AI-Powered Decision Making**
+5. AI-Powered Decision Making
    - Venice.AI integration for market analysis
    - Multi-model architecture for diverse tasks
    - Real-time market sentiment analysis
    - Autonomous strategy formulation
    - Risk assessment and optimization
 
-6. **Cross-Chain Operations**
+6. Cross-Chain Operations
    - SuperchainBridge for L2 transfers
    - Unified liquidity management
    - Cross-chain yield farming
    - Gas-efficient bridging operations
    - Multi-chain position monitoring
 
-7. **Privacy & Security**
+7. Privacy & Security
    - Lit Protocol for decentralized key management
    - Private transaction execution
    - Secure multi-party computation
    - Zero-knowledge proofs for verification
    - Encrypted agent communication
-
-8. **Protocol Integrations**
-   - Enso Finance for unified DeFi access
-   - CoW Protocol for trading
-   - Safe for smart account management
-   - Lit Protocol for access control
-   - Venice.AI for market intelligence
-
-9. **Real-time Monitoring**
-   - Live portfolio tracking
-   - Transaction status updates
-   - Performance analytics
-   - Risk metrics monitoring
-   - Market condition alerts
-
-10. **Autonomous Operations**
-    - Self-executing strategies
-    - Automated rebalancing
-    - Dynamic yield optimization
-    - Gas-aware execution timing
-    - Error recovery and retries
 
 The agents handles complex operations like portfolio rebalancing by:
 
@@ -408,7 +387,7 @@ Agent will:
 2. Scout highest yield opportunities
 3. Execute necessary swaps
 4. Deploy to optimal protocols
-5. Monitor and rebalance as needed
+5. Maintain stability ratio
 ```
 
 ### 6. Portfolio Rebalancing
