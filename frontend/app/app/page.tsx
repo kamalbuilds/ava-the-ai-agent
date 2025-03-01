@@ -126,7 +126,7 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [autonomousMode, setAutonomousMode] = useState(false);
   const [currentAgentPage, setCurrentAgentPage] = useState(1);
-  const agentsPerPage = 5;
+  const agentsPerPage = 4;
   
   // Sample prompts data
   const samplePrompts = [

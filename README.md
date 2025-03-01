@@ -24,10 +24,6 @@ An autonomous group of AI agents that manages your Multichain DeFi portfolio by:
 
 https://youtu.be/gYtUwM4Azlc
 
-## 🏗 Architecture
-
-<img width="1076" alt="Screenshot 2025-02-13 at 12 12 49 PM" src="https://github.com/user-attachments/assets/246b947c-bbee-4134-bbcb-6a33e38a7230" />
-
 ## 📑 Quick Navigation
 
 ### 🚀 Core Sections
@@ -38,22 +34,20 @@ https://youtu.be/gYtUwM4Azlc
 - [Technology Stack](#-technology-stack)
 - [Technology Integrations](#technology-integrations)
 
+## 🏗 Architecture
+
+<img width="1076" alt="Screenshot 2025-02-13 at 12 12 49 PM" src="https://github.com/user-attachments/assets/246b947c-bbee-4134-bbcb-6a33e38a7230" />
+
 ### 🏆 Track Submissions
-- [DeFAI: Automate Integrations](#defai-automate-integrations)
-- [DeFAI: Best Agent on Arbitrum](#defai-best-agent-on-arbitrum)
-- [AI Advancement: Most Autonomous Agent](#ai-advancement-most-autonomous-agent)
-- [Smart Account Tooling: Best Use of Lit Agent Wallet with Safe](#smart-account-tooling-best-use-of-lit-agent-wallet-with-safe)
-- [AI Advancement: Enhanced Onchain Capabilities](#ai-advancement-enhanced-onchain-capabilities)
-- [Smart Account Tooling: Safe Core Infrastructure](#smart-account-tooling-safe-core-infrastructure)
-- [Smart Account Tooling: DuckAI Network Integration](#smart-account-tooling-duckai-network-integration)
-- [DeFAI: Best-In-Class Implementation](#defai-best-in-class-implementation)
-- [Smart Account Tooling: Smart Sessions Co-pilot](#smart-account-tooling-smart-sessions-co-pilot)
-- [AI Advancement: GOAT Plugins on Sei Network](#ai-advancement-goat-plugins-on-sei-network)
-- [Social: AI-Powered Content Translation](#social-ai-powered-content-translation)
-- [DeFAI: Autonomous Business Agents](#defai-autonomous-business-agents)
-- [Social/Gaming: Best Gaming Agent on Avalanche](#socialgaming-best-gaming-agent-on-avalanche)
-- [DeFAI: Safe App Chain Agent](#defai-safe-app-chain-agent)
-- [Smart Account Tooling: Humans X AI](#smart-account-tooling-humans-x-ai)
+- [Flow](#flow)
+
+
+### Flow
+
+https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f
+
+
+
 
 ### 💻 Implementation Details
 - [Enso Integration](#enso-integration-view-code)
@@ -81,7 +75,7 @@ https://youtu.be/gYtUwM4Azlc
 - Handles error recovery
 - Provides progress updates
 
-3. **Advanced Trading & Routing**
+3. Advanced Trading & Routing
    - Enso Finance integration for smart routing
    - CoW Protocol for MEV-protected trades
    - Gas-optimized transaction bundling

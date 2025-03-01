@@ -192,6 +192,7 @@ export class ObserverAgent extends IPAgent {
 
       // Store task in Recall
       console.log(`[${this.name}] Storing task in Recall...`);
+      
       await this.storeIntelligence(`task:${taskId}`, {
         task: data.task,
         type: 'analysis',
