@@ -28,6 +28,7 @@ export class ATCPIPProvider {
 
     const storyConfig: StoryConfig = {
       account: account.address,
+      // @ts-ignore
       transport: http(env.STORY_RPC_PROVIDER_URL) as unknown as Transport,
       chainId: "aeneid" as SupportedChainIds,
     };
