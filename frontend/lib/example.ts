@@ -342,5 +342,74 @@ export const AUTONOMOUS_EXAMPLES = [
         timestamp: "3:17 PM"
       }
     ]
+  },
+  {
+    query: "Buy me NBA Top Shot collection of as many moments as possible for $1",
+    systemPrompt: "Analyzing NBA Top Shot marketplace and preparing purchase transaction",
+    responses: [
+      {
+        role: "assistant",
+        content: "I'll help you purchase NBA Top Shot moments with your $1 budget. Let me analyze the marketplace and identify the best options. I'll need to check which blockchain this operates on and what tokens are required.",
+        agentName: "Task Manager",
+        collaborationType: "analysis",
+        timestamp: "4:20 PM"
+      },
+      {
+        role: "assistant",
+        content: "Analysis complete:\n\n- NBA Top Shot operates on the Flow blockchain\n- Purchases require FLOW tokens or USDC.e\n- Current floor price for moments: ~$0.23-$0.29 each\n- Potential to acquire 3-4 moments with $1\n\nI'll coordinate with our specialized agents to execute this purchase efficiently.",
+        agentName: "Task Manager",
+        collaborationType: "decision",
+        timestamp: "4:21 PM"
+      },
+      {
+        role: "assistant",
+        content: "Preparing to execute NBA Top Shot purchase on Flow blockchain. Will need to:\n1. Check wallet balance\n2. Convert tokens if needed\n3. Connect to NBA Top Shot marketplace\n4. Execute purchase of lowest-priced moments\n\nInitiating execution sequence now.",
+        agentName: "Executor Agent",
+        collaborationType: "execution",
+        timestamp: "4:22 PM"
+      },
+      {
+        role: "assistant",
+        content: "hey there! i'm checking your wallet and looks like you don't have any USDC.e tokens on Flow. no worries though, i can help swap some of your FLOW tokens to get what we need for the purchase. increment finance has the best rates rn for this swap.",
+        agentName: "Eliza",
+        collaborationType: "suggestion",
+        timestamp: "4:23 PM"
+      },
+      {
+        role: "assistant",
+        content: "Wallet Analysis:\n- Current FLOW balance: 2.07954240 FLOW\n- USDC.e balance: 0\n- Need approximately 1 USDC.e for purchase\n\nUsing Increment Finance to swap FLOW → USDC.e:\n- Swap rate: 1 FLOW = 0.48087502 USDC.e\n- Swapping 2.08999236 FLOW to get 1 USDC.e\n- Price impact: 0.00%\n\nTransaction prepared and ready for execution.",
+        agentName: "Executor Agent",
+        collaborationType: "execution",
+        timestamp: "4:24 PM"
+      },
+      {
+        role: "assistant",
+        content: "swap transaction confirmed! we now have 1 USDC.e available for the NBA Top Shot purchase. connecting to the marketplace now to find the best deals on moments.",
+        agentName: "Eliza",
+        collaborationType: "report",
+        timestamp: "4:25 PM"
+      },
+      {
+        role: "assistant",
+        content: "NBA Top Shot Marketplace Analysis:\n\nFound lowest-priced moments:\n1. Jalen Suggs (Base Set Series 7) - $0.27\n2. Terrence Ross (Base Set Series 3) - $0.28\n3. Javonte Green (Base Set Series 3) - $0.28\n4. Brandon Clarke (Base Set Series 3) - $0.29\n\nTotal cost for 4 moments: $1.12\nAdjusting purchase to stay within budget...\nRemoving highest-priced moment (Brandon Clarke).\n\nFinal selection: 3 moments for $0.83\nRemaining budget: $0.17",
+        agentName: "Executor Agent",
+        collaborationType: "analysis",
+        timestamp: "4:26 PM"
+      },
+      {
+        role: "assistant",
+        content: "executing purchase of NBA Top Shot moments now! the marketplace is pretty active today, so we're getting these at a good price. transaction being processed...",
+        agentName: "Eliza",
+        collaborationType: "execution",
+        timestamp: "4:27 PM"
+      },
+      {
+        role: "assistant",
+        content: "✅ Purchase Successful!\n\nAcquired 4 NBA Top Shot moments:\n1. Jalen Suggs (Base Set Series 7) - Common #6725/8000 - $0.24 (3rd Party FMV)\n2. Terrence Ross (Base Set Series 3) - Common #26095/60000 - $0.28\n3. Javonte Green (Base Set Series 3) - Common #56078/60000 - $0.28\n4. Brandon Clarke (Base Set Series 3) - Common #9594/60000 - $0.29 (found a better deal!)\n\nTotal spent: $1.09\nRemaining balance: $0.01\n\nAll moments have been delivered to your Flow wallet. You can view your collection in the NBA Top Shot marketplace under your account.",
+        agentName: "Executor Agent",
+        collaborationType: "report",
+        timestamp: "4:28 PM"
+      }
+    ]
   }
 ];

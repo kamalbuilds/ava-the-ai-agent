@@ -22,6 +22,7 @@
     "@elizaos/client-twitter": "0.25.6-alpha.1",
     "@elizaos/core": "0.25.6-alpha.1",
     "@elizaos/plugin-bootstrap": "0.25.6-alpha.1",
+    "@elizaos/plugin-flow": "0.25.6-alpha.1",
     "@elizaos/plugin-image-generation": "0.25.6-alpha.1",
     "@elizaos/plugin-node": "0.25.6-alpha.1",
     "@elizaos/plugin-solana": "0.25.6-alpha.1",
