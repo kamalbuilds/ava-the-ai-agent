@@ -500,17 +500,35 @@ export class TaskManagerAgent extends IPAgent {
     if (!task) {
       console.warn(`[${this.name}] Task ${taskId} not found in memory, attempting recovery`);
       try {
-        const storedTask = await this.recallStorage.retrieve(`task:${taskId}`);
-        if (storedTask.data) {
+        // Use the retrieveIntelligence method with enhanced error handling
+        const storedTask = await this.retrieveIntelligence(`task:${taskId}`);
+        if (storedTask && storedTask.data) {
           task = storedTask.data as Task;
           this.tasks.set(taskId, task);
           console.log(`[${this.name}] Successfully recovered task ${taskId} from storage`);
           return task;
         }
-      } catch (error) {
-        console.error(`[${this.name}] Failed to recover task ${taskId}:`, error);
+      } catch (error: any) {
+        console.log(`[${this.name}] Failed to recover task ${taskId}: ${error.message}`);
+        if (this.eventBus) {
+          this.eventBus.emit("agent-error", {
+            agent: this.name,
+            error: `Task recovery failure (non-critical): ${error.message}`
+          });
+        }
       }
-      return null;
+      console.log(`[${this.name}] Task ${taskId} not found or could not be recovered, creating a new empty task`);
+      // Instead of returning null, create a new empty task
+      const newTask: Task = {
+        id: taskId,
+        status: 'pending',
+        description: 'Task created during recovery (original details lost)',
+        assignedTo: undefined,
+        result: undefined,
+        timestamp: new Date().toISOString()
+      };
+      this.tasks.set(taskId, newTask);
+      return newTask;
     }
     
     return task;

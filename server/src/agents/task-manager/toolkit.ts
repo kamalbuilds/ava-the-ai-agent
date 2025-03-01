@@ -56,6 +56,32 @@ export function getTaskManagerToolkit(eventBus: EventBus): Record<string, Tool> 
         }
       }
     },
+    sendMessageToZircuit: {
+      description: "Send a message to the Zircuit agent for operations on Zircuit L2 and Zerolend protocol",
+      parameters: z.object({
+        message: z.string().describe("The message to send to the Zircuit agent"),
+        taskId: z.string().describe("The ID of the task")
+      }),
+      execute: async (args: Record<string, any>, options?: ToolExecutionOptions): Promise<ToolResult> => {
+        try {
+          eventBus.emit('task-manager-zircuit', {
+            taskId: args.taskId,
+            task: args.message,
+            type: 'execute'
+          });
+          return {
+            success: true,
+            result: `Message sent to Zircuit agent: ${args.message}`
+          };
+        } catch (error) {
+          return {
+            success: false,
+            result: null,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      }
+    },
     sendMessageToSuiAgent: {
       description: "Send a blockchain-related task to the SUI agent for execution",
       parameters: z.object({

@@ -58,7 +58,8 @@ export abstract class IPAgent extends Agent {
     try {
       await this.recallStorage.initializeBucket(this.bucketAlias);
     } catch (error) {
-      console.error(`Error initializing Recall bucket for ${this.name}:`, error);
+      console.log(`Error initializing Recall bucket for ${this.name}:`);
+      // console.log(error);
     }
   }
 

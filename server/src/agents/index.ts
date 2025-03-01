@@ -5,6 +5,7 @@ import { ObserverAgent } from "./observer";
 import { TaskManagerAgent } from "./task-manager";
 import { CdpAgent } from "./cdp-agent";
 import { HederaAgent } from "./hedera-agent";
+import { ZircuitAgent } from "./zircuit-agent";
 import { AIProvider } from "../services/ai/types";
 
 /**
@@ -49,6 +50,15 @@ export const registerAgents = (eventBus: EventBus, account: Account, aiProvider 
   const cdpagent = new CdpAgent("cdp-agent", eventBus  , recallStorage , atcpipProvider);
   console.log(`[registerAgents] cdp agent initialized.`);
 
+  // Initialize Zircuit agent
+  const zircuitAgent = new ZircuitAgent(
+    'zircuit-agent',
+    eventBus,
+    account,
+    aiProvider
+  );
+  console.log(`[registerAgents] zircuit agent initialized.`);
+
   // Initialize Hedera agent
   const hederaConfig = {
     accountId: process.env.HEDERA_ACCOUNT_ID || '0.0.123456',
@@ -73,6 +83,7 @@ export const registerAgents = (eventBus: EventBus, account: Account, aiProvider 
     observerAgent,
     taskManagerAgent,
     cdpagent,
+    zircuitAgent,
     hederaAgent,
   });
 
@@ -83,6 +94,7 @@ export const registerAgents = (eventBus: EventBus, account: Account, aiProvider 
     observerAgent,
     taskManagerAgent,
     cdpagent,
+    zircuitAgent,
     hederaAgent,
   };
 };
@@ -112,6 +124,14 @@ function registerEventHandlers(eventBus: EventBus, agents: any) {
   );
   eventBus.register(`executor-task-manager`, (data) =>
     agents.taskManagerAgent.handleEvent(`executor-task-manager`, data)
+  );
+
+  // Task Manager <-> Zircuit Agent
+  eventBus.register(`task-manager-zircuit`, (data) =>
+    agents.zircuitAgent.handleEvent(`task-manager-zircuit`, data)
+  );
+  eventBus.register(`zircuit-task-manager`, (data) =>
+    agents.taskManagerAgent.handleEvent(`zircuit-task-manager`, data)
   );
 
   // Task Manager <-> Hedera Agent

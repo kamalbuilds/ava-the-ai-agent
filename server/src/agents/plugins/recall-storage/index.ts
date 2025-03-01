@@ -356,7 +356,8 @@ export class RecallStorage {
       throw new Error(`Failed to create bucket after ${this.maxRetries} attempts`);
     } catch (error) {
       const err = error as Error;
-      console.error(`Error in getOrCreateBucket: ${err.message}`);
+      console.log(`Error in getOrCreateBucket: `);
+      // console.log(`Error in getOrCreateBucket: ${err.message}`);
       throw error;
     }
   }
@@ -436,8 +437,9 @@ export class RecallStorage {
         await this.storeBatchToRecall(batch);
       }
     } catch (error) {
-      console.error('Error syncing logs to Recall:', error);
-      throw error;
+      console.log('Error syncing logs to Recall:');
+      // console.log(error);
+      // throw error;
     }
   }
 
