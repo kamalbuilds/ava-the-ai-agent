@@ -8,15 +8,19 @@ import {
 import {
     EcdsaSigningScheme,
     OrderBookApi,
+    OrderKind,
     OrderQuoteSideKindSell,
     OrderSigningUtils,
     SigningScheme,
     SupportedChainId,
+    TradeParameters,
+    TradingSdk,
     UnsignedOrder,
 } from "@cowprotocol/cow-sdk";
 import { ethers } from "ethers";
 import dotenv from "dotenv";
 import { TOKEN_DETAILS } from "../helpers/utils";
+import env from "../../../env";
 
 dotenv.config();
 
@@ -45,6 +49,7 @@ export class CowSwapActionProvider extends ActionProvider<WalletProvider> {
         name: "swap",
         description: `Helps in swapping by selling the sell Token and buying the buy Token. 
       - You show the Quote Request to the user and ask for confirmation of the quote. Display Quote in a proper JSON format.
+      - After you fetch the buy Amount display that amount to the user and then proceed with the transaction
       `,
         schema: SwapSchema,
     })
@@ -56,66 +61,46 @@ export class CowSwapActionProvider extends ActionProvider<WalletProvider> {
 
 
         try {
-            const wallet = new ethers.Wallet(process.env.PRIVATE_KEY as string)
 
             const sellTokenAddress =
                 TOKEN_DETAILS[params.sellToken as keyof typeof TOKEN_DETAILS];
             const buyTokenAddress =
                 TOKEN_DETAILS[params.buyToken as keyof typeof TOKEN_DETAILS];
 
-            const amount = ethers.utils.parseUnits(
-                params.amount.toString(),
-                sellTokenAddress.decimals
-            );
+            const sdk = new TradingSdk({
+                chainId: SupportedChainId.BASE,
+                signer: env.PRIVATE_KEY,
+                appCode: 'AVA-the-ai-agent',
+            }, {
+                enableLogging: true
+            })
 
-            console.log("amount", amount);
-
-            const quoteRequest = {
+            const parameters: TradeParameters = {
                 sellToken: sellTokenAddress.address,
+                sellTokenDecimals: sellTokenAddress.decimals,
                 buyToken: buyTokenAddress.address,
-                from: walletProvider.getAddress(),
-                sellAmountBeforeFee: amount.toString(),
-                kind: OrderQuoteSideKindSell.SELL,
-            };
-
-            console.log("Quote request >>>", quoteRequest);
-
-            const orderBookApi = new OrderBookApi({ chainId: SupportedChainId.BASE })
-
-            const { quote } = await orderBookApi.getQuote(quoteRequest)
-
-            console.log("quote", quote);
-
-            const unsignedQuote: UnsignedOrder = {
-                ...quote,
-                receiver: walletProvider.getAddress(),
+                buyTokenDecimals: buyTokenAddress.decimals,
+                amount: (params.amount * 10 ** (sellTokenAddress.decimals)).toString(),
+                kind: OrderKind.SELL
             }
 
-            console.log("Unsigned Quote >>", unsignedQuote);
+            console.log("Trade parameters", parameters);
 
-            const network = walletProvider.getNetwork();
+            const { quoteResults, postSwapOrderFromQuote } = await sdk.getQuote(parameters)
+            console.log("Quote  results >>", quoteResults);
 
-            console.log("network", network.chainId);
+            const buyAmount = quoteResults.amountsAndCosts.afterSlippage.buyAmount
+            console.log("buy Amount", buyAmount);
 
-            const orderSigningResult = await OrderSigningUtils.signOrder(unsignedQuote, Number(network.chainId), wallet)
-            console.log("orderSigningResult", orderSigningResult);
+            const orderId = await postSwapOrderFromQuote();
+            console.log("orderId", orderId);
 
-            const orderSigning = {
-                signature: orderSigningResult.signature,
-                signingScheme: SIGN_SCHEME_MAP[orderSigningResult.signingScheme]
-            }
-
-            const orderId = await orderBookApi.sendOrder({ ...quote, ...orderSigning })
-
-            const order = await orderBookApi.getOrder(orderId)
-
-            const trades = await orderBookApi.getTrades({ orderUid: orderId })
-
-            console.log('Results: ', { orderId, order, trades })
+            const orderExplorer = `https://explorer.cow.fi/base/orders/${orderId}`
 
             return `Order Created successfully, Here are the order details: 
          {
             orderId:${orderId},
+            orderExplorer: ${orderExplorer}
          }
          
          `
