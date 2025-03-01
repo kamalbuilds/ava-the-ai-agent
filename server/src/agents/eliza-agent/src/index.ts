@@ -13,7 +13,6 @@ import fs from "fs";
 import net from "net";
 import path from "path";
 import { fileURLToPath } from "url";
-import { initializeDbCache } from "./cache/index.js";
 import { character } from "./character.js";
 import { startChat } from "./chat/index.js";
 import { initializeClients } from "./clients/index.js";
@@ -23,6 +22,7 @@ import {
   parseArguments,
 } from "./config/index.js";
 import { initializeDatabase } from "./database/index.js";
+import { initializeDbCache } from "../cache/index.js";
 
 
 const __filename = fileURLToPath(import.meta.url);

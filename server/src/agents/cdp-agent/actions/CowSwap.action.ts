@@ -6,9 +6,11 @@ import {
     CreateAction,
 } from "@coinbase/agentkit";
 import {
+    EcdsaSigningScheme,
     OrderBookApi,
     OrderQuoteSideKindSell,
     OrderSigningUtils,
+    SigningScheme,
     SupportedChainId,
     UnsignedOrder,
 } from "@cowprotocol/cow-sdk";
@@ -23,6 +25,12 @@ export const SwapSchema = z.object({
     buyToken: z.string().describe("Buy Token is required"),
     amount: z.number().describe("Amount is required"),
 });
+
+
+export const SIGN_SCHEME_MAP = {
+    [EcdsaSigningScheme.EIP712]: SigningScheme.EIP712,
+    [EcdsaSigningScheme.ETHSIGN]: SigningScheme.ETHSIGN,
+}
 
 // Define an action provider that uses a wallet provider.
 export class CowSwapActionProvider extends ActionProvider<WalletProvider> {
@@ -83,14 +91,21 @@ export class CowSwapActionProvider extends ActionProvider<WalletProvider> {
                 receiver: walletProvider.getAddress(),
             }
 
+            console.log("Unsigned Quote >>", unsignedQuote);
+
             const network = walletProvider.getNetwork();
 
+            console.log("network", network.chainId);
+
             const orderSigningResult = await OrderSigningUtils.signOrder(unsignedQuote, Number(network.chainId), wallet)
+            console.log("orderSigningResult", orderSigningResult);
 
-            console.log("orderSigningResult >>", orderSigningResult);
+            const orderSigning = {
+                signature: orderSigningResult.signature,
+                signingScheme: SIGN_SCHEME_MAP[orderSigningResult.signingScheme]
+            }
 
-            //@ts-expect-error
-            const orderId = await orderBookApi.sendOrder({ ...quote, ...orderSigningResult })
+            const orderId = await orderBookApi.sendOrder({ ...quote, ...orderSigning })
 
             const order = await orderBookApi.getOrder(orderId)
 
