@@ -18,6 +18,9 @@ export class HybridStorage implements StorageInterface {
   private flatDirectory: FlatDirectory | null = null;
   private useEthStorageFallback: boolean = false;
   private ethStorageInitPromise: Promise<void>;
+  private flatDirectoryDeployed: boolean = false;
+  private maxRetries: number = 3;
+  private retryDelay: number = 2000;
 
   constructor(config: HybridStorageConfig) {
     // Initialize Recall Storage
@@ -59,13 +62,16 @@ export class HybridStorage implements StorageInterface {
               privateKey: privateKey as Hex,
               address: config.flatDirectoryAddress as Address,
             });
+            this.flatDirectoryDeployed = true; // If we're using an existing address, we assume it's already deployed
+            console.log(`[HybridStorage] Using existing FlatDirectory at ${config.flatDirectoryAddress}`);
           } else {
             this.flatDirectory = await FlatDirectory.create({
               rpc: rpc,
               privateKey: privateKey as Hex,
             });
-            // Deploy a new FlatDirectory contract if needed
-            await this.flatDirectory.deploy();
+            
+            // Deploy a new FlatDirectory contract with retry logic
+            await this.deployFlatDirectory();
           }
 
           console.log('[HybridStorage] EthStorage initialized successfully as fallback');
@@ -73,6 +79,7 @@ export class HybridStorage implements StorageInterface {
           console.error('[HybridStorage] Failed to initialize EthStorage:', error);
           this.ethStorage = null;
           this.flatDirectory = null;
+          this.flatDirectoryDeployed = false;
         }
       }
     } catch (error) {
@@ -82,11 +89,39 @@ export class HybridStorage implements StorageInterface {
     }
   }
 
+  private async deployFlatDirectory(): Promise<void> {
+    if (!this.flatDirectory) {
+      throw new Error('FlatDirectory not initialized');
+    }
+
+    let attempts = 0;
+    while (attempts < this.maxRetries) {
+      try {
+        console.log(`[HybridStorage] Deploying FlatDirectory (attempt ${attempts + 1}/${this.maxRetries})...`);
+        await this.flatDirectory.deploy();
+        this.flatDirectoryDeployed = true;
+        console.log('[HybridStorage] FlatDirectory deployed successfully');
+        return;
+      } catch (error) {
+        attempts++;
+        console.error(`[HybridStorage] FlatDirectory deployment failed (attempt ${attempts}/${this.maxRetries}):`, error);
+        if (attempts >= this.maxRetries) {
+          console.error('[HybridStorage] All deployment attempts failed');
+          throw error;
+        }
+        await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+      }
+    }
+  }
+
   async waitForInitialization(): Promise<void> {
     // Wait for both the parent class initialization and our own initialization
     await Promise.all([
       this.recallStorage.waitForInitialization(),
-      this.ethStorageInitPromise
+      this.ethStorageInitPromise.catch(err => {
+        console.error('[HybridStorage] Error during initialization:', err);
+        // Don't rethrow, we'll fallback to Recall
+      })
     ]);
   }
 
@@ -107,6 +142,12 @@ export class HybridStorage implements StorageInterface {
     // Fallback to EthStorage
     if (this.ethStorage && this.flatDirectory) {
       try {
+        // Check if FlatDirectory is deployed
+        if (!this.flatDirectoryDeployed) {
+          console.log('[HybridStorage] FlatDirectory not deployed, attempting deployment...');
+          await this.deployFlatDirectory();
+        }
+
         // Serialize data with metadata
         const serializedData = JSON.stringify({
           data,
@@ -143,10 +184,24 @@ export class HybridStorage implements StorageInterface {
         await this.flatDirectory.upload(uploadRequest);
       } catch (err) {
         console.error('[HybridStorage] EthStorage fallback failed:', err);
-        throw new Error(`Failed to store data: ${err}`);
+        // Fall back to Recall as a last resort
+        try {
+          console.log('[HybridStorage] Attempting to use Recall as last resort');
+          await this.recallStorage.store(key, data, metadata);
+        } catch (recallErr) {
+          console.error('[HybridStorage] All storage methods failed:', recallErr);
+          throw new Error(`Failed to store data: ${err}`);
+        }
       }
     } else {
-      throw new Error('No storage provider available');
+      // If EthStorage is not available, use Recall as fallback
+      try {
+        console.log('[HybridStorage] EthStorage not available, using Recall');
+        await this.recallStorage.store(key, data, metadata);
+      } catch (err) {
+        console.error('[HybridStorage] Recall fallback failed:', err);
+        throw new Error('No storage provider available');
+      }
     }
   }
 
@@ -166,6 +221,12 @@ export class HybridStorage implements StorageInterface {
     // Fallback to EthStorage
     if (this.flatDirectory) {
       try {
+        // Check if FlatDirectory is deployed
+        if (!this.flatDirectoryDeployed) {
+          console.log('[HybridStorage] FlatDirectory not deployed for retrieve, attempting deployment...');
+          await this.deployFlatDirectory();
+        }
+
         // Download from FlatDirectory
         let downloadedData = '';
         
@@ -195,10 +256,25 @@ export class HybridStorage implements StorageInterface {
         };
       } catch (err) {
         console.error('[HybridStorage] EthStorage retrieval failed:', err);
-        throw new Error(`Failed to retrieve data: ${err}`);
+        
+        // Fall back to Recall as a last resort
+        try {
+          console.log('[HybridStorage] Attempting to use Recall as last resort for retrieval');
+          return await this.recallStorage.retrieve(key);
+        } catch (recallErr) {
+          console.error('[HybridStorage] All retrieval methods failed:', recallErr);
+          throw new Error(`Failed to retrieve data: ${err}`);
+        }
       }
     } else {
-      throw new Error('No storage provider available');
+      // If EthStorage is not available, use Recall as fallback
+      try {
+        console.log('[HybridStorage] EthStorage not available for retrieval, using Recall');
+        return await this.recallStorage.retrieve(key);
+      } catch (err) {
+        console.error('[HybridStorage] Recall fallback retrieval failed:', err);
+        throw new Error('No storage provider available for retrieval');
+      }
     }
   }
 
