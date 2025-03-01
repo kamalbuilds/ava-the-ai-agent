@@ -87,10 +87,13 @@ export class WormholeActionProvider extends ActionProvider<WalletProvider> {
             console.log(`[Wormhole] Getting signers for source and destination chains`);
             const sender = await getSigner(srcChain);
             const receiver = await getSigner(dstChain);
-            console.log(`[Wormhole] Signers obtained. Sender address: ${sender.address.address}`);
+            console.log(`[Wormhole] Signers obtained. Source chain: ${srcChain.chain}, Destination chain: ${dstChain.chain}`);
 
             const token = await srcChain.getNativeWrappedTokenId();
+            console.log(`[Wormhole] Source Chain Token:`, token);
+            
             const destTokenBridge = await dstChain.getTokenBridge();
+            console.log(`[Wormhole] Destination Chain Token Bridge initialized`);
 
             try {
                 const wrapped = await destTokenBridge.getWrappedAsset(token);
@@ -116,25 +119,70 @@ export class WormholeActionProvider extends ActionProvider<WalletProvider> {
                 )
             );
 
+            // Prepare the transfer details
+            console.log(`[Wormhole] Preparing transfer details`);
+            console.log(`[Wormhole] Token address: ${tokenId.address}`);
+            console.log(`[Wormhole] Amount: ${amt}`);
+            
+            // Get the sender address from the signer - add robust error handling
+            let senderAddress;
+            try {
+                // Check if getAddress is a function, otherwise use the address property
+                if (typeof sender.getAddress === 'function') {
+                    senderAddress = await sender.getAddress();
+                } else if (sender.address) {
+                    senderAddress = sender.address;
+                    console.log(`[Wormhole] Using sender address property: ${senderAddress}`);
+                } else {
+                    throw new Error("Sender has no valid address method or property");
+                }
+                console.log(`[Wormhole] Sender address: ${senderAddress.toString()}`);
+            } catch (error) {
+                console.error(`[Wormhole] Error getting sender address:`, error);
+                throw new Error(`Failed to get sender address: ${(error as any).message}`);
+            }
+            
+            // Get the receiver address from the signer - also with robust error handling
+            let receiverAddress;
+            try {
+                // Similar check for getAddress or address property
+                if (typeof receiver.getAddress === 'function') {
+                    receiverAddress = await receiver.getAddress();
+                } else if (receiver.address) {
+                    receiverAddress = receiver.address;
+                    console.log(`[Wormhole] Using receiver address property: ${receiverAddress}`);
+                } else {
+                    throw new Error("Receiver has no valid address method or property");
+                }
+                console.log(`[Wormhole] Receiver address: ${receiverAddress.toString()}`);
+            } catch (error) {
+                console.error(`[Wormhole] Error getting receiver address:`, error);
+                throw new Error(`Failed to get receiver address: ${(error as any).message}`);
+            }
+
             const transfer = sourceTokenBridge.transfer(
-                sender.address.address,
-                receiver.address,
+                senderAddress.toString(),
+                receiverAddress,
                 tokenId.address,
                 amt
             );
 
-            const txids = await signSendWait(srcChain, transfer, sender.signer);
+            console.log(`[Wormhole] Transfer prepared, signing and sending transaction`);
+            console.log(`[Wormhole] Using source chain: ${srcChain.chain}`);
+            
+            // Pass the sender directly to signSendWait
+            const txids = await signSendWait(srcChain, transfer, sender);
+            console.log(`[Wormhole] Transaction sent successfully. TxIds:`, txids);
 
             const latestTxId = txids[txids.length - 1].txid;
             const explorer = `https://wormholescan.io/#/tx/${latestTxId}`;
-
-
+            
+            console.log(`[Wormhole] Transfer successful. Explorer URL: ${explorer}`);
             return `Transaction was successful. It will take some time to claim your balance. Your transaction Id is ${latestTxId} and you can check here ${explorer}`
 
         } catch (error) {
             console.log("Error in transferring the native tokens", error);
             return `Error transferring tokens: ${(error as any).message}`
-
         }
     }
 
@@ -151,15 +199,25 @@ export class WormholeActionProvider extends ActionProvider<WalletProvider> {
     ): Promise<string> {
         const { sourceChain, destinationChain, amount_value, transaction_id } = params;
 
+        console.log(`[Wormhole] Starting redemption from ${sourceChain} to ${destinationChain} for transaction ${transaction_id}`);
+
         try {
+            console.log(`[Wormhole] Getting chain objects for ${sourceChain} and ${destinationChain}`);
             const srcChain = this.wh.getChain(sourceChain);
             const dstChain = this.wh.getChain(destinationChain);
+            console.log(`[Wormhole] Successfully got chain objects`);
 
+            console.log(`[Wormhole] Getting receiver signer for ${destinationChain}`);
             const receiver = await getSigner(dstChain);
+            // Get the receiver address from the signer
+            const receiverAddress = await receiver.getAddress();
+            console.log(`[Wormhole] Receiver address: ${receiverAddress.toString()}`);
 
+            console.log(`[Wormhole] Parsing transaction: ${transaction_id}`);
             const [whm] = await srcChain.parseTransaction(transaction_id);
-            console.log('Wormhole Messages: ', whm);
+            console.log('[Wormhole] Wormhole Messages:', whm);
 
+            console.log(`[Wormhole] Getting VAA for the transfer`);
             const vaa = await this.wh.getVaa(
                 // Wormhole Message ID
                 whm,
@@ -170,32 +228,37 @@ export class WormholeActionProvider extends ActionProvider<WalletProvider> {
             );
 
             if (vaa == null) {
-                console.error("Tranfer is still in progress, please claim later");
+                console.error("[Wormhole] Transfer is still in progress, please claim later");
                 const explorer = `https://wormholescan.io/#/tx/${transaction_id}`;
 
-                return `Transaction has not reached destination, please wait for more minutes.You can check the status here:${explorer} `
+                return `Transaction has not reached destination, please wait for more minutes. You can check the status here: ${explorer}`
             }
 
+            console.log(`[Wormhole] VAA received, getting token bridge for destination chain`);
             const rcvTb = await dstChain.getTokenBridge();
 
-            const redeem = rcvTb.redeem(receiver.address.address, vaa);
-            console.log("redeeem >>>", redeem);
+            console.log(`[Wormhole] Preparing redemption transaction`);
+            const redeem = rcvTb.redeem(receiverAddress.toString(), vaa);
+            console.log("[Wormhole] Redemption transaction prepared:", redeem);
 
-            const rcvTxids = await signSendWait(dstChain, redeem, receiver.signer);
-            console.log('Sent: ', rcvTxids);
+            console.log(`[Wormhole] Signing and sending redemption transaction`);
+            const rcvTxids = await signSendWait(dstChain, redeem, receiver);
+            console.log('[Wormhole] Sent redemption transaction:', rcvTxids);
 
             // Now check if the transfer is completed according to
             // the destination token bridge
+            console.log(`[Wormhole] Checking if transfer is completed`);
             const finished = await rcvTb.isTransferCompleted(vaa);
-            console.log('Transfer completed: ', finished);
+            console.log('[Wormhole] Transfer completed:', finished);
 
             const latestTxId = rcvTxids[rcvTxids.length - 1].txid;
             const explorer = `https://wormholescan.io/#/tx/${latestTxId}`;
 
+            console.log(`[Wormhole] Redemption successful. Explorer URL: ${explorer}`);
             return `Transaction was successful. It will take some time to claim your balance. Your transaction Id is ${latestTxId} and you can check here ${explorer}`
 
         } catch (error) {
-            console.log("Error in redeeming tokens", error);
+            console.log("[Wormhole] Error in redeeming tokens", error);
             return `Error transferring tokens: ${(error as any).message}`
         }
     }
