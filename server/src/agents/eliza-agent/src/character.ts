@@ -2,13 +2,15 @@ import { Character, Clients, defaultCharacter, ModelProviderName } from "@elizao
 import solanaPlugin from "@elizaos/plugin-solana";
 import suiPlugin from "@elizaos/plugin-sui";
 import flowPlugin from "@elizaos/plugin-flow";
+import { OktoPlugin } from "@okto_web3/eliza-plugin";
+
 
 export const character: Character = {
     ...defaultCharacter,
     name: "Ava",
     modelProvider: ModelProviderName.GROQ,
     clients: [Clients.TWITTER , Clients.TELEGRAM],
-    plugins: [suiPlugin , flowPlugin],
+    plugins: [suiPlugin , flowPlugin , new OktoPlugin()],
     settings: {
         secrets: {},
         voice: {
