@@ -7,12 +7,22 @@ import { CdpAgent } from "./cdp-agent";
 import { HederaAgent } from "./hedera-agent";
 import { ZircuitAgent } from "./zircuit-agent";
 import { AIProvider } from "../services/ai/types";
+import { HybridStorage } from "./plugins/hybrid-storage";
+import { ATCPIPProvider } from "./plugins/atcp-ip";
+import { RecallStorage } from "./plugins/recall-storage";
+import { StorageInterface } from "./types/storage";
 
 /**
  * Registers the agents and returns them
  * @returns The registered agents
  */
-export const registerAgents = (eventBus: EventBus, account: Account, aiProvider : AIProvider, recallStorage: any, atcpipProvider: any) => {
+export const registerAgents = (
+  eventBus: EventBus, 
+  account: Account, 
+  aiProvider: AIProvider, 
+  storage: StorageInterface, 
+  atcpipProvider: ATCPIPProvider
+) => {
   console.log("======== Registering agents =========");
 
   // Initialize agents with account
@@ -20,7 +30,7 @@ export const registerAgents = (eventBus: EventBus, account: Account, aiProvider 
     'executor',
     eventBus,
     account,
-    recallStorage,
+    storage,
     atcpipProvider
   );
   console.log(`[registerAgents] executor agent initialized.`);
@@ -32,7 +42,7 @@ export const registerAgents = (eventBus: EventBus, account: Account, aiProvider 
     eventBus,
     account,
     aiProvider,
-    recallStorage,
+    storage,
     atcpipProvider
   );
   console.log(`[registerAgents] observer agent initialized with address: ${account.address}`);
@@ -41,13 +51,13 @@ export const registerAgents = (eventBus: EventBus, account: Account, aiProvider 
     'task-manager',
     eventBus,
     account,
-    recallStorage,
+    storage,
     atcpipProvider
   );
   console.log(`[registerAgents] task manager agent initialized.`);
 
   // Initialize CDP agent
-  const cdpagent = new CdpAgent("cdp-agent", eventBus  , recallStorage , atcpipProvider);
+  const cdpagent = new CdpAgent("cdp-agent", eventBus, storage, atcpipProvider);
   console.log(`[registerAgents] cdp agent initialized.`);
 
   // Initialize Zircuit agent

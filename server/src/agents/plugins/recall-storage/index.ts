@@ -2,6 +2,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { EventBus } from '../../../comms';
 import env from '../../../env';
 import type { Address, Hex } from 'viem';
+import { StorageInterface } from '../../types/storage';
 
 export interface RecallStorageConfig {
   network: 'testnet' | 'mainnet';
@@ -33,7 +34,7 @@ interface RecallResult<T> {
   result: T;
 }
 
-export class RecallStorage {
+export class RecallStorage implements StorageInterface {
   private client: any;
   private bucketManager: any;
   private initialized: boolean = false;
@@ -64,7 +65,7 @@ export class RecallStorage {
     this.initPromise = this.initializeClient(privateKey).then(async () => {
       // Initialize nonce
       try {
-        const wallet = await this.client.walletClient();
+        const wallet = await this.client.walletClient;
         const address = await wallet.account.address;
         const nonce = await wallet.transport.request({
           method: 'eth_getTransactionCount',
@@ -84,7 +85,9 @@ export class RecallStorage {
       const { testnet } = await import('@recallnet/chains');
       const { RecallClient, walletClientFromPrivateKey } = await import('@recallnet/sdk/client');
       
-      const wallet = walletClientFromPrivateKey(privateKey as Hex, testnet);
+      // Cast the testnet chain to any to avoid type incompatibility issues
+      const wallet = walletClientFromPrivateKey(privateKey as Hex, testnet as any);
+      
       this.client = new RecallClient({ walletClient: wallet });
       this.bucketManager = await this.client.bucketManager();
       this.initialized = true;

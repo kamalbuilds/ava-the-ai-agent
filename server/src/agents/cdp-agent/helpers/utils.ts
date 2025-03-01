@@ -9,7 +9,7 @@ export const TOKEN_DETAILS = {
         decimals: 6,
     },
     USDT: {
-        address: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb",
+        address: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
         decimals: 6,
     },
 } as const;

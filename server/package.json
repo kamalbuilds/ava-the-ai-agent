@@ -44,6 +44,7 @@
     "brahma-console-kit": "^1.0.6",
     "dotenv": "^16.4.7",
     "ethers": "5.7.2",
+    "ethstorage-sdk": "^3.0.1",
     "figlet": "^1.8.0",
     "hedera-agent-kit": "^1.0.3",
     "hono": "^4.6.12",

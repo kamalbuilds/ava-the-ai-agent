@@ -12,7 +12,7 @@ import env from "../../env";
 import { v4 as uuidv4 } from 'uuid';
 import type { AIProvider, Tool } from "../../services/ai/types";
 import type { Account } from "viem";
-import { RecallStorage } from "../plugins/recall-storage/index.js";
+import { StorageInterface } from "../types/storage";
 import { ATCPIPProvider } from "../plugins/atcp-ip";
 import type { IPLicenseTerms, IPMetadata } from "../types/ip-agent";
 
@@ -41,17 +41,17 @@ export class TaskManagerAgent extends IPAgent {
    * @param name - The name of the agent
    * @param eventBus - The event bus to emit events to other agents
    * @param account - The account associated with the agent
-   * @param recallStorage - The recall storage plugin
+   * @param storage - The storage interface
    * @param atcpipProvider - The ATCPIP provider plugin
    */
   constructor(
     name: string,
     eventBus: EventBus,
     account: Account,
-    recallStorage: RecallStorage,
+    storage: StorageInterface,
     atcpipProvider: ATCPIPProvider
   ) {
-    super(name, eventBus, recallStorage, atcpipProvider);
+    super(name, eventBus, storage, atcpipProvider);
     this.account = account;
     this.tools = getTaskManagerToolkit(eventBus);
     this.setupEventHandlers();
@@ -100,7 +100,7 @@ export class TaskManagerAgent extends IPAgent {
       if (!task) {
         console.warn(`[${this.name}] Task ${data.taskId} not found in memory, attempting recovery`);
         try {
-          const storedTask = await this.recallStorage.retrieve(`task:${data.taskId}`);
+          const storedTask = await this.storage.retrieve(`task:${data.taskId}`);
           if (storedTask.data) {
             task = storedTask.data as Task;
             this.tasks.set(data.taskId, task);
@@ -187,7 +187,7 @@ export class TaskManagerAgent extends IPAgent {
       if (!task) {
         console.warn(`[${this.name}] Task ${data.taskId} not found in memory, attempting recovery`);
         try {
-          const storedTask = await this.recallStorage.retrieve(`task:${data.taskId}`);
+          const storedTask = await this.storage.retrieve(`task:${data.taskId}`);
           if (storedTask.data) {
             task = storedTask.data as Task;
             this.tasks.set(data.taskId, task);
@@ -266,7 +266,7 @@ export class TaskManagerAgent extends IPAgent {
       if (!task) {
         console.warn(`[${this.name}] Task ${data.taskId} not found in memory, attempting recovery`);
         try {
-          const storedTask = await this.recallStorage.retrieve(`task:${data.taskId}`);
+          const storedTask = await this.storage.retrieve(`task:${data.taskId}`);
           if (storedTask.data) {
             task = storedTask.data as Task;
             this.tasks.set(data.taskId, task);
@@ -368,7 +368,7 @@ export class TaskManagerAgent extends IPAgent {
       if (!task) {
         console.warn(`[${this.name}] Task ${data.taskId} not found in memory, attempting recovery`);
         try {
-          const storedTask = await this.recallStorage.retrieve(`task:${data.taskId}`);
+          const storedTask = await this.storage.retrieve(`task:${data.taskId}`);
           if (storedTask.data) {
             task = storedTask.data as Task;
             this.tasks.set(data.taskId, task);

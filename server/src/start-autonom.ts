@@ -6,6 +6,6 @@ console.log(`[🚀] starting observer agent loop.`);
 observerAgent.start(account.address as `0x${string}`);
 
 export default {
-    port: env.PORT || 3001,
+    port: env.PORT || 3002,
     fetch: app.fetch,
 };

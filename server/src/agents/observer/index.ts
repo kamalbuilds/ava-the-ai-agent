@@ -9,7 +9,7 @@ import { saveThought } from "../../memory";
 import env from "../../env";
 import type { AIProvider, AIResponse, Tool } from "../../services/ai/types";
 import { v4 as uuidv4 } from 'uuid';
-import { RecallStorage } from "../plugins/recall-storage/index.js";
+import { StorageInterface } from "../types/storage";
 import { ATCPIPProvider } from "../plugins/atcp-ip";
 import type { IPLicenseTerms, IPMetadata } from "../types/ip-agent";
 
@@ -49,13 +49,18 @@ export class ObserverAgent extends IPAgent {
   private account: Account;
   private isRunning: boolean = false;
   private tools: Record<string, Tool>;
+  protected aiProvider: AIProvider;
+  private taskId: string | null = null;
+  private taskData: any = null;
+  private taskResults: ToolResult[] = [];
+  private taskStartTime: number = 0;
 
   /**
    * @param name - The name of the agent
    * @param eventBus - The event bus to emit events to other agents
    * @param account - The account to observe
    * @param aiProvider - The AI provider to use for generating text
-   * @param recallStorage - The recall storage plugin
+   * @param storage - The storage plugin
    * @param atcpipProvider - The ATCPIP provider
    */
   constructor(
@@ -63,12 +68,13 @@ export class ObserverAgent extends IPAgent {
     eventBus: EventBus,
     account: Account,
     aiProvider: AIProvider,
-    recallStorage: RecallStorage,
+    storage: StorageInterface,
     atcpipProvider: ATCPIPProvider
   ) {
-    super(name, eventBus, recallStorage, atcpipProvider, aiProvider);
+    super(name, eventBus, storage, atcpipProvider, aiProvider);
+    this.address = account.address;
     this.account = account;
-    this.address = account.address as `0x${string}`;
+    this.aiProvider = aiProvider;
     this.tools = getObserverToolkit(this.address);
     this.setupEventHandlers();
   }

@@ -14,7 +14,8 @@ import { AIFactory } from "./services/ai/factory";
 import env from "./env";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
-import { RecallStorage } from "./agents/plugins/recall-storage/index";
+// import { RecallStorage } from "./agents/plugins/recall-storage/index";
+import { HybridStorage } from "./agents/plugins/hybrid-storage/index";
 import { ATCPIPProvider } from "./agents/plugins/atcp-ip";
 
 // console.log(figlet.textSync("AVA-2.0"));
@@ -58,19 +59,21 @@ async function initializeServices() {
     });
 
 
-    // Initialize Recall Storage and wait for it
-    const recallStorage = new RecallStorage({
+    // Initialize Hybrid Storage with both Recall and EthStorage
+    const storage = new HybridStorage({
       network: 'testnet',
       syncInterval: 2 * 60 * 1000, // 2 minutes
       batchSize: 4, // 4KB
       eventBus,
       bucketAlias: 'ava',
       maxRetries: 5,
-      retryDelay: 1000 // Start with 1 second delay, will increase exponentially
+      retryDelay: 1000, // Start with 1 second delay, will increase exponentially
+      // EthStorage specific config
+      ethStorageRpc: "https://rpc.beta.testnet.l2.ethstorage.io:9596"
     });
 
     // Wait for client initialization
-    await recallStorage.waitForInitialization();
+    await storage.waitForInitialization();
 
     // Initialize ATCP/IP Provider
     const atcpipProvider = new ATCPIPProvider({
@@ -80,13 +83,13 @@ async function initializeServices() {
     // Initialize agents
     console.log("======== Registering agents =========");
 
-        // Register all agents
-        const agents = registerAgents(eventBus, account, aiProvider , recallStorage , atcpipProvider);
-        console.log("[initializeServices] All agents registered");
+    // Register all agents
+    const agents = registerAgents(eventBus, account, aiProvider, storage, atcpipProvider);
+    console.log("[initializeServices] All agents registered");
 
     // Setup WebSocket server
-    const WS_PORT = 3001;
-    const wss = new WebSocketServer({ port: WS_PORT });
+    const WS_PORT = process.env.WS_PORT || 3001;
+    const wss = new WebSocketServer({ port: WS_PORT as number });
 
     wss.on("connection", (ws: WebSocket) => {
       console.log(`[WebSocket] Client connected on port ${WS_PORT}`);

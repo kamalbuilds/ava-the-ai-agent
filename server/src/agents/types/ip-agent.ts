@@ -1,7 +1,7 @@
 import { Agent } from '../agent';
 import { EventBus } from '../../comms';
 import { AIProvider } from '../../services/ai/types';
-import { RecallStorage } from '../plugins/recall-storage';
+import { StorageInterface } from './storage';
 import { ATCPIPProvider } from '../plugins/atcp-ip';
 
 export interface IPMetadata {
@@ -36,19 +36,19 @@ export interface IPLicenseTerms {
 }
 
 export abstract class IPAgent extends Agent {
-  protected recallStorage: RecallStorage;
+  protected storage: StorageInterface;
   protected atcpipProvider: ATCPIPProvider;
   private bucketAlias: string;
 
   constructor(
     name: string, 
     eventBus: EventBus, 
-    recallStorage: RecallStorage,
+    storage: StorageInterface,
     atcpipProvider: ATCPIPProvider,
     aiProvider?: AIProvider
   ) {
     super(name, eventBus, aiProvider);
-    this.recallStorage = recallStorage;
+    this.storage = storage;
     this.atcpipProvider = atcpipProvider;
     this.bucketAlias = `${name}-bucket`;
     this.initializeRecallBucket();
@@ -56,9 +56,9 @@ export abstract class IPAgent extends Agent {
 
   private async initializeRecallBucket(): Promise<void> {
     try {
-      await this.recallStorage.initializeBucket(this.bucketAlias);
+      await this.storage.initializeBucket(this.bucketAlias);
     } catch (error) {
-      console.log(`Error initializing Recall bucket for ${this.name}:`);
+      console.log(`Error initializing storage bucket for ${this.name}:`);
       // console.log(error);
     }
   }
@@ -69,7 +69,7 @@ export abstract class IPAgent extends Agent {
   ): Promise<string> {
     const licenseId = await this.atcpipProvider.mintLicense(terms, metadata);
     
-    // Store license in Recall
+    // Store license in storage
     await this.storeIntelligence(`license:${licenseId}`, {
       terms,
       metadata: {
@@ -85,14 +85,14 @@ export abstract class IPAgent extends Agent {
     return this.atcpipProvider.verifyLicense(licenseId);
   }
 
-  // Recall Storage Methods
+  // Storage Methods
   protected async storeIntelligence(
     key: string,
     data: any,
     metadata?: Record<string, any>
   ): Promise<void> {
     try {
-      await this.recallStorage.store(key, data, {
+      await this.storage.store(key, data, {
         ...metadata,
         agent: this.name,
         timestamp: Date.now(),
@@ -119,7 +119,7 @@ export abstract class IPAgent extends Agent {
     key: string
   ): Promise<{ data: any; metadata?: Record<string, any> } | null> {
     try {
-      return await this.recallStorage.retrieve(key);
+      return await this.storage.retrieve(key);
     } catch (error: any) {
       console.warn(`[${this.name}] Failed to retrieve intelligence for ${key}: ${error.message}`);
       if (this.eventBus) {
@@ -139,7 +139,7 @@ export abstract class IPAgent extends Agent {
     metadata?: Record<string, any>
   ): Promise<void> {
     try {
-      await this.recallStorage.storeCoT(key, thoughts, {
+      await this.storage.storeCoT(key, thoughts, {
         ...metadata,
         agent: this.name,
         timestamp: Date.now(),
@@ -162,7 +162,7 @@ export abstract class IPAgent extends Agent {
     key: string
   ): Promise<{ thoughts: string[]; metadata?: Record<string, any> } | null> {
     try {
-      return await this.recallStorage.retrieveCoT(key);
+      return await this.storage.retrieveCoT(key);
     } catch (error: any) {
       console.warn(`[${this.name}] Failed to retrieve chain of thought for ${key}: ${error.message}`);
       if (this.eventBus) {
@@ -184,7 +184,7 @@ export abstract class IPAgent extends Agent {
     }
   ): Promise<Array<{ key: string; score: number; data: any }>> {
     try {
-      return await this.recallStorage.search(query, {
+      return await this.storage.search(query, {
         ...options,
         filter: {
           ...options?.filter,
@@ -208,7 +208,7 @@ export abstract class IPAgent extends Agent {
     limit: number = 10
   ): Promise<Array<{ thoughts: string[]; metadata?: Record<string, any> }>> {
     try {
-      const results = await this.recallStorage.search('type:chain-of-thought', {
+      const results = await this.storage.search('type:chain-of-thought', {
         limit,
         filter: {
           agent: this.name,

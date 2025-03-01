@@ -4,7 +4,7 @@ import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { IPAgent } from "../types/ip-agent";
 import type { EventBus } from "../../comms";
 import env from "../../env";
-import { RecallStorage } from "../plugins/recall-storage";
+import { StorageInterface } from "../types/storage";
 import { ATCPIPProvider } from "../plugins/atcp-ip";
 import type { IPLicenseTerms, IPMetadata } from "../types/ip-agent";
 import { AIProvider, Tool } from "../../services/ai/types";
@@ -24,6 +24,8 @@ import { getLangChainTools } from "@coinbase/agentkit-langchain";
 import { cowSwapActionProvider } from "./actions/CowSwap.action";
 import { wormholeActionProvider } from "./actions/Wormhole.action";
 import { defiActionProvider } from "./actions/Defi.action";
+import { HybridStorage } from "../plugins/hybrid-storage";
+
 export class CdpAgent extends IPAgent {
   private agent: ReturnType<typeof createReactAgent> | undefined;
   public eventBus: EventBus;
@@ -33,11 +35,11 @@ export class CdpAgent extends IPAgent {
   constructor(
     name: string,
     eventBus: EventBus,
-    recallStorage: RecallStorage,
+    storage: StorageInterface,
     atcpipProvider: ATCPIPProvider,
     aiProvider?: AIProvider
   ) {
-    super(name, eventBus, recallStorage, atcpipProvider);
+    super(name, eventBus, storage, atcpipProvider);
 
     this.eventBus = eventBus;
     this.taskResults = new Map();
@@ -382,9 +384,9 @@ export async function initializeAgent() {
     
     // Type assertion to handle compatibility with createReactAgent
     const agent = createReactAgent({
-      llm: groqModel,
-      tools: agentTools as any, // Force type compatibility
-      checkpointSaver: memory,
+      llm: groqModel as any,
+      tools: agentTools as any, 
+      checkpointSaver: memory as any,
       messageModifier: `
               You are a helpful agent that can interact onchain using the Coinbase Developer Platform AgentKit. You are 
               empowered to interact onchain using your tools.

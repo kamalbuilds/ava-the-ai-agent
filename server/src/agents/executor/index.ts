@@ -6,7 +6,7 @@ import { openai } from "@ai-sdk/openai";
 import { getExecutorSystemPrompt } from "../../system-prompts";
 import { saveThought } from "../../memory";
 import type { Account } from "viem";
-import { RecallStorage } from "../plugins/recall-storage/index.js";
+import { StorageInterface } from "../types/storage";
 import { ATCPIPProvider } from "../plugins/atcp-ip";
 import type { IPLicenseTerms, IPMetadata } from "../types/ip-agent";
 
@@ -20,10 +20,10 @@ export class ExecutorAgent extends IPAgent {
     name: string, 
     eventBus: EventBus, 
     account: Account,
-    recallStorage: RecallStorage,
+    storage: StorageInterface,
     atcpipProvider: ATCPIPProvider
   ) {
-    super(name, eventBus, recallStorage, atcpipProvider);
+    super(name, eventBus, storage, atcpipProvider);
     this.account = account;
     this.setupEventHandlers();
   }
