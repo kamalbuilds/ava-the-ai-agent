@@ -6,11 +6,11 @@ import { initializeAgents } from "../agents";
 import { SendHorizontal, Bot, User, PanelRightClose, PanelRightOpen } from "lucide-react";
 import Image from "next/image";
 import { Switch } from "@/components/ui/switch";
-import { EXAMPLE_RESPONSES , AUTONOMOUS_EXAMPLES} from "../../lib/example";
+import { EXAMPLE_RESPONSES, AUTONOMOUS_EXAMPLES } from "../../lib/example";
 import { EventBus } from "../types/event-bus";
 import { WebSocketEventBus } from "../services/websocket-event-bus";
-import {Navbar} from "@/components/ui/navbar";
-import {Footer} from "@/components/ui/footer";
+import { Navbar } from "@/components/ui/navbar";
+import { Footer } from "@/components/ui/footer";
 import { useSettingsStore } from '../stores/settingsStore';
 
 type CollaborationType =
@@ -63,11 +63,18 @@ const agentImages = {
   trading: "/agent_trader.png",
   liquidity: "/agent_liquidity.png",
   portfolio: "/agent_default.png",
+  "task-manager": "/taskManager.png",
+  "executor": "/executor.png",
+  "observer": "/observer.png",
+  "validator": "/validator.png",
   "defi-analytics": "/agent_analyst.png",
+  "cdp-agent": '/cdp-agentkit.png',
+  "hedera-agent": "/hedera-agentkit.webp",
+  "ip-manager": "/ip-manager.jpg",
   default: "/agent_default.png", // Add a default image
 };
 
-console.log(agentImages,"agentImages");
+console.log(agentImages, "agentImages");
 
 const scrollbarStyles = `
   .custom-scrollbar::-webkit-scrollbar {
@@ -127,10 +134,10 @@ export default function Home() {
   const [autonomousMode, setAutonomousMode] = useState(false);
   const [currentAgentPage, setCurrentAgentPage] = useState(1);
   const agentsPerPage = 4;
-  
+
   // Sample prompts data
   const samplePrompts = [
-    { icon : "💱", text: "I have 10 AVAX and want to optimize my portfolio between lending, liquidity provision, and trading. What's the best strategy right now?" },
+    { icon: "💱", text: "I have 10 AVAX and want to optimize my portfolio between lending, liquidity provision, and trading. What's the best strategy right now?" },
     { icon: "💱", text: "bridge 0.0001 ETH from BaseSepolia to ArbitriumSepolia using cdp agent kit" },
     { icon: "📈", text: "Create investment plan with 1 ETH to make 500 USDC" },
     { icon: "🔄", text: "Bridge 2 ETH to Polygon" },
@@ -244,22 +251,22 @@ export default function Home() {
       agent: null
     }
   ];
-  
+
   // Calculate total number of pages
   const totalAgentPages = Math.ceil(agents.length / agentsPerPage);
-  
+
   // Get current page agents
   const indexOfLastAgent = currentAgentPage * agentsPerPage;
   const indexOfFirstAgent = indexOfLastAgent - agentsPerPage;
   const currentAgents = agents.slice(indexOfFirstAgent, indexOfLastAgent);
-  
+
   // Change page
   const nextAgentPage = () => {
     if (currentAgentPage < totalAgentPages) {
       setCurrentAgentPage(prev => prev + 1);
     }
   };
-  
+
   const prevAgentPage = () => {
     if (currentAgentPage > 1) {
       setCurrentAgentPage(prev => prev - 1);
@@ -286,13 +293,13 @@ export default function Home() {
         }));
 
         const initializedAgents = await initializeAgents();
-        
+
         // Combine initialized agents with additional system agents
         // Avoid duplicates by filtering out any additional system agents with IDs that already exist
         const existingIds = initializedAgents.map(a => a.id);
         const filteredSystemAgents = additionalSystemAgents.filter(a => !existingIds.includes(a.id));
         const allAgents = [...initializedAgents, ...filteredSystemAgents];
-        
+
         setAgents(allAgents);
         console.log("All agents initialized:", allAgents);
 
@@ -449,7 +456,7 @@ export default function Home() {
     // Handle agent messages for chat
     eventBusRef.current.subscribe('agent-message', (data: any) => {
       console.log('Agent message received:', data);
-      
+
       // Add the message to the chat
       setMessages(prev => {
         const newMessage = {
@@ -459,11 +466,11 @@ export default function Home() {
           agentName: data.agentName || 'System',
           collaborationType: data.collaborationType || 'response'
         } as Message;
-        
+
         const updatedMessages = [...prev, newMessage];
         return deduplicateMessages(updatedMessages);
       });
-      
+
       // Also add a system event
       addSystemEvent({
         event: `${data.agentName || 'Agent'} message: ${data.content.substring(0, 50)}${data.content.length > 50 ? '...' : ''}`,
@@ -475,7 +482,7 @@ export default function Home() {
     // Handle direct Hedera responses
     eventBusRef.current.subscribe('hedera-response', (data: any) => {
       console.log('Direct Hedera response received:', data);
-      
+
       // Add the message to the chat
       setMessages(prev => {
         const newMessage = {
@@ -485,11 +492,11 @@ export default function Home() {
           agentName: data.agentName || 'Hedera Agent',
           collaborationType: data.collaborationType || 'response'
         } as Message;
-        
+
         const updatedMessages = [...prev, newMessage];
         return deduplicateMessages(updatedMessages);
       });
-      
+
       // Also add a system event
       addSystemEvent({
         event: `Hedera response: ${data.message.substring(0, 50)}${data.message.length > 50 ? '...' : ''}`,
@@ -501,18 +508,18 @@ export default function Home() {
     // Subscribe to all WebSocket messages to capture agent communications
     eventBusRef.current.subscribeToAllMessages((data: any) => {
       console.log('Raw WebSocket message:', data);
-      
+
       // Process agent-specific messages
       if (data.source && data.message) {
         // Add agent communications to system events
         addSystemEvent({
           event: data.message,
           agent: data.source,
-          type: data.level === 'error' ? 'error' : 
-                data.level === 'warning' ? 'warning' : 'info',
+          type: data.level === 'error' ? 'error' :
+            data.level === 'warning' ? 'warning' : 'info',
         });
       }
-      
+
       // Process task-manager messages
       if (data.type === 'task-manager' || data.source === 'task-manager') {
         addSystemEvent({
@@ -521,7 +528,7 @@ export default function Home() {
           type: data.status === 'failed' ? 'error' : 'info',
         });
       }
-      
+
       // Process observer messages
       if (data.type === 'observer' || data.source === 'observer') {
         addSystemEvent({
@@ -530,7 +537,7 @@ export default function Home() {
           type: 'info',
         });
       }
-      
+
       // Process hedera-agent messages
       if (data.type === 'hedera-agent' || data.source === 'hedera-agent') {
         addSystemEvent({
@@ -539,7 +546,7 @@ export default function Home() {
           type: 'info',
         });
       }
-      
+
       // Process task results
       if (data.type === 'task-result' && data.result) {
         // Add the task result to the messages if it's a meaningful result
@@ -555,7 +562,7 @@ export default function Home() {
             return [...prev, newMessage];
           });
         }
-        
+
         // Add system event for the task result
         addSystemEvent({
           event: `Task completed: ${data.taskId || ''}`,
@@ -585,13 +592,13 @@ export default function Home() {
     if (autonomousMode) {
       // Check if this is a CDP-related query
       const isCDPQuery = message.toLowerCase().includes('cdp');
-      
+
       if (isCDPQuery) {
         addSystemEvent({
           event: "Detected CDP operation, routing to CDP agent",
           type: "info",
         });
-        
+
         // Send command with CDP agent flag
         eventBusRef.current?.emit('command', {
           type: 'command',
@@ -734,7 +741,7 @@ export default function Home() {
       // Check if this is an example query
       const exampleKeys = Object.keys(EXAMPLE_RESPONSES);
       const isExampleQuery = exampleKeys.includes(message);
-      
+
       if (isExampleQuery) {
         addSystemEvent({
           event: "Processing given scenario",
@@ -952,7 +959,7 @@ export default function Home() {
         return deduplicateMessages(updatedMessages);
       });
     });
-    
+
     // Subscribe to CDP agent responses
     eventBus.subscribe('cdp-agent-response', (data: { report?: string; result?: string }) => {
       const newMessage: Message = {
@@ -975,299 +982,292 @@ export default function Home() {
   }, []);
 
   return (
-  <>
-    <div className="flex flex-col min-h-screen">
-      <style jsx global>{scrollbarStyles}</style>
-      <Navbar />
-      
-      <main className="flex flex-1 overflow-hidden pt-16 pb-16">
-        {/* Left Sidebar - Agent Details */}
-        <div className="w-1/4 border-r border-white/10 overflow-y-auto custom-scrollbar">
-          <div className="p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Available Agents</h2>
-              <div className="flex items-center space-x-2">
-                <button 
-                  onClick={prevAgentPage} 
-                  disabled={currentAgentPage === 1}
-                  className={`px-2 py-1 rounded ${currentAgentPage === 1 ? 'bg-gray-200 text-gray-400' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
-                >
-                  ←
-                </button>
-                <span className="text-sm">{currentAgentPage} / {totalAgentPages || 1}</span>
-                <button 
-                  onClick={nextAgentPage} 
-                  disabled={currentAgentPage === totalAgentPages || agents.length === 0}
-                  className={`px-2 py-1 rounded ${currentAgentPage === totalAgentPages || agents.length === 0 ? 'bg-gray-200 text-gray-400' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
-                >
-                  →
-                </button>
+    <>
+      <div className="flex flex-col min-h-screen">
+        <style jsx global>{scrollbarStyles}</style>
+        <Navbar />
+
+        <main className="flex flex-1 overflow-hidden pt-16 pb-16">
+          {/* Left Sidebar - Agent Details */}
+          <div className="w-1/4 border-r border-white/10 overflow-y-auto custom-scrollbar">
+            <div className="p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold">Available Agents</h2>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={prevAgentPage}
+                    disabled={currentAgentPage === 1}
+                    className={`px-2 py-1 rounded ${currentAgentPage === 1 ? 'bg-gray-200 text-gray-400' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
+                  >
+                    ←
+                  </button>
+                  <span className="text-sm">{currentAgentPage} / {totalAgentPages || 1}</span>
+                  <button
+                    onClick={nextAgentPage}
+                    disabled={currentAgentPage === totalAgentPages || agents.length === 0}
+                    className={`px-2 py-1 rounded ${currentAgentPage === totalAgentPages || agents.length === 0 ? 'bg-gray-200 text-gray-400' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
+                  >
+                    →
+                  </button>
+                </div>
               </div>
-            </div>
-            
-            {currentAgents.length === 0 ? (
-              <div className="p-4 text-center text-gray-400">
-                No agents available
-              </div>
-            ) : (
-              <>
-                {/* Group agents by type */}
-                {(() => {
-                  // Get unique agent types from current page
-                  const agentTypes = [...new Set(currentAgents.map(agent => agent.type))];
-                  
-                  return agentTypes.map(type => (
-                    <div key={type} className="mb-4">
-                      <div className="mb-2 border-b border-gray-200 pb-1">
-                        <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-                          {type === 'system' ? 'System Agents' : 
-                           type === 'blockchain' ? 'Blockchain Agents' :
-                           type === 'wallet' ? 'Wallet Agents' :
-                           type === 'defi' ? 'DeFi Agents' :
-                           type === 'bridge' ? 'Bridge Agents' :
-                           type === 'trading' ? 'Trading Agents' :
-                           type === 'assistant' ? 'Assistant Agents' :
-                           `${type.charAt(0).toUpperCase() + type.slice(1)} Agents`}
-                        </h3>
-                      </div>
-                      
-                      {currentAgents
-                        .filter(agent => agent.type === type)
-                        .map(agent => (
-                          <div
-                            key={agent.id}
-                            className={`p-4 mb-3 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
-                              agentState.activeAgent === agent.id
+
+              {currentAgents.length === 0 ? (
+                <div className="p-4 text-center text-gray-400">
+                  No agents available
+                </div>
+              ) : (
+                <>
+                  {/* Group agents by type */}
+                  {(() => {
+                    // Get unique agent types from current page
+                    const agentTypes = [...new Set(currentAgents.map(agent => agent.type))];
+
+                    return agentTypes.map(type => (
+                      <div key={type} className="mb-4">
+                        <div className="mb-2 border-b border-gray-200 pb-1">
+                          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                            {type === 'system' ? 'System Agents' :
+                              type === 'blockchain' ? 'Blockchain Agents' :
+                                type === 'wallet' ? 'Wallet Agents' :
+                                  type === 'defi' ? 'DeFi Agents' :
+                                    type === 'bridge' ? 'Bridge Agents' :
+                                      type === 'trading' ? 'Trading Agents' :
+                                        type === 'assistant' ? 'Assistant Agents' :
+                                          `${type.charAt(0).toUpperCase() + type.slice(1)} Agents`}
+                          </h3>
+                        </div>
+
+                        {currentAgents
+                          .filter(agent => agent.type === type)
+                          .map(agent => (
+                            <div
+                              key={agent.id}
+                              className={`p-4 mb-3 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id
                                 ? "bg-blue-50 border border-blue-200"
                                 : "bg-white border"
-                            }`}
-                            onClick={() => setAgentState(prev => ({ ...prev, activeAgent: agent.id }))}
-                          >
-                            <div className="flex items-center mb-2">
-                              <div className="relative w-12 h-12 mr-3">
-                                <Image
-                                  src={agentImages[agent.id as keyof typeof agentImages] || agentImages.default}
-                                  alt={`${agent.name} avatar`}
-                                  fill
-                                  className="rounded-full object-cover"
-                                  priority
-                                />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex justify-between items-center">
-                                  <h3 className="font-medium text-gray-900">{agent.name}</h3>
-                                  <span className={`text-xs px-2 py-1 rounded-full ${
-                                    agent.status === 'active' ? 'bg-green-100 text-green-800' : 
-                                    agent.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
-                                    'bg-yellow-100 text-yellow-800'
-                                  }`}>
-                                    {agent.status}
-                                  </span>
+                                }`}
+                              onClick={() => setAgentState(prev => ({ ...prev, activeAgent: agent.id }))}
+                            >
+                              <div className="flex items-center mb-2">
+                                <div className="relative w-12 h-12 mr-3">
+                                  <Image
+                                    src={agentImages[agent.id as keyof typeof agentImages] || agentImages.default}
+                                    alt={`${agent.name} avatar`}
+                                    fill
+                                    className="rounded-full object-cover"
+                                    priority
+                                  />
                                 </div>
-                                <p className="text-xs text-gray-500">{agent.type || "AI Assistant"}</p>
+                                <div className="flex-1">
+                                  <div className="flex justify-between items-center">
+                                    <h3 className="font-medium text-gray-900">{agent.name}</h3>
+                                    <span className={`text-xs px-2 py-1 rounded-full ${agent.status === 'active' ? 'bg-green-100 text-green-800' :
+                                      agent.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                                        'bg-yellow-100 text-yellow-800'
+                                      }`}>
+                                      {agent.status}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-500">{agent.type || "AI Assistant"}</p>
+                                </div>
                               </div>
+                              <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
+                              {agentState.activeAgent === agent.id && (
+                                <div className="mt-2 text-xs text-blue-600 flex items-center">
+                                  <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
+                                  Active
+                                </div>
+                              )}
                             </div>
-                            <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
-                            {agentState.activeAgent === agent.id && (
-                              <div className="mt-2 text-xs text-blue-600 flex items-center">
-                                <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
-                                Active
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                    </div>
-                  ));
-                })()}
-              </>
-            )}
-
-            {/* Total agent count */}
-            <div className="text-xs text-gray-500 text-center mt-2">
-              Total Agents: {agents.length}
-            </div>
-          </div>
-        </div>
-
-        {/* Center - Chat Interface */}
-        <div className="flex-1 flex flex-col bg-[#0A192F]">
-          {/* Messages Container */}
-          <div 
-            className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#0A192F"
-            style={{ 
-              height: 'calc(100vh - 280px)',
-              maxHeight: 'calc(100vh - 280px)'
-            }}
-          >
-            {messages.map((message, index) => (
-              <div
-                key={`${message.timestamp}-${index}`}
-                className={`mb-4 flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
-                <div
-                  className={`flex items-start max-w-[80%] ${
-                    message.role === "user" ? "flex-row-reverse" : "flex-row"
-                  }`}
-                >
-                  {/* Agent/User Icon */}
-                  <div className={`flex-shrink-0 ${message.role === "user" ? "ml-2" : "mr-2"}`}>
-                    {message.role === "user" ? (
-                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
-                        <User className="w-5 h-5 text-white" />
+                          ))}
                       </div>
-                    ) : (
-                      <div className="relative">
-                        <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
-                          <Bot className="w-5 h-5 text-white" />
-                        </div>
-                        {message.collaborationType && (
-                          <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500" />
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Message Content */}
-                  <div className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}>
-                    {message.agentName && (
-                      <span className="text-xs font-medium text-gray-500 mb-1">
-                        {message.agentName}
-                        {message.collaborationType && ` • ${message.collaborationType}`}
-                      </span>
-                    )}
-                    <div
-                      className={`p-3 rounded-lg ${
-                        message.role === "user"
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-100 text-gray-900"
-                      }`}
-                    >
-                      {message.content}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {message.timestamp}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input Form */}
-          <div className="border-t border-white/10">
-            <form onSubmit={handleSubmit} className="p-4">
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-end gap-2">
-                  <label className="text-sm text-gray-400">Autonomous Mode</label>
-                  <Switch
-                    checked={autonomousMode}
-                    onCheckedChange={setAutonomousMode}
-                    className="data-[state=checked]:bg-blue-500"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    className="flex-1 rounded-lg border border-white/10 bg-black/20 p-2 text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Type your message..."
-                  />
-                  <Button type="submit" disabled={agentState.isProcessing}>
-                    <SendHorizontal className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </form>
-            
-            {/* Sample Prompts Section */}
-            <div className="flex flex-wrap gap-2 mb-4 p-4">
-              {visiblePrompts.map((prompt, index) => (
-                <button
-                  key={index}
-                  onClick={() => handlePromptClick(prompt.text)}
-                  className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
-                >
-                  <span>{prompt.icon}</span>
-                  <span>{prompt.text}</span>
-                </button>
-              ))}
-              <button
-                onClick={() => setShowAllPrompts(!showAllPrompts)}
-                className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
-              >
-                <span>ℹ️</span>
-                <span>{showAllPrompts ? 'Less' : 'More'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Sidebar - System Events */}
-        <div 
-          className={`transition-all duration-300 flex flex-col border-l border-white/10 ${
-            isRightSidebarOpen ? 'w-1/4' : 'w-[40px]'
-          }`}
-        >
-          <div className="p-4 border-b border-white/10 flex items-center justify-between">
-            {isRightSidebarOpen && (
-              <h2 className="text-lg font-semibold">System Events</h2>
-            )}
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
-              className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
-              title={isRightSidebarOpen ? "Close sidebar" : "Open sidebar"}
-            >
-              {isRightSidebarOpen ? (
-                <PanelRightClose className="h-5 w-5 text-gray-600 hover:text-gray-900" />
-              ) : (
-                <PanelRightOpen className="h-5 w-5 text-gray-600 hover:text-gray-900" />
+                    ));
+                  })()}
+                </>
               )}
-            </Button>
+
+              {/* Total agent count */}
+              <div className="text-xs text-gray-500 text-center mt-2">
+                Total Agents: {agents.length}
+              </div>
+            </div>
           </div>
-          
-          {isRightSidebarOpen && (
-            <div 
-              className="flex-1 overflow-y-auto p-4 custom-scrollbar"
-              style={{ 
+
+          {/* Center - Chat Interface */}
+          <div className="flex-1 flex flex-col bg-[#0A192F]">
+            {/* Messages Container */}
+            <div
+              className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#0A192F"
+              style={{
                 height: 'calc(100vh - 280px)',
                 maxHeight: 'calc(100vh - 280px)'
               }}
             >
-              {agentState.systemEvents.map((event, index) => (
+              {messages.map((message, index) => (
                 <div
-                  key={index}
-                  className={`p-3 mb-2 rounded-lg ${
-                    event.type === "error"
+                  key={`${message.timestamp}-${index}`}
+                  className={`mb-4 flex ${message.role === "user" ? "justify-end" : "justify-start"
+                    }`}
+                >
+                  <div
+                    className={`flex items-start max-w-[80%] ${message.role === "user" ? "flex-row-reverse" : "flex-row"
+                      }`}
+                  >
+                    {/* Agent/User Icon */}
+                    <div className={`flex-shrink-0 ${message.role === "user" ? "ml-2" : "mr-2"}`}>
+                      {message.role === "user" ? (
+                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                          <User className="w-5 h-5 text-white" />
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                            <Bot className="w-5 h-5 text-white" />
+                          </div>
+                          {message.collaborationType && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Message Content */}
+                    <div className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}>
+                      {message.agentName && (
+                        <span className="text-xs font-medium text-gray-500 mb-1">
+                          {message.agentName}
+                          {message.collaborationType && ` • ${message.collaborationType}`}
+                        </span>
+                      )}
+                      <div
+                        className={`p-3 rounded-lg ${message.role === "user"
+                          ? "bg-blue-500 text-white"
+                          : "bg-gray-100 text-gray-900"
+                          }`}
+                      >
+                        {message.content}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {message.timestamp}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Form */}
+            <div className="border-t border-white/10">
+              <form onSubmit={handleSubmit} className="p-4">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-end gap-2">
+                    <label className="text-sm text-gray-400">Autonomous Mode</label>
+                    <Switch
+                      checked={autonomousMode}
+                      onCheckedChange={setAutonomousMode}
+                      className="data-[state=checked]:bg-blue-500"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      className="flex-1 rounded-lg border border-white/10 bg-black/20 p-2 text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Type your message..."
+                    />
+                    <Button type="submit" disabled={agentState.isProcessing}>
+                      <SendHorizontal className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </form>
+
+              {/* Sample Prompts Section */}
+              <div className="flex flex-wrap gap-2 mb-4 p-4">
+                {visiblePrompts.map((prompt, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handlePromptClick(prompt.text)}
+                    className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
+                  >
+                    <span>{prompt.icon}</span>
+                    <span>{prompt.text}</span>
+                  </button>
+                ))}
+                <button
+                  onClick={() => setShowAllPrompts(!showAllPrompts)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
+                >
+                  <span>ℹ️</span>
+                  <span>{showAllPrompts ? 'Less' : 'More'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Sidebar - System Events */}
+          <div
+            className={`transition-all duration-300 flex flex-col border-l border-white/10 ${isRightSidebarOpen ? 'w-1/4' : 'w-[40px]'
+              }`}
+          >
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              {isRightSidebarOpen && (
+                <h2 className="text-lg font-semibold">System Events</h2>
+              )}
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+                title={isRightSidebarOpen ? "Close sidebar" : "Open sidebar"}
+              >
+                {isRightSidebarOpen ? (
+                  <PanelRightClose className="h-5 w-5 text-gray-600 hover:text-gray-900" />
+                ) : (
+                  <PanelRightOpen className="h-5 w-5 text-gray-600 hover:text-gray-900" />
+                )}
+              </Button>
+            </div>
+
+            {isRightSidebarOpen && (
+              <div
+                className="flex-1 overflow-y-auto p-4 custom-scrollbar"
+                style={{
+                  height: 'calc(100vh - 280px)',
+                  maxHeight: 'calc(100vh - 280px)'
+                }}
+              >
+                {agentState.systemEvents.map((event, index) => (
+                  <div
+                    key={index}
+                    className={`p-3 mb-2 rounded-lg ${event.type === "error"
                       ? "bg-red-100"
                       : event.type === "success"
                         ? "bg-green-100"
                         : event.type === "warning"
                           ? "bg-yellow-100"
                           : "bg-blue-100"
-                  }`}
-                >
-                  <div className="text-sm font-medium">
-                    {event.agent && (
-                      <span className="text-gray-600">[{event.agent}] </span>
-                    )}
-                    <span className="text-gray-900">{event.event}</span>
+                      }`}
+                  >
+                    <div className="text-sm font-medium">
+                      {event.agent && (
+                        <span className="text-gray-600">[{event.agent}] </span>
+                      )}
+                      <span className="text-gray-900">{event.event}</span>
+                    </div>
+                    <div className="text-xs text-gray-500">{event.timestamp}</div>
                   </div>
-                  <div className="text-xs text-gray-500">{event.timestamp}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </main>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
 
-      <Footer />
-    </div>
+        <Footer />
+      </div>
     </>
   );
 }
