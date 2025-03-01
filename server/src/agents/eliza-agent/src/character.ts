@@ -1,13 +1,14 @@
 import { Character, Clients, defaultCharacter, ModelProviderName } from "@elizaos/core";
 import solanaPlugin from "@elizaos/plugin-solana";
 import suiPlugin from "@elizaos/plugin-sui";
+import flowPlugin from "@elizaos/plugin-flow";
 
 export const character: Character = {
     ...defaultCharacter,
     name: "Ava",
-    modelProvider: ModelProviderName.OPENAI,
+    modelProvider: ModelProviderName.GROQ,
     clients: [Clients.TWITTER , Clients.TELEGRAM],
-    plugins: [suiPlugin],
+    plugins: [suiPlugin , flowPlugin],
     settings: {
         secrets: {},
         voice: {
