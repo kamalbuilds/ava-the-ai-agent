@@ -199,38 +199,38 @@ Your task is to extract structured information from user requests about blockcha
             responseMessage = chunk.agent.messages[0].content;
             console.log(`[${this.name}] Agent response: ${responseMessage.substring(0, 100)}...`);
 
-            try {
-              // License the agent's response
-              const responseLicenseTerms: IPLicenseTerms = {
-                name: `CDP Agent Response - ${Date.now()}`,
-                description: "License for CDP agent's response to user message",
-                scope: 'commercial',
-                transferability: true,
-                onchain_enforcement: true,
-                royalty_rate: 0.05
-              };
+            // try {
+            //   // License the agent's response
+            //   const responseLicenseTerms: IPLicenseTerms = {
+            //     name: `CDP Agent Response - ${Date.now()}`,
+            //     description: "License for CDP agent's response to user message",
+            //     scope: 'commercial',
+            //     transferability: true,
+            //     onchain_enforcement: true,
+            //     royalty_rate: 0.05
+            //   };
 
-              console.log(`[${this.name}] Minting license for agent response`);
-              const licenseId = await this.mintLicense(responseLicenseTerms, {
-                issuer_id: this.name,
-                holder_id: 'user',
-                issue_date: Date.now(),
-                version: '1.0'
-              });
-              console.log(`[${this.name}] License minted with ID: ${licenseId}`);
+            //   console.log(`[${this.name}] Minting license for agent response`);
+            //   const licenseId = await this.mintLicense(responseLicenseTerms, {
+            //     issuer_id: this.name,
+            //     holder_id: 'user',
+            //     issue_date: Date.now(),
+            //     version: '1.0'
+            //   });
+            //   console.log(`[${this.name}] License minted with ID: ${licenseId}`);
 
-              // Store response with license
-              console.log(`[${this.name}] Storing intelligence for agent response`);
-              await this.storeIntelligence(`response:${Date.now()}`, {
-                message: responseMessage,
-                licenseId,
-                timestamp: Date.now()
-              });
-              console.log(`[${this.name}] Intelligence stored successfully`);
-            } catch (licenseError) {
-              console.error(`[${this.name}] Error in licensing agent response:`, licenseError);
-              // Continue despite licensing error
-            }
+            //   // Store response with license
+            //   console.log(`[${this.name}] Storing intelligence for agent response`);
+            //   await this.storeIntelligence(`response:${Date.now()}`, {
+            //     message: responseMessage,
+            //     licenseId,
+            //     timestamp: Date.now()
+            //   });
+            //   console.log(`[${this.name}] Intelligence stored successfully`);
+            // } catch (licenseError) {
+            //   console.error(`[${this.name}] Error in licensing agent response:`, licenseError);
+            //   // Continue despite licensing error
+            // }
 
           } else if ("tools" in chunk) {
             console.log(`[${this.name}] Processing tools chunk`);
@@ -238,38 +238,38 @@ Your task is to extract structured information from user requests about blockcha
             console.log(`[${this.name}] Tools response: ${responseMessage.substring(0, 100)}...`);
             console.log(`[${this.name}] Tool execution details:`, JSON.stringify(chunk.tools.toolsExecutionHistory || {}, null, 2));
 
-            try {
-              // License the tool result
-              const toolResultLicenseTerms: IPLicenseTerms = {
-                name: `CDP Tool Result - ${Date.now()}`,
-                description: "License for CDP tool execution result",
-                scope: 'commercial',
-                transferability: true,
-                onchain_enforcement: true,
-                royalty_rate: 0.05
-              };
+            // try {
+            //   // License the tool result
+            //   const toolResultLicenseTerms: IPLicenseTerms = {
+            //     name: `CDP Tool Result - ${Date.now()}`,
+            //     description: "License for CDP tool execution result",
+            //     scope: 'commercial',
+            //     transferability: true,
+            //     onchain_enforcement: true,
+            //     royalty_rate: 0.05
+            //   };
 
-              console.log(`[${this.name}] Minting license for tool result`);
-              const licenseId = await this.mintLicense(toolResultLicenseTerms, {
-                issuer_id: this.name,
-                holder_id: 'user',
-                issue_date: Date.now(),
-                version: '1.0'
-              });
-              console.log(`[${this.name}] License minted with ID: ${licenseId}`);
+            //   console.log(`[${this.name}] Minting license for tool result`);
+            //   const licenseId = await this.mintLicense(toolResultLicenseTerms, {
+            //     issuer_id: this.name,
+            //     holder_id: 'user',
+            //     issue_date: Date.now(),
+            //     version: '1.0'
+            //   });
+            //   console.log(`[${this.name}] License minted with ID: ${licenseId}`);
 
-              // Store tool result with license
-              console.log(`[${this.name}] Storing intelligence for tool result`);
-              await this.storeIntelligence(`tool:${Date.now()}`, {
-                result: responseMessage,
-                licenseId,
-                timestamp: Date.now()
-              });
-              console.log(`[${this.name}] Intelligence stored successfully`);
-            } catch (licenseError) {
-              console.error(`[${this.name}] Error in licensing tool result:`, licenseError);
-              // Continue despite licensing error
-            }
+            //   // Store tool result with license
+            //   console.log(`[${this.name}] Storing intelligence for tool result`);
+            //   await this.storeIntelligence(`tool:${Date.now()}`, {
+            //     result: responseMessage,
+            //     licenseId,
+            //     timestamp: Date.now()
+            //   });
+            //   console.log(`[${this.name}] Intelligence stored successfully`);
+            // } catch (licenseError) {
+            //   console.error(`[${this.name}] Error in licensing tool result:`, licenseError);
+            //   // Continue despite licensing error
+            // }
           }
         }
       } catch (streamError) {
@@ -314,7 +314,7 @@ Your task is to extract structured information from user requests about blockcha
         royalty_rate: 0.05
       };
 
-              const licenseId = await this.mintLicense(thoughtLicenseTerms, {
+      const licenseId = await this.mintLicense(thoughtLicenseTerms, {
         issuer_id: this.name,
         holder_id: 'user',
         issue_date: Date.now(),
