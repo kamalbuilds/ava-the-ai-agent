@@ -90,21 +90,46 @@ export abstract class IPAgent extends Agent {
     data: any,
     metadata?: Record<string, any>
   ): Promise<void> {
-    const result = await this.recallStorage.store(key, data, {
-      ...metadata,
-      agent: this.name,
-      timestamp: Date.now(),
-      type: 'intelligence',
-      overwrite: true
-    });
-
-    console.log(`[${this.name}] Stored intelligence for ${key}:`);
+    try {
+      await this.recallStorage.store(key, data, {
+        ...metadata,
+        agent: this.name,
+        timestamp: Date.now(),
+        type: 'intelligence',
+        overwrite: true
+      });
+      console.log(`[${this.name}] Stored intelligence for ${key}`);
+    } catch (error: any) {
+      // Log the error but continue execution - don't let storage failures block operation
+      console.log(`[${this.name}] Failed to store intelligence for ${key}, continuing without storage: ${error.message}`);
+      // Notify through eventBus if available
+      // if (this.eventBus) {
+      //   this.eventBus.emit("agent-error", {
+      //     agent: this.name,
+      //     error: `Storage failure (non-critical): ${error.message}`
+      //   });
+      // }
+      // Return without error - the application should continue functioning
+      return;
+    }
   }
 
   protected async retrieveIntelligence(
     key: string
-  ): Promise<{ data: any; metadata?: Record<string, any> }> {
-    return this.recallStorage.retrieve(key);
+  ): Promise<{ data: any; metadata?: Record<string, any> } | null> {
+    try {
+      return await this.recallStorage.retrieve(key);
+    } catch (error: any) {
+      console.warn(`[${this.name}] Failed to retrieve intelligence for ${key}: ${error.message}`);
+      if (this.eventBus) {
+        this.eventBus.emit("agent-error", {
+          agent: this.name,
+          error: `Storage retrieval failure (non-critical): ${error.message}`
+        });
+      }
+      // Return null instead of throwing an error
+      return null;
+    }
   }
 
   protected async storeChainOfThought(
@@ -112,18 +137,42 @@ export abstract class IPAgent extends Agent {
     thoughts: string[],
     metadata?: Record<string, any>
   ): Promise<void> {
-    await this.recallStorage.storeCoT(key, thoughts, {
-      ...metadata,
-      agent: this.name,
-      timestamp: Date.now(),
-      type: 'chain-of-thought',
-    });
+    try {
+      await this.recallStorage.storeCoT(key, thoughts, {
+        ...metadata,
+        agent: this.name,
+        timestamp: Date.now(),
+        type: 'chain-of-thought',
+      });
+    } catch (error: any) {
+      console.warn(`[${this.name}] Failed to store chain of thought for ${key}: ${error.message}`);
+      if (this.eventBus) {
+        this.eventBus.emit("agent-error", {
+          agent: this.name,
+          error: `CoT storage failure (non-critical): ${error.message}`
+        });
+      }
+      // Return without error
+      return;
+    }
   }
 
   protected async retrieveChainOfThought(
     key: string
-  ): Promise<{ thoughts: string[]; metadata?: Record<string, any> }> {
-    return this.recallStorage.retrieveCoT(key);
+  ): Promise<{ thoughts: string[]; metadata?: Record<string, any> } | null> {
+    try {
+      return await this.recallStorage.retrieveCoT(key);
+    } catch (error: any) {
+      console.warn(`[${this.name}] Failed to retrieve chain of thought for ${key}: ${error.message}`);
+      if (this.eventBus) {
+        this.eventBus.emit("agent-error", {
+          agent: this.name,
+          error: `CoT retrieval failure (non-critical): ${error.message}`
+        });
+      }
+      // Return null instead of throwing an error
+      return null;
+    }
   }
 
   protected async searchIntelligence(
@@ -133,28 +182,59 @@ export abstract class IPAgent extends Agent {
       filter?: Record<string, any>;
     }
   ): Promise<Array<{ key: string; score: number; data: any }>> {
-    return this.recallStorage.search(query, {
-      ...options,
-      filter: {
-        ...options?.filter,
-        agent: this.name,
-      },
-    });
+    try {
+      return await this.recallStorage.search(query, {
+        ...options,
+        filter: {
+          ...options?.filter,
+          agent: this.name,
+        },
+      });
+    } catch (error: any) {
+      console.warn(`[${this.name}] Failed to search intelligence with query '${query}': ${error.message}`);
+      if (this.eventBus) {
+        this.eventBus.emit("agent-error", {
+          agent: this.name,
+          error: `Search failure (non-critical): ${error.message}`
+        });
+      }
+      // Return empty array instead of throwing an error
+      return [];
+    }
   }
 
   protected async retrieveRecentThoughts(
     limit: number = 10
   ): Promise<Array<{ thoughts: string[]; metadata?: Record<string, any> }>> {
-    const results = await this.recallStorage.search('type:chain-of-thought', {
-      limit,
-      filter: {
-        agent: this.name,
-      },
-    });
-
-    return results.map(result => ({
-      thoughts: result.data.thoughts,
-      metadata: result.data.metadata,
-    }));
+    try {
+      const results = await this.recallStorage.search('type:chain-of-thought', {
+        limit,
+        filter: {
+          agent: this.name,
+        },
+      });
+      
+      // Convert search results to thought objects
+      return await Promise.all(
+        results.map(async (result) => {
+          try {
+            return await this.retrieveChainOfThought(result.key);
+          } catch (error: any) {
+            console.warn(`[${this.name}] Failed to retrieve thought for ${result.key}: ${error.message}`);
+            return null;
+          }
+        })
+      ).then(results => results.filter(r => r !== null) as Array<{ thoughts: string[]; metadata?: Record<string, any> }>);
+    } catch (error: any) {
+      console.warn(`[${this.name}] Failed to retrieve recent thoughts: ${error.message}`);
+      if (this.eventBus) {
+        this.eventBus.emit("agent-error", {
+          agent: this.name,
+          error: `Recent thoughts retrieval failure (non-critical): ${error.message}`
+        });
+      }
+      // Return empty array instead of throwing an error
+      return [];
+    }
   }
 } 
