@@ -6,6 +6,7 @@ import { WalletIcon, ChartBarIcon, CogIcon } from "@heroicons/react/24/outline";
 import { ConnectButton, lightTheme } from "thirdweb/react";
 import { client } from "@/app/client";
 import { avalanche, avalancheFuji, ethereum, modeTestnet, bsc, base } from "thirdweb/chains";
+import { cn } from "@/lib/utils";
 
 const navItems = [
   {
@@ -25,20 +26,24 @@ const navItems = [
   }
 ];
 
-export function Navbar() {
+interface NavbarProps {
+  className?: string;
+}
+
+export function Navbar({ className }: NavbarProps) {
   const pathname = usePathname();
 
   // Hide navbar on deck page
   if (pathname === "/deck") return null;
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-black/20 backdrop-blur-md border-b border-white/10">
+    <header className={cn("relative w-full bg-black/80 backdrop-blur-md border-b border-white/10", className)}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex-shrink-0">
             <Link href="/" className="flex items-center space-x-2">
-              <span className="text-xl font-bold bg-gradient-to-r from-[var(--primary-blue)] to-[var(--secondary-blue)] bg-clip-text text-transparent">
-                Ava Portfolio
+              <span className="text-xl text-white font-bold bg-gradient-to-r from-[var(--primary-blue)] to-[var(--secondary-blue)] bg-clip-text text-transparent">
+                Ava The DefAi Agent
               </span>
             </Link>
           </div>
@@ -93,6 +98,6 @@ export function Navbar() {
           </div>
         </div>
       </div>
-    </nav>
+    </header>
   );
 }

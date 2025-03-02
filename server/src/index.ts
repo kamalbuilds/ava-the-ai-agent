@@ -180,13 +180,24 @@ async function initializeServices() {
                 action: "All agents stopped",
               });
             } else {
+              // Check if a specific chain is selected
+              const chainInfo = data.selectedChain ? 
+                `for ${data.selectedChain.name} chain` : '';
+              
               eventBus.emit("agent-action", {
                 agent: "system",
-                action: "Starting task processing",
+                action: `Starting task processing ${chainInfo}`,
               });
               
+              // Create task with options including selectedChain if provided
+              const taskOptions = {
+                targetAgent: data.agentPreference,
+                operationType: data.operationType,
+                selectedChain: data.selectedChain
+              };
+              
               // Create and process task through task manager
-              const taskId = await agents.taskManagerAgent.createTask(data.command);
+              const taskId = await agents.taskManagerAgent.createTask(data.command, taskOptions);
               // Get the task from the task manager and then assign it
               const task = await agents.taskManagerAgent.getTaskById(taskId);
               if (task) {

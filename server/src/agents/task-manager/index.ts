@@ -27,6 +27,12 @@ interface Task {
   licenseId?: string;
   timestamp: string;
   operationType?: string;
+  selectedChain?: {
+    id: string;
+    name: string;
+    icon: string;
+    agentId: string;
+  };
 }
 
 /**
@@ -507,7 +513,16 @@ export class TaskManagerAgent extends IPAgent {
     }
   }
 
-  async createTask(description: string, options?: { targetAgent?: string; operationType?: string }): Promise<string> {
+  async createTask(description: string, options?: { 
+    targetAgent?: string; 
+    operationType?: string;
+    selectedChain?: {
+      id: string;
+      name: string;
+      icon: string;
+      agentId: string;
+    };
+  }): Promise<string> {
     const taskId = uuidv4();  // Use UUID for consistent task IDs
     console.log(`[${this.name}] Creating new task with ID: ${taskId} and description: ${description}`);
     
@@ -517,7 +532,8 @@ export class TaskManagerAgent extends IPAgent {
       status: 'pending',
       timestamp: new Date().toISOString(),
       assignedTo: options?.targetAgent,
-      operationType: options?.operationType
+      operationType: options?.operationType,
+      selectedChain: options?.selectedChain
     };
 
     try {
@@ -592,6 +608,11 @@ export class TaskManagerAgent extends IPAgent {
     if (task.assignedTo) {
       agentType = task.assignedTo;
       console.log(`[${this.name}] Using pre-assigned agent: ${agentType}`);
+    }
+    // If a specific chain is selected, use its agent
+    else if (task.selectedChain && task.selectedChain.agentId) {
+      agentType = task.selectedChain.agentId;
+      console.log(`[${this.name}] Using chain-specific agent: ${agentType} for chain: ${task.selectedChain.name}`);
     }
     // Check if the task is related to Hedera
     else if (task.description.toLowerCase().includes('hedera')) {
@@ -842,8 +863,19 @@ Please process the given task and provide clear, executable instructions.`;
         case 'hedera-task-manager':
           await this.handleHederaResult(data);
           break;
+        case 'sonic-agent-task-manager':
+          // Handle Sonic agent results
+          console.log(`[${this.name}] Received result from Sonic agent:`, data);
+          // Process the result similar to other agent handlers
+          break;
         default:
-          console.log(`[${this.name}] Unhandled event: ${event}`);
+          // Check if this is a chain-specific agent result
+          if (event.endsWith('-task-manager')) {
+            console.log(`[${this.name}] Received result from chain-specific agent: ${event}`);
+            // Process the result similar to other agent handlers
+          } else {
+            console.log(`[${this.name}] Unhandled event: ${event}`);
+          }
       }
     } catch (error) {
       console.error(`[${this.name}] Error handling event:`, error);
