@@ -2,7 +2,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { EventBus } from "./comms/event-bus";
 
 
-const WS_PORT = 3002;
+const WS_PORT = 3001;
 
 // export function setupWebSocket(eventBus: EventBus) {
 //   console.log("Web socket >>>");

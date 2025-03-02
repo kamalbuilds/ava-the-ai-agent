@@ -32,6 +32,7 @@ export interface AIProvider {
       style_preset?: string;
     }
   ) => Promise<{ images: string[] }>;
+  processPrompt: (systemPrompt: string, userPrompt: string) => Promise<string>;
 }
 
 export interface AIConfig {

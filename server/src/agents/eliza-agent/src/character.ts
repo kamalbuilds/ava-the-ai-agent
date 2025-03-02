@@ -10,7 +10,7 @@ export const character: Character = {
     name: "Ava",
     modelProvider: ModelProviderName.GROQ,
     clients: [Clients.TWITTER , Clients.TELEGRAM],
-    plugins: [suiPlugin , flowPlugin , new OktoPlugin()],
+    plugins: [  new OktoPlugin()],
     settings: {
         secrets: {},
         voice: {

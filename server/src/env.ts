@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const envSchema = z.object({
-  PORT: z.coerce.number().default(3002),
+  PORT: z.coerce.number().default(3001),
   GROQ_API_KEY: z.string(),
   NETWORK_ID: z.string(),
   SUPABASE_URL: z.string(),

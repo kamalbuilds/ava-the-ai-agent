@@ -147,6 +147,55 @@ export class TaskManagerAgent extends IPAgent {
         ...task,
         timestamp: Date.now()
       });
+      
+      // Mint NFT for completed tasks using Story Protocol
+      if (data.status === 'completed' && data.result) {
+        try {
+          console.log(`[${this.name}] ========== Minting NFT for completed task ==========`);
+          
+          // Prepare license terms
+          const terms: IPLicenseTerms = {
+            name: `Task Completion: ${task.description.substring(0, 50)}...`,
+            description: `This NFT represents the successful completion of task ${data.taskId} by the AVA Portfolio Manager AI agent system.`,
+            scope: 'commercial',
+            transferability: true,
+            duration: 365 * 24 * 60 * 60 * 1000, // 1 year in milliseconds
+            royalty_rate: 0.05, // 5% royalty
+            rev_share: 0.05, // 5% revenue share
+            onchain_enforcement: true,
+            ip_restrictions: ['No derivatives without attribution']
+          };
+          
+          // Prepare metadata
+          const metadata: IPMetadata = {
+            issuer_id: this.name,
+            holder_id: 'AVA Portfolio Manager',
+            issue_date: Date.now(),
+            version: '1.0',
+            link_to_terms: `https://ava-portfolio-manager.io/licenses/${data.taskId}`
+          };
+          
+          // Mint the license
+          const licenseId = await this.mintLicense(terms, metadata);
+          console.log(`[${this.name}] Successfully minted NFT with license ID: ${licenseId}`);
+          
+          // Update task with license information
+          task.licenseId = licenseId;
+          this.tasks.set(data.taskId, task);
+          
+          // Store updated task with license info
+          await this.storeIntelligence(`task:${data.taskId}`, {
+            ...task,
+            licenseId,
+            timestamp: Date.now()
+          });
+          
+          console.log(`[${this.name}] Task ${data.taskId} updated with license ID: ${licenseId}`);
+        } catch (error) {
+          console.error(`[${this.name}] Error minting NFT for task ${data.taskId}:`, error);
+          // Continue execution even if NFT minting fails
+        }
+      }
 
       // Emit task update with detailed event
       console.log(`[${this.name}] Emitting task update event`);
@@ -161,8 +210,7 @@ export class TaskManagerAgent extends IPAgent {
         destination: 'task-manager'
       });
 
-      console.log(`[${this.name}] ========== Executor Result Handling Complete ==========\n`);
-
+      console.log(`[${this.name}] ========== Executor Result Processing Complete ==========\n`);
     } catch (error) {
       console.error(`[${this.name}] Error handling executor result:`, error);
       this.eventBus.emit('task-update', {

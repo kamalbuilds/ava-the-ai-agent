@@ -6,11 +6,15 @@ import { TaskManagerAgent } from "./task-manager";
 import { CdpAgent } from "./cdp-agent";
 import { HederaAgent } from "./hedera-agent";
 import { ZircuitAgent } from "./zircuit-agent";
+import { NexusBridgeAgent } from "./nexus-bridge-agent";
+import { SXTAnalyticsAgent } from "./sxt-analytics-agent";
 import { AIProvider } from "../services/ai/types";
 import { HybridStorage } from "./plugins/hybrid-storage";
 import { ATCPIPProvider } from "./plugins/atcp-ip";
 import { RecallStorage } from "./plugins/recall-storage";
 import { StorageInterface } from "./types/storage";
+import { defaultConfig as nexusBridgeConfig } from "./nexus-bridge-agent/constants";
+import { SXTDataProvider } from "./plugins/sxt-data-provider";
 
 /**
  * Registers the agents and returns them
@@ -87,6 +91,59 @@ export const registerAgents = (
   );
   console.log(`[registerAgents] hedera agent initialized.`);
 
+  // Initialize Nexus Bridge agent
+  const nexusBridgeAgentConfig = {
+    privateKey: process.env.NEXUS_BRIDGE_PRIVATE_KEY || 'your-private-key',
+    sourceChainRpcUrl: process.env.NEXUS_SOURCE_CHAIN_RPC_URL || nexusBridgeConfig.zksync1.rpcUrl,
+    destChainRpcUrl: process.env.NEXUS_DEST_CHAIN_RPC_URL || nexusBridgeConfig.zksync2.rpcUrl,
+    sourceBridgeAddress: process.env.NEXUS_SOURCE_BRIDGE_ADDRESS || nexusBridgeConfig.zksync1.bridgeAddress,
+    destBridgeAddress: process.env.NEXUS_DEST_BRIDGE_ADDRESS || nexusBridgeConfig.zksync2.bridgeAddress,
+    sourceMailboxAddress: process.env.NEXUS_SOURCE_MAILBOX_ADDRESS || nexusBridgeConfig.zksync1.mailboxAddress,
+    destMailboxAddress: process.env.NEXUS_DEST_MAILBOX_ADDRESS || nexusBridgeConfig.zksync2.mailboxAddress,
+    sourceProofManagerAddress: process.env.NEXUS_SOURCE_PROOF_MANAGER_ADDRESS || nexusBridgeConfig.zksync1.proofManagerAddress,
+    destProofManagerAddress: process.env.NEXUS_DEST_PROOF_MANAGER_ADDRESS || nexusBridgeConfig.zksync2.proofManagerAddress,
+    sourceAppId: process.env.NEXUS_SOURCE_APP_ID || nexusBridgeConfig.zksync1.appId,
+    destAppId: process.env.NEXUS_DEST_APP_ID || nexusBridgeConfig.zksync2.appId,
+    nexusRpcUrl: process.env.NEXUS_RPC_URL || nexusBridgeConfig.nexusRpcUrl,
+  };
+
+  console.log(`[registerAgents] Initializing Nexus Bridge agent with source chain: ${nexusBridgeAgentConfig.sourceChainRpcUrl}`);
+  console.log(`[registerAgents] Private key available: ${!!nexusBridgeAgentConfig.privateKey}`);
+
+  const nexusBridgeAgent = new NexusBridgeAgent(
+    'nexus-bridge-agent',
+    eventBus,
+    storage,
+    atcpipProvider,
+    nexusBridgeAgentConfig,
+    aiProvider
+  );
+  console.log(`[registerAgents] nexus bridge agent initialized.`);
+
+  // Initialize SXT Analytics agent
+  const sxtConfig = {
+    privateKey: process.env.SXT_PRIVATE_KEY || 'your-private-key',
+    publicKey: process.env.SXT_PUBLIC_KEY || 'your-public-key',
+    apiKey: process.env.SXT_API_KEY
+  };
+
+  console.log(`[registerAgents] Initializing SXT Analytics agent`);
+  console.log(`[registerAgents] SXT keys available: ${!!sxtConfig.privateKey && !!sxtConfig.publicKey}`);
+
+  // Create the SXT Data Provider
+  // Note: In a real implementation, you would import the actual SXT SDK
+  const sxtSDK = {} as any; // Placeholder for the actual SXT SDK
+  const sxtDataProvider = new SXTDataProvider(sxtSDK, sxtConfig);
+
+  const sxtAnalyticsAgent = new SXTAnalyticsAgent(
+    'sxt-analytics-agent',
+    eventBus,
+    storage,
+    sxtDataProvider,
+    aiProvider
+  );
+  console.log(`[registerAgents] SXT analytics agent initialized.`);
+
   // Register event handlers
   registerEventHandlers(eventBus, {
     executorAgent,
@@ -95,6 +152,8 @@ export const registerAgents = (
     cdpagent,
     zircuitAgent,
     hederaAgent,
+    nexusBridgeAgent,
+    sxtAnalyticsAgent,
   });
 
   console.log("all events registered");
@@ -106,6 +165,8 @@ export const registerAgents = (
     cdpagent,
     zircuitAgent,
     hederaAgent,
+    nexusBridgeAgent,
+    sxtAnalyticsAgent,
   };
 };
 
@@ -150,5 +211,26 @@ function registerEventHandlers(eventBus: EventBus, agents: any) {
   );
   eventBus.register(`hedera-task-manager`, (data) =>
     agents.taskManagerAgent.handleEvent(`hedera-task-manager`, data)
+  );
+
+  // Task Manager <-> Nexus Bridge Agent
+  eventBus.register(`task-manager-nexus-bridge-agent`, (data) =>
+    agents.nexusBridgeAgent.handleEvent(`task-manager-nexus-bridge-agent`, data)
+  );
+  eventBus.register(`nexus-bridge-agent-task-manager`, (data) =>
+    agents.taskManagerAgent.handleEvent(`nexus-bridge-agent-task-manager`, data)
+  );
+
+  // Task Manager <-> SXT Analytics Agent
+  eventBus.register(`task-manager-sxt-analytics-agent`, (data) =>
+    agents.sxtAnalyticsAgent.handleEvent(`task-manager-sxt-analytics-agent`, data)
+  );
+  eventBus.register(`sxt-analytics-agent-task-manager`, (data) =>
+    agents.taskManagerAgent.handleEvent(`sxt-analytics-agent-task-manager`, data)
+  );
+
+  // Portfolio Update -> SXT Analytics Agent
+  eventBus.register(`portfolio-update`, (data) =>
+    agents.sxtAnalyticsAgent.handleEvent(`portfolio-update`, data)
   );
 }
