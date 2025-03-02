@@ -37,8 +37,8 @@ The agent responds to the following event types:
 2. **Portfolio Updates**: Update assets and transactions data when portfolio changes
    ```typescript
    eventBus.emit(`portfolio-update`, {
-     assets: [...], // Array of asset objects
-     transactions: [...] // Array of transaction objects
+     assets: [...],
+     transactions: [...]
    });
    ```
 
