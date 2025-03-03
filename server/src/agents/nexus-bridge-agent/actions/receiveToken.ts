@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 import { NexusBridgeAgent } from "..";
+// @ts-ignore
 import { getStorageLocationForReceipt } from "nexus-js";
 
 export interface ReceiveTokenParams {

@@ -4,6 +4,7 @@ import { AIProvider } from "../../services/ai/types";
 import { StorageInterface } from "../types/storage";
 import { ATCPIPProvider } from "../plugins/atcp-ip";
 import { ethers } from "ethers";
+// @ts-ignore - Using a local implementation of nexus-js
 import { NexusClient, MailBoxClient, ProofManagerClient, ZKSyncVerifier } from "nexus-js";
 import { bridgeTokens } from './constants';
 import { sendTokenAction } from './actions/sendToken';

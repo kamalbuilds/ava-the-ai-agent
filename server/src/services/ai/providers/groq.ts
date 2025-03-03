@@ -42,6 +42,11 @@ export class GroqProvider implements AIProvider {
     });
   }
 
+  async processPrompt(systemPrompt: string, userPrompt: string): Promise<string> {
+    const response = await this.generateText(userPrompt, systemPrompt);
+    return response.text;
+  }
+
   async generateText(
     prompt: string,
     systemPrompt?: string

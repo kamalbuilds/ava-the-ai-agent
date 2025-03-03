@@ -1,17 +1,22 @@
 declare module 'nexus-js' {
   export class NexusClient {
-    constructor(rpcUrl: string, appId: string);
+    constructor(appId: string, rpcUrl: string);
+    connect(): Promise<void>;
+    disconnect(): Promise<void>;
     getAccount(): Promise<any>;
   }
 
   export class MailBoxClient {
     constructor(mailboxAddress: string, rpcUrl: string, privateKey: string);
+    sendMessage(recipient: string, message: string): Promise<any>;
+    receiveMessages(): Promise<any[]>;
     getContract(): any;
     getAddress(): string;
   }
 
   export class ProofManagerClient {
     constructor(proofManagerAddress: string, rpcUrl: string, privateKey: string);
+    verifyProof(proof: any): Promise<boolean>;
     updateNexusBlock(
       blockNumber: number,
       stateRoot: string,
@@ -24,6 +29,7 @@ declare module 'nexus-js' {
       appId: string,
       account: any
     ): Promise<any>;
+    getAppState(appId: string): Promise<any>;
   }
 
   export class ZKSyncVerifier {
@@ -44,13 +50,8 @@ declare module 'nexus-js' {
     
     getSourceAppId(): string;
     getDestinationAppId(): string;
-    getConfig(): any;
-    getReceiveMessageProof(
-      height: number,
-      messageDetails: any,
-      options: { storageKey: string }
-    ): Promise<any>;
-    encodeMessageProof(proof: any): any;
+    verifyProof(proof: any): Promise<boolean>;
+    verifyStateTransition(from: string, to: string, proof: any): Promise<boolean>;
   }
 
   export interface MailboxMessageStruct {

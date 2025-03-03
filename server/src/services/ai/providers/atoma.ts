@@ -13,6 +13,11 @@ export class AtomaProvider implements AIProvider {
     this.enablePrivateCompute = enablePrivateCompute;
   }
 
+  async processPrompt(systemPrompt: string, userPrompt: string): Promise<string> {
+    const response = await this.generateText(userPrompt, systemPrompt);
+    return response.text;
+  }
+
   async generateText(prompt: string, systemPrompt?: string): Promise<AIResponse> {
     try {
       const messages = [

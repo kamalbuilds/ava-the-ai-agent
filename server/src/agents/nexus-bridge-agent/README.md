@@ -14,18 +14,18 @@ The agent requires the following configuration parameters:
 
 ```typescript
 {
-  privateKey: string;              // Private key for signing transactions
-  sourceChainRpcUrl: string;       // RPC URL for the source chain
-  destChainRpcUrl: string;         // RPC URL for the destination chain
-  sourceBridgeAddress: string;     // Address of the bridge contract on the source chain
-  destBridgeAddress: string;       // Address of the bridge contract on the destination chain
-  sourceMailboxAddress: string;    // Address of the mailbox contract on the source chain
-  destMailboxAddress: string;      // Address of the mailbox contract on the destination chain
-  sourceProofManagerAddress: string; // Address of the proof manager contract on the source chain
-  destProofManagerAddress: string; // Address of the proof manager contract on the destination chain
-  sourceAppId: string;             // App ID for the source chain
-  destAppId: string;               // App ID for the destination chain
-  nexusRpcUrl: string;             // RPC URL for the Nexus service
+  privateKey: string;             
+  sourceChainRpcUrl: string;       
+  destChainRpcUrl: string;         
+  sourceBridgeAddress: string;
+  destBridgeAddress: string;
+  sourceMailboxAddress: string;
+  destMailboxAddress: string;
+  sourceProofManagerAddress: string;
+  destProofManagerAddress: string;
+  sourceAppId: string;
+  destAppId: string;
+  nexusRpcUrl: string;
 }
 ```
 
@@ -86,7 +86,6 @@ The Nexus Bridge Agent is built on top of the Agent framework and integrates wit
 ## Dependencies
 
 - ethers.js: For Ethereum interactions
-- nexus-js: For Nexus protocol interactions
 
 ## Integration
 

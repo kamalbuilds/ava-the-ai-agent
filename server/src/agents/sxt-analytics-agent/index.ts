@@ -96,7 +96,7 @@ export class SXTAnalyticsAgent extends Agent {
       this.eventBus.emit(`${this.name}-task-manager`, {
         taskId,
         status: 'failed',
-        error: error.message
+        error: "Error processing task"
       });
     } finally {
       this.currentTaskId = null;
