@@ -70,8 +70,11 @@ const agentImages = {
   "defi-analytics": "/agent_analyst.png",
   "cdp-agent": '/cdp-agentkit.png',
   "hedera-agent": "/hedera-agentkit.webp",
+  "zircuit-agent": "/agent_analyst.png",
+  "flow-agent": "/executor.png",
+  "eliza-agent": "/taskManager.png",
   "ip-manager": "/ip-manager.jpg",
-  default: "/agent_default.png", // Add a default image
+  default: "/agent_default.png",
 };
 
 console.log(agentImages, "agentImages");
@@ -140,7 +143,7 @@ export default function Home() {
     { icon: "💱", text: "I have 10 AVAX and want to optimize my portfolio between lending, liquidity provision, and trading. What's the best strategy right now?" },
     { icon: "💱", text: "bridge 0.0001 ETH from BaseSepolia to ArbitriumSepolia using cdp agent kit" },
     { icon: "📈", text: "Create investment plan with 1 ETH to make 500 USDC" },
-    { icon: "🔄", text: "Bridge 2 ETH to Polygon" },
+    { icon: "🔄", text: "Find me the best opportunity on Zircuit and deposit 0.0001 ETH" },
     { icon: "💰", text: "Find best yield farming opportunities" },
     { icon: "📊", text: "Analyze my portfolio performance" },
     { icon: "📉", text: "Show price chart for PEPE" },
@@ -240,6 +243,30 @@ export default function Home() {
       type: 'blockchain',
       status: 'active',
       description: 'Specialized agent for cross-chain operations, bridges, and CDP-based transactions across multiple networks.',
+      agent: null
+    },
+    {
+      id: 'zircuit-agent',
+      name: 'Zircuit Agent',
+      type: 'blockchain',
+      status: 'active',
+      description: 'Manages private DeFi operations using Zircuit\'s on-chain privacy infrastructure, enabling confidential transactions and portfolio data.',
+      agent: null
+    },
+    {
+      id: 'flow-agent',
+      name: 'Flow Agent',
+      type: 'blockchain',
+      status: 'active',
+      description: 'Interacts with Flow blockchain for NFT operations, token management, and secure scaling of digital assets across the ecosystem.',
+      agent: null
+    },
+    {
+      id: 'eliza-agent',
+      name: 'Eliza Agent',
+      type: 'system',
+      status: 'active',
+      description: 'Specializes in natural language understanding and user intent classification to route user requests to the appropriate specialized agents.',
       agent: null
     },
     {

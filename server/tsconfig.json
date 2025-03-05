@@ -114,6 +114,6 @@
     // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
     "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
   },
-  "include": ["src/index.ts","env.d.ts","src/agents/cdp-agent/actions", "src/types/**/*.d.ts"],
-  "exclude": ["node_modules", "src/atoma-agents","src/agents/eliza-agent"]
+  "include": ["src/index.ts","env.d.ts","src/agents/cdp-agent/actions", "src/types/**/*.d.ts", "src/types/nexus-js.d.ts", "src/mocks/**/*.ts"],
+  "exclude": ["node_modules", "src/atoma-agents","src/agents/eliza-agent","src/agents/sxt-analytics-agent"]
 }
