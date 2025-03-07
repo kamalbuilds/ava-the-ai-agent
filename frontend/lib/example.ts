@@ -303,7 +303,7 @@ export const AUTONOMOUS_EXAMPLES = [
     ]
   },
   {
-    query: "Find me the best opportunity on Zircuit and deposit 0.001 ETH",
+    query: "Find me the best opportunity on Zircuit and deposit 0.0001 ETH",
     systemPrompt: "Analyzing Zircuit protocol and preparing ETH deposit transaction",
     responses: [
       {
@@ -336,7 +336,7 @@ export const AUTONOMOUS_EXAMPLES = [
       },
       {
         role: "assistant",
-        content: "✅ Transaction Successful!\n\nTransaction hash: 0x7a5d8e9b4f8c3a2e1d6b7c0f5e4d3c2b1a9f8e7d6c5b4a3210fedcba9876543\n\nDeposit Summary:\n- 0.0001 ETH deposited to Zircuit contract\n- Receiving address: 0x67E6...17bf\n- Expected annual yield: 18.7% APY\n- Deposit can be viewed on Zircuit Explorer\n\nWould you like to set up monitoring for this position?",
+        content: "✅ Transaction Successful!\n\nTransaction hash: https://explorer.zircuit.com/tx/0x0b60ea7ed9e98395b187f41eefbf354c3e2d5f2fdd1e16a89c74fab7038d3408\n\nDeposit Summary:\n- 0.00001 ETH deposited to Zircuit contract\n- Receiving address: 0x67E6...17bf\n- Expected annual yield: 18.7% APY\n- Deposit can be viewed on Zircuit Explorer\n\nWould you like to set up monitoring for this position?",
         agentName: "Executor Agent",
         collaborationType: "report",
         timestamp: "3:17 PM"

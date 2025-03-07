@@ -99,19 +99,35 @@ export const registerAgents = (
   console.log(`[registerAgents] Initializing SXT Analytics agent`);
   console.log(`[registerAgents] SXT keys available: ${!!sxtConfig.privateKey && !!sxtConfig.publicKey}`);
 
-  // Create the SXT Data Provider
-  // Note: In a real implementation, you would import the actual SXT SDK
-  const sxtSDK = {} as any; // Placeholder for the actual SXT SDK
-  const sxtDataProvider = new SXTDataProvider(sxtSDK, sxtConfig);
+  // Declare sxtAnalyticsAgent outside the try block so it's accessible in the scope
+  let sxtAnalyticsAgent: SXTAnalyticsAgent | null = null;
 
-  const sxtAnalyticsAgent = new SXTAnalyticsAgent(
-    'sxt-analytics-agent',
-    eventBus,
-    storage,
-    sxtDataProvider,
-    aiProvider
-  );
-  console.log(`[registerAgents] SXT analytics agent initialized.`);
+  // Create the SXT Data Provider with properly initialized SDK
+  try {
+    // Import the SXT SDK properly
+    const SxtSDK = require('sxt-nodejs-sdk').default;
+    
+    // Initialize the SDK with configuration
+    const sxtSDK = new SxtSDK({
+      privateKey: sxtConfig.privateKey,
+      publicKey: sxtConfig.publicKey,
+      apiKey: sxtConfig.apiKey
+    });
+
+    // Create the data provider with the initialized SDK
+    const sxtDataProvider = new SXTDataProvider(sxtSDK, sxtConfig);
+
+    sxtAnalyticsAgent = new SXTAnalyticsAgent(
+      'sxt-analytics-agent',
+      eventBus,
+      storage,
+      sxtDataProvider,
+      aiProvider
+    );
+    console.log(`[registerAgents] SXT analytics agent initialized.`);
+  } catch (error) {
+    console.error(`[registerAgents] Failed to initialize SXT analytics agent:`, error);
+  }
 
   // Register event handlers
   registerEventHandlers(eventBus, {
@@ -121,7 +137,7 @@ export const registerAgents = (
     cdpagent,
     zircuitAgent,
     hederaAgent,
-    sxtAnalyticsAgent,
+    ...(sxtAnalyticsAgent ? { sxtAnalyticsAgent } : {})
   });
 
   console.log("all events registered");
@@ -133,7 +149,7 @@ export const registerAgents = (
     cdpagent,
     zircuitAgent,
     hederaAgent,
-    sxtAnalyticsAgent,
+    ...(sxtAnalyticsAgent ? { sxtAnalyticsAgent } : {})
   };
 };
 

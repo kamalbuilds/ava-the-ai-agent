@@ -1,6 +1,6 @@
 import { Character, Clients, defaultCharacter, ModelProviderName } from "@elizaos/core";
 import solanaPlugin from "@elizaos/plugin-solana";
-import nearPlugin from "./plugins/plugin-near/src/index";
+import { nearPlugin } from "./plugins/plugin-near/src/index";
 
 export const character: Character = {
     ...defaultCharacter,

@@ -7,7 +7,7 @@ import { SXTDataProvider } from "../plugins/sxt-data-provider";
 
 // Space and Time SDK interfaces (would be imported from the actual SDK)
 interface SXTSDKInterface {
-  Authenticate: () => Promise<[any, any]>;
+  authenticate: () => Promise<[any, any]>;
   CreateSchema: (schemaQuery: string) => Promise<[any, any]>;
   CreateTable: (tableName: string, createTableQuery: string, accessType: string, publicKey: string, biscuit: string) => Promise<[any, any]>;
   DDL: (tableName: string, ddlQuery: string, biscuit: string) => Promise<[any, any]>;
