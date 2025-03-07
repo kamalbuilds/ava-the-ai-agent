@@ -137,7 +137,6 @@ export const registerAgents = (
     cdpagent,
     zircuitAgent,
     hederaAgent,
-    ...(sxtAnalyticsAgent ? { sxtAnalyticsAgent } : {})
   });
 
   console.log("all events registered");
@@ -149,7 +148,6 @@ export const registerAgents = (
     cdpagent,
     zircuitAgent,
     hederaAgent,
-    ...(sxtAnalyticsAgent ? { sxtAnalyticsAgent } : {})
   };
 };
 
