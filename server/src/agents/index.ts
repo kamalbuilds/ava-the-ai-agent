@@ -6,13 +6,11 @@ import { TaskManagerAgent } from "./task-manager";
 import { CdpAgent } from "./cdp-agent";
 import { HederaAgent } from "./hedera-agent";
 import { ZircuitAgent } from "./zircuit-agent";
-import { SXTAnalyticsAgent } from "./sxt-analytics-agent";
 import { AIProvider } from "../services/ai/types";
 import { HybridStorage } from "./plugins/hybrid-storage";
 import { ATCPIPProvider } from "./plugins/atcp-ip";
 import { RecallStorage } from "./plugins/recall-storage";
 import { StorageInterface } from "./types/storage";
-import { SXTDataProvider } from "./plugins/sxt-data-provider";
 import { MoveAgent } from "./move-agent";
 
 /**
@@ -94,29 +92,6 @@ export const registerAgents = (
   );
   console.log(`[registerAgents] hedera agent initialized.`);
 
-  // Initialize SXT Analytics agent
-  const sxtConfig = {
-    privateKey: process.env.SXT_PRIVATE_KEY || 'your-private-key',
-    publicKey: process.env.SXT_PUBLIC_KEY || 'your-public-key',
-    apiKey: process.env.SXT_API_KEY
-  };
-
-  console.log(`[registerAgents] Initializing SXT Analytics agent`);
-  console.log(`[registerAgents] SXT keys available: ${!!sxtConfig.privateKey && !!sxtConfig.publicKey}`);
-
-  // Create the SXT Data Provider
-  // Note: In a real implementation, you would import the actual SXT SDK
-  const sxtSDK = {} as any; // Placeholder for the actual SXT SDK
-  const sxtDataProvider = new SXTDataProvider(sxtSDK, sxtConfig);
-
-  const sxtAnalyticsAgent = new SXTAnalyticsAgent(
-    'sxt-analytics-agent',
-    eventBus,
-    storage,
-    sxtDataProvider,
-    aiProvider
-  );
-  console.log(`[registerAgents] SXT analytics agent initialized.`);
 
   // Register event handlers
   registerEventHandlers(eventBus, {
@@ -126,7 +101,6 @@ export const registerAgents = (
     cdpagent,
     zircuitAgent,
     hederaAgent,
-    sxtAnalyticsAgent,
   });
 
   console.log("all events registered");
@@ -139,7 +113,6 @@ export const registerAgents = (
     moveAgent,
     zircuitAgent,
     hederaAgent,
-    sxtAnalyticsAgent,
   };
 };
 
@@ -200,18 +173,5 @@ function registerEventHandlers(eventBus: EventBus, agents: any) {
   );
   eventBus.register(`nexus-bridge-agent-task-manager`, (data) =>
     agents.taskManagerAgent.handleEvent(`nexus-bridge-agent-task-manager`, data)
-  );
-
-  // Task Manager <-> SXT Analytics Agent
-  eventBus.register(`task-manager-sxt-analytics-agent`, (data) =>
-    agents.sxtAnalyticsAgent.handleEvent(`task-manager-sxt-analytics-agent`, data)
-  );
-  eventBus.register(`sxt-analytics-agent-task-manager`, (data) =>
-    agents.taskManagerAgent.handleEvent(`sxt-analytics-agent-task-manager`, data)
-  );
-
-  // Portfolio Update -> SXT Analytics Agent
-  eventBus.register(`portfolio-update`, (data) =>
-    agents.sxtAnalyticsAgent.handleEvent(`portfolio-update`, data)
   );
 }

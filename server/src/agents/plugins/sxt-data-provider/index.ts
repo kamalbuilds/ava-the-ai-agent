@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 
 
 export interface SXTSDKInterface {
-  Authenticate: () => Promise<[any, any]>;
+  authenticate: () => Promise<[any, any]>;
   CreateSchema: (schemaQuery: string) => Promise<[any, any]>;
   CreateTable: (tableName: string, createTableQuery: string, accessType: string, publicKey: string, biscuit: string) => Promise<[any, any]>;
   DDL: (tableName: string, ddlQuery: string, biscuit: string) => Promise<[any, any]>;
@@ -43,7 +43,7 @@ export class SXTDataProvider {
   // Initialize and authenticate with Space and Time
   public async initialize(): Promise<void> {
     try {
-      const [tokenResponse, tokenError] = await this.sxtSDK.Authenticate();
+      const [tokenResponse, tokenError] = await this.sxtSDK.authenticate();
       
       if (tokenError) {
         throw new Error(`SXT authentication failed: ${tokenError}`);
