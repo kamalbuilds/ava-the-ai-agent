@@ -176,7 +176,6 @@ export class SonicMarketProvider {
         options: {
           slippage: slippage,
           rpcUrl: this.config.rpcUrl,
-          from: this.config.account
         }
       });
     } catch (error) {
@@ -203,7 +202,6 @@ export class SonicMarketProvider {
         id: orderId,
         options: {
           rpcUrl: this.config.rpcUrl,
-          from: this.config.account
         }
       });
     } catch (error) {
@@ -230,7 +228,6 @@ export class SonicMarketProvider {
         id: orderId,
         options: {
           rpcUrl: this.config.rpcUrl,
-          from: this.config.account
         }
       });
     } catch (error) {
@@ -271,7 +268,6 @@ export class SonicMarketProvider {
         options: {
           slippage: slippage,
           rpcUrl: this.config.rpcUrl,
-          from: this.config.account
         }
       });
     } catch (error) {
@@ -306,7 +302,6 @@ export class SonicMarketProvider {
         options: {
           slippage: slippage,
           rpcUrl: this.config.rpcUrl,
-          from: this.config.account
         }
       });
     } catch (error) {
