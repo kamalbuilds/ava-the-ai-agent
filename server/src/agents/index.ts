@@ -15,6 +15,7 @@ import { RecallStorage } from "./plugins/recall-storage";
 import { StorageInterface } from "./types/storage";
 import { SXTDataProvider } from "./plugins/sxt-data-provider";
 import { SonicMarketProvider } from "./plugins/sonic-market";
+import { MarginZeroProvider } from "./plugins/margin-zero";
 import { CHAIN_IDS } from "@clober/v2-sdk";
 
 /**
@@ -141,8 +142,20 @@ export const registerAgents = (
   console.log(`[registerAgents] Initializing Sonic Market agent`);
   console.log(`[registerAgents] Sonic config: chainId=${sonicConfig.chainId}, rpcUrl available: ${!!sonicConfig.rpcUrl}`);
 
+  // Initialize MarginZero config
+  const marginZeroConfig = {
+    chainId: sonicConfig.chainId,
+    rpcUrl: sonicConfig.rpcUrl,
+    account: account,
+    positionManagerAddress: (process.env.MARGIN_ZERO_POSITION_MANAGER_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`,
+    optionMarketAddress: (process.env.MARGIN_ZERO_OPTION_MARKET_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`
+  };
+
+  console.log(`[registerAgents] MarginZero config: positionManagerAddress=${marginZeroConfig.positionManagerAddress}, optionMarketAddress=${marginZeroConfig.optionMarketAddress}`);
+
   // Declare sonicAgent outside the try block so it's accessible in the scope
   let sonicAgent: SonicAgent | null = null;
+  let marginZeroProvider: MarginZeroProvider | null = null;
 
   try {
     // Create the Sonic Market provider
@@ -151,11 +164,23 @@ export const registerAgents = (
       account: account
     });
 
+    // Create the MarginZero provider if addresses are valid
+    if (
+      marginZeroConfig.positionManagerAddress !== '0x0000000000000000000000000000000000000000' &&
+      marginZeroConfig.optionMarketAddress !== '0x0000000000000000000000000000000000000000'
+    ) {
+      marginZeroProvider = new MarginZeroProvider(marginZeroConfig);
+      console.log(`[registerAgents] MarginZero provider initialized.`);
+    } else {
+      console.log(`[registerAgents] MarginZero provider not initialized due to missing contract addresses.`);
+    }
+
     sonicAgent = new SonicAgent(
       'sonic-agent',
       eventBus,
       storage,
       sonicProvider,
+      marginZeroProvider || undefined,
       aiProvider
     );
     console.log(`[registerAgents] Sonic Market agent initialized.`);
@@ -193,14 +218,6 @@ function registerEventHandlers(eventBus: EventBus, agents: any) {
   // Observer <-> Task Manager
   eventBus.register(`observer-task-manager`, (data) =>
     agents.taskManagerAgent.handleEvent(`observer-task-manager`, data)
-  );
-
-  // Task Manager <-> CDP
-  eventBus.register(`task-manager-cdp`, (data) =>
-    agents.cdpAgent.handleEvent(`task-manager-cdp`, data)
-  );
-  eventBus.register(`cdp-task-manager`, (data) =>
-    agents.taskManagerAgent.handleEvent(`cdp-task-manager`, data)
   );
 
   // Task Manager <-> Observer
