@@ -17,6 +17,7 @@
   "dependencies": {
     "@ai-sdk/groq": "^1.1.9",
     "@ai-sdk/openai": "^1.0.7",
+    "@clober/v2-sdk": "^0.0.103",
     "@coinbase/agentkit": "^0.2.2",
     "@coinbase/agentkit-langchain": "^0.2.2",
     "@coinbase/cdp-langchain": "^0.0.15",
@@ -29,8 +30,8 @@
     "@langchain/openai": "^0.4.2",
     "@lit-protocol/aw-signer": "^0.1.0-19",
     "@mysten/sui": "^1.21.2",
-    "@recallnet/chains": "^0.0.1",
-    "@recallnet/sdk": "^0.0.2",
+    "@recallnet/chains": "^0.0.5",
+    "@recallnet/sdk": "^0.0.6",
     "@safe-global/api-kit": "^2.5.9",
     "@safe-global/protocol-kit": "^5.2.2",
     "@safe-global/safe-deployments": "^1.37.24",
