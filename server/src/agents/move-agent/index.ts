@@ -6,9 +6,11 @@ import { AgentRuntime, LocalSigner, createAptosTools } from "move-agent-kit"
 import { MemorySaver } from "@langchain/langgraph"
 import { createReactAgent } from "@langchain/langgraph/prebuilt"
 import { ChatGroq } from "@langchain/groq"
+import { ChatOpenAI } from "@langchain/openai"
+import { BaseChatModel } from "@langchain/core/language_models/chat_models"
 
 export class MoveAgent extends Agent {
-    private agent: ReturnType<typeof createReactAgent>;
+    private agent?: ReturnType<typeof createReactAgent>;
     public eventBus: EventBus;
     private taskResults: Map<string, any>;
     private currentTaskId: string | null = null;
@@ -27,9 +29,13 @@ export class MoveAgent extends Agent {
     }
 
     async initialize() {
-        const agent = await initializeMoveAgentKit();
-        console.log(`[Move Agent] Agentkit Initialized `);
-        this.agent = agent;
+        try {
+            const agent = await initializeMoveAgentKit();
+            console.log(`[Move Agent] Agentkit Initialized `);
+            this.agent = agent;
+        } catch (error) {
+            console.error(`[Move Agent] Failed to initialize agent:`, error);
+        }
     }
 
     private setupEventHandlers(): void {
@@ -286,9 +292,10 @@ export class MoveAgent extends Agent {
 
 export async function initializeMoveAgentKit(): Promise<ReturnType<typeof createReactAgent>> {
     try {
+        // Create the LLM and use type assertion to ensure compatibility
         const llm = new ChatGroq({
             apiKey: env.GROQ_API_KEY
-        })
+        }) as unknown as BaseChatModel;
 
         const aptosConfig = new AptosConfig({
             network: env.APTOS_NETWORK as Network,
