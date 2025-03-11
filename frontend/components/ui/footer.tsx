@@ -2,8 +2,13 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 
-export function Footer() {
+interface FooterProps {
+  className?: string;
+}
+
+export function Footer({ className }: FooterProps) {
   const pathname = usePathname();
   const [currentYear, setCurrentYear] = useState(2024);
 
@@ -18,39 +23,49 @@ export function Footer() {
     main: [
       { label: "Blog", href: "https://ava-portfolio-manager-ai-agent.vercel.app/blog" },
       { label: "Whitepaper", href: "https://ava-portfolio-manager-ai-agent.vercel.app/whitepaper" },
+      { label: "Docs", href: "https://ava-portfolio-manager-ai-agent.vercel.app/docs" },
     ],
     legal: [
-      { label: "Terms of Service", href: "https://ava-portfolio-manager-ai-agent.vercel.app/terms" },
-      { label: "Privacy Policy", href: "https://ava-portfolio-manager-ai-agent.vercel.app/privacy" },
+      { label: "Privacy", href: "https://ava-portfolio-manager-ai-agent.vercel.app/privacy" },
+      { label: "Terms", href: "https://ava-portfolio-manager-ai-agent.vercel.app/terms" },
     ],
     social: [
-      { label: "X (Twitter)", href: "https://x.com/0xkamal7" },
-      { label: "Telegram", href: "https://t.me/kamalthedev" },
+      { label: "Twitter", href: "https://twitter.com" },
+      { label: "Discord", href: "https://discord.com" },
+      { label: "Telegram", href: "https://telegram.org" },
     ],
   };
 
   return (
     <>
-      {/* Spacer div to prevent content overlap */}
       <div className="" />
 
-      <footer className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-black/20 backdrop-blur-md border-t border-white/10">
+      <footer className={cn("relative w-full bg-black/20 backdrop-blur-md border-t border-white/10", className)}>
         <div className="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-full">
-            <div className="text-sm text-gray-400">
-              © {currentYear} Ava the AI Agent
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-400">© {currentYear} Ava AI</span>
+              <div className="hidden md:flex space-x-4">
+                {sections.main.map((item) => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="text-sm text-gray-400 hover:text-white transition-colors"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
             </div>
             <div className="flex items-center space-x-4">
-              {sections.social.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
+              {sections.social.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
                   className="text-sm text-gray-400 hover:text-white transition-colors"
                 >
-                  {link.label}
-                </a>
+                  {item.label}
+                </Link>
               ))}
             </div>
           </div>

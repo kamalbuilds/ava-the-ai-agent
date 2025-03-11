@@ -359,8 +359,7 @@ export class RecallStorage implements StorageInterface {
       throw new Error(`Failed to create bucket after ${this.maxRetries} attempts`);
     } catch (error) {
       const err = error as Error;
-      console.log(`Error in getOrCreateBucket: `);
-      // console.log(`Error in getOrCreateBucket: ${err.message}`);
+      console.log(`Error in getOrCreateBucket: ${err.message}`);
       throw error;
     }
   }
@@ -440,9 +439,8 @@ export class RecallStorage implements StorageInterface {
         await this.storeBatchToRecall(batch);
       }
     } catch (error) {
-      console.log('Error syncing logs to Recall:');
-      // console.log(error);
-      // throw error;
+      console.log('Error syncing logs to Recall:', error);
+      throw error;
     }
   }
 

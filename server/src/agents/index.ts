@@ -6,11 +6,17 @@ import { TaskManagerAgent } from "./task-manager";
 import { CdpAgent } from "./cdp-agent";
 import { HederaAgent } from "./hedera-agent";
 import { ZircuitAgent } from "./zircuit-agent";
+import { SXTAnalyticsAgent } from "./sxt-analytics-agent";
+import { SonicAgent } from "./sonic-agent";
 import { AIProvider } from "../services/ai/types";
 import { HybridStorage } from "./plugins/hybrid-storage";
 import { ATCPIPProvider } from "./plugins/atcp-ip";
 import { RecallStorage } from "./plugins/recall-storage";
 import { StorageInterface } from "./types/storage";
+import { SXTDataProvider } from "./plugins/sxt-data-provider";
+import { SonicMarketProvider } from "./plugins/sonic-market";
+import { MarginZeroProvider } from "./plugins/margin-zero";
+import { CHAIN_IDS } from "@clober/v2-sdk";
 import { MoveAgent } from "./move-agent";
 
 /**
@@ -92,6 +98,100 @@ export const registerAgents = (
   );
   console.log(`[registerAgents] hedera agent initialized.`);
 
+  // Initialize SXT Analytics agent
+  const sxtConfig = {
+    privateKey: process.env.SXT_PRIVATE_KEY || 'your-private-key',
+    publicKey: process.env.SXT_PUBLIC_KEY || 'your-public-key',
+    apiKey: process.env.SXT_API_KEY
+  };
+
+  console.log(`[registerAgents] Initializing SXT Analytics agent`);
+  console.log(`[registerAgents] SXT keys available: ${!!sxtConfig.privateKey && !!sxtConfig.publicKey}`);
+
+  // Declare sxtAnalyticsAgent outside the try block so it's accessible in the scope
+  let sxtAnalyticsAgent: SXTAnalyticsAgent | null = null;
+
+  // Create the SXT Data Provider with properly initialized SDK
+  try {
+    // Import the SXT SDK properly
+    const SxtSDK = require('sxt-nodejs-sdk').default;
+    
+    // Initialize the SDK with configuration
+    const sxtSDK = new SxtSDK({
+      privateKey: sxtConfig.privateKey,
+      publicKey: sxtConfig.publicKey,
+      apiKey: sxtConfig.apiKey
+    });
+
+    // Create the data provider with the initialized SDK
+    const sxtDataProvider = new SXTDataProvider(sxtSDK, sxtConfig);
+
+    sxtAnalyticsAgent = new SXTAnalyticsAgent(
+      'sxt-analytics-agent',
+      eventBus,
+      storage,
+      sxtDataProvider,
+      aiProvider
+    );
+    console.log(`[registerAgents] SXT analytics agent initialized.`);
+  } catch (error) {
+    console.error(`[registerAgents] Failed to initialize SXT analytics agent:`, error);
+  }
+
+  // Initialize Sonic Market agent
+  const sonicConfig = {
+    chainId: (process.env.SONIC_CHAIN_ID || '1') as unknown as CHAIN_IDS,
+    rpcUrl: process.env.SONIC_RPC_URL || 'https://ethereum.publicnode.com',
+  };
+
+  console.log(`[registerAgents] Initializing Sonic Market agent`);
+  console.log(`[registerAgents] Sonic config: chainId=${sonicConfig.chainId}, rpcUrl available: ${!!sonicConfig.rpcUrl}`);
+
+  // Initialize MarginZero config
+  const marginZeroConfig = {
+    chainId: sonicConfig.chainId,
+    rpcUrl: sonicConfig.rpcUrl,
+    account: account,
+    positionManagerAddress: (process.env.MARGIN_ZERO_POSITION_MANAGER_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`,
+    optionMarketAddress: (process.env.MARGIN_ZERO_OPTION_MARKET_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`
+  };
+
+  console.log(`[registerAgents] MarginZero config: positionManagerAddress=${marginZeroConfig.positionManagerAddress}, optionMarketAddress=${marginZeroConfig.optionMarketAddress}`);
+
+  // Declare sonicAgent outside the try block so it's accessible in the scope
+  let sonicAgent: SonicAgent | null = null;
+  let marginZeroProvider: MarginZeroProvider | null = null;
+
+  try {
+    // Create the Sonic Market provider
+    const sonicProvider = new SonicMarketProvider({
+      ...sonicConfig,
+      account: account
+    });
+
+    // Create the MarginZero provider if addresses are valid
+    if (
+      marginZeroConfig.positionManagerAddress !== '0x0000000000000000000000000000000000000000' &&
+      marginZeroConfig.optionMarketAddress !== '0x0000000000000000000000000000000000000000'
+    ) {
+      marginZeroProvider = new MarginZeroProvider(marginZeroConfig);
+      console.log(`[registerAgents] MarginZero provider initialized.`);
+    } else {
+      console.log(`[registerAgents] MarginZero provider not initialized due to missing contract addresses.`);
+    }
+
+    sonicAgent = new SonicAgent(
+      'sonic-agent',
+      eventBus,
+      storage,
+      sonicProvider,
+      marginZeroProvider || undefined,
+      aiProvider
+    );
+    console.log(`[registerAgents] Sonic Market agent initialized.`);
+  } catch (error) {
+    console.error(`[registerAgents] Failed to initialize Sonic Market agent:`, error);
+  }
 
   // Register event handlers
   registerEventHandlers(eventBus, {
@@ -101,6 +201,8 @@ export const registerAgents = (
     cdpagent,
     zircuitAgent,
     hederaAgent,
+    ...(sxtAnalyticsAgent ? { sxtAnalyticsAgent } : {}),
+    ...(sonicAgent ? { sonicAgent } : {})
   });
 
   console.log("all events registered");
@@ -113,6 +215,8 @@ export const registerAgents = (
     moveAgent,
     zircuitAgent,
     hederaAgent,
+    ...(sxtAnalyticsAgent ? { sxtAnalyticsAgent } : {}),
+    ...(sonicAgent ? { sonicAgent } : {})
   };
 };
 
@@ -151,27 +255,47 @@ function registerEventHandlers(eventBus: EventBus, agents: any) {
     agents.taskManagerAgent.handleEvent(`executor-task-manager`, data)
   );
 
-  // Task Manager <-> Zircuit Agent
-  eventBus.register(`task-manager-zircuit`, (data) =>
-    agents.zircuitAgent.handleEvent(`task-manager-zircuit`, data)
+  // Task Manager <-> CDP
+  eventBus.register(`task-manager-cdp`, (data) =>
+    agents.cdpAgent.handleEvent(`task-manager-cdp`, data)
   );
-  eventBus.register(`zircuit-task-manager`, (data) =>
-    agents.taskManagerAgent.handleEvent(`zircuit-task-manager`, data)
-  );
-
-  // Task Manager <-> Hedera Agent
-  eventBus.register(`task-manager-hedera`, (data) =>
-    agents.hederaAgent.handleEvent(`task-manager-hedera`, data)
-  );
-  eventBus.register(`hedera-task-manager`, (data) =>
-    agents.taskManagerAgent.handleEvent(`hedera-task-manager`, data)
+  eventBus.register(`cdp-task-manager`, (data) =>
+    agents.taskManagerAgent.handleEvent(`cdp-task-manager`, data)
   );
 
-  // Task Manager <-> Nexus Bridge Agent
-  eventBus.register(`task-manager-nexus-bridge-agent`, (data) =>
-    agents.nexusBridgeAgent.handleEvent(`task-manager-nexus-bridge-agent`, data)
+  // Task Manager <-> Zircuit
+  eventBus.register(`task-manager-zircuit-agent`, (data) =>
+    agents.zircuitAgent.handleEvent(`task-manager-zircuit-agent`, data)
   );
-  eventBus.register(`nexus-bridge-agent-task-manager`, (data) =>
-    agents.taskManagerAgent.handleEvent(`nexus-bridge-agent-task-manager`, data)
+  eventBus.register(`zircuit-agent-task-manager`, (data) =>
+    agents.taskManagerAgent.handleEvent(`zircuit-agent-task-manager`, data)
   );
+
+  // Task Manager <-> Hedera
+  eventBus.register(`task-manager-hedera-agent`, (data) =>
+    agents.hederaAgent.handleEvent(`task-manager-hedera-agent`, data)
+  );
+  eventBus.register(`hedera-agent-task-manager`, (data) =>
+    agents.taskManagerAgent.handleEvent(`hedera-agent-task-manager`, data)
+  );
+
+  // Task Manager <-> SXT Analytics
+  if (agents.sxtAnalyticsAgent) {
+    eventBus.register(`task-manager-sxt-analytics-agent`, (data) =>
+      agents.sxtAnalyticsAgent.handleEvent(`task-manager-sxt-analytics-agent`, data)
+    );
+    eventBus.register(`sxt-analytics-agent-task-manager`, (data) =>
+      agents.taskManagerAgent.handleEvent(`sxt-analytics-agent-task-manager`, data)
+    );
+  }
+
+  // Task Manager <-> Sonic Market
+  if (agents.sonicAgent) {
+    eventBus.register(`task-manager-sonic-agent`, (data) =>
+      agents.sonicAgent.handleEvent(`task-manager-sonic-agent`, data)
+    );
+    eventBus.register(`sonic-agent-task-manager`, (data) =>
+      agents.taskManagerAgent.handleEvent(`sonic-agent-task-manager`, data)
+    );
+  }
 }

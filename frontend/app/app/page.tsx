@@ -12,6 +12,8 @@ import { WebSocketEventBus } from "../services/websocket-event-bus";
 import { Navbar } from "@/components/ui/navbar";
 import { Footer } from "@/components/ui/footer";
 import { useSettingsStore } from '../stores/settingsStore';
+import { ChainSelector, SUPPORTED_CHAINS } from "@/components/ui/chain-selector";
+import { useChainStore } from '../stores/chainStore';
 
 type CollaborationType =
   | "analysis"
@@ -35,17 +37,19 @@ interface Message {
   collaborationType?: CollaborationType | undefined;
 }
 
+interface SystemEvent {
+  timestamp: string;
+  event: string;
+  agent?: string | undefined;
+  type: "info" | "warning" | "error" | "success";
+}
+
 interface AgentState {
   isInitialized: boolean;
   isProcessing: boolean;
   error: string | null;
   activeAgent: string | null;
-  systemEvents: Array<{
-    timestamp: string;
-    event: string;
-    agent?: string;
-    type: "info" | "warning" | "error" | "success";
-  }>;
+  systemEvents: SystemEvent[];
 }
 
 interface Agent {
@@ -111,13 +115,6 @@ const deduplicateMessages = (messages: Message[]): Message[] => {
 };
 
 // Add this interface at the top with other interfaces
-interface SystemEvent {
-  timestamp: string;
-  event: string;
-  agent?: string | undefined;
-  type: "info" | "warning" | "error" | "success";
-}
-
 interface AgentMessage {
   role: "user" | "assistant" | "system";
   content: string;
@@ -132,6 +129,7 @@ interface AgentMessage {
 
 export default function Home() {
   const { settings } = useSettingsStore();
+  const { selectedChain, setSelectedChain } = useChainStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [autonomousMode, setAutonomousMode] = useState(false);
@@ -420,13 +418,8 @@ export default function Home() {
     );
 
     if (eventBusRef.current) {
-      eventBusRef.current.ws?.send(
-        JSON.stringify({ type: "command", command: "stop" })
-      );
+      eventBusRef.current.emit("command", { type: "command", command: "stop" });
     }
-    // if (socket) {
-    //   socket.send(JSON.stringify({ data: "Please start the agent" })); // Send message to server
-    // }
   };
 
   useEffect(() => {
@@ -439,23 +432,24 @@ export default function Home() {
 
     console.log("Event Bus", eventBus);
 
-    if (eventBus.ws) {
-      eventBus.ws.onmessage = (ev) => {
-        console.log("Ev", ev);
-        const event = JSON.parse(ev.data);
-        console.log("Event", event);
+    // Subscribe to events instead of directly accessing the ws property
+    eventBus.subscribe('message', (event: any) => {
+      console.log("Ev", event);
+      const parsedEvent = JSON.parse(typeof event.data === 'string' ? event.data : '{}');
+      console.log("Event", parsedEvent);
 
-        addSystemEvent({
-          event: event.type,
-          agent: event.agent,
-          type: event.action,
-        });
-
-        subscribeToAgentEvents();
-      };
-    }
+      addSystemEvent({
+        event: parsedEvent.type,
+        agent: parsedEvent.agent,
+        type: "info",
+      });
+    });
 
     subscribeToAgentEvents();
+
+    return () => {
+      eventBus.disconnect();
+    };
   }, []);
 
   const cleanupAutonomousAgents = () => {
@@ -600,6 +594,14 @@ export default function Home() {
     });
   };
 
+  const handleChainSelect = (chain: typeof SUPPORTED_CHAINS[0]) => {
+    setSelectedChain(chain);
+    addSystemEvent({
+      event: `Chain switched to ${chain.name}`,
+      type: "info",
+    });
+  };
+
   const handleMessage = async (message: string) => {
     if (!message.trim()) return;
 
@@ -607,7 +609,7 @@ export default function Home() {
 
     // Add user message with deduplication
     setMessages(prev => {
-      const newMessage = {
+      const newMessage: Message = {
         role: 'user',
         content: message,
         timestamp
@@ -647,7 +649,6 @@ export default function Home() {
           addSystemEvent({
             event: example.systemPrompt,
             type: "info",
-            timestamp
           });
 
           // Simulate responses with delays
@@ -655,8 +656,9 @@ export default function Home() {
             await new Promise(resolve => setTimeout(resolve, 1000));
             setMessages(prev => [...prev, {
               ...response,
-              timestamp: new Date().toLocaleTimeString()
-            }]);
+              timestamp: new Date().toLocaleTimeString(),
+              role: response.role as "user" | "assistant" | "system"
+            } as Message]);
 
             addSystemEvent({
               event: `${response.agentName} providing ${response.collaborationType}`,
@@ -675,13 +677,14 @@ export default function Home() {
         // Continue with regular autonomous mode handling
         eventBusRef.current?.emit('command', {
           type: 'command',
-          command: message
+          command: message,
+          selectedChain: selectedChain,
+          agentPreference: selectedChain.agentId
         });
 
         addSystemEvent({
-          event: `Task received: ${message}`,
+          event: `Task received: ${message} (Chain: ${selectedChain.name})`,
           type: 'info',
-          timestamp
         });
 
         addSystemEvent({
@@ -885,15 +888,15 @@ export default function Home() {
   const addSystemEvent = (
     event: Omit<AgentState["systemEvents"][0], "timestamp">
   ) => {
-    setAgentState((prev) => ({
+    const timestamp = new Date().toLocaleTimeString();
+    const newEvent = {
+      ...event,
+      timestamp,
+    };
+
+    setAgentState(prev => ({
       ...prev,
-      systemEvents: [
-        ...prev.systemEvents,
-        {
-          ...event,
-          timestamp: new Date().toLocaleTimeString(),
-        },
-      ],
+      systemEvents: [...prev.systemEvents, newEvent]
     }));
   };
 
@@ -1009,292 +1012,287 @@ export default function Home() {
   }, []);
 
   return (
-    <>
-      <div className="flex flex-col min-h-screen">
-        <style jsx global>{scrollbarStyles}</style>
-        <Navbar />
+    <div className="flex flex-col min-h-screen bg-[#0A192F]">
+      <style jsx global>{scrollbarStyles}</style>
+      <Navbar className="flex-shrink-0" />
 
-        <main className="flex flex-1 overflow-hidden pt-16 pb-16">
-          {/* Left Sidebar - Agent Details */}
-          <div className="w-1/4 border-r border-white/10 overflow-y-auto custom-scrollbar">
-            <div className="p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold">Available Agents</h2>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={prevAgentPage}
-                    disabled={currentAgentPage === 1}
-                    className={`px-2 py-1 rounded ${currentAgentPage === 1 ? 'bg-gray-200 text-gray-400' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
-                  >
-                    ←
-                  </button>
-                  <span className="text-sm">{currentAgentPage} / {totalAgentPages || 1}</span>
-                  <button
-                    onClick={nextAgentPage}
-                    disabled={currentAgentPage === totalAgentPages || agents.length === 0}
-                    className={`px-2 py-1 rounded ${currentAgentPage === totalAgentPages || agents.length === 0 ? 'bg-gray-200 text-gray-400' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
-                  >
-                    →
-                  </button>
-                </div>
-              </div>
-
-              {currentAgents.length === 0 ? (
-                <div className="p-4 text-center text-gray-400">
-                  No agents available
-                </div>
-              ) : (
-                <>
-                  {/* Group agents by type */}
-                  {(() => {
-                    // Get unique agent types from current page
-                    const agentTypes = [...new Set(currentAgents.map(agent => agent.type))];
-
-                    return agentTypes.map(type => (
-                      <div key={type} className="mb-4">
-                        <div className="mb-2 border-b border-gray-200 pb-1">
-                          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-                            {type === 'system' ? 'System Agents' :
-                              type === 'blockchain' ? 'Blockchain Agents' :
-                                type === 'wallet' ? 'Wallet Agents' :
-                                  type === 'defi' ? 'DeFi Agents' :
-                                    type === 'bridge' ? 'Bridge Agents' :
-                                      type === 'trading' ? 'Trading Agents' :
-                                        type === 'assistant' ? 'Assistant Agents' :
-                                          `${type.charAt(0).toUpperCase() + type.slice(1)} Agents`}
-                          </h3>
-                        </div>
-
-                        {currentAgents
-                          .filter(agent => agent.type === type)
-                          .map(agent => (
-                            <div
-                              key={agent.id}
-                              className={`p-4 mb-3 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id
-                                ? "bg-blue-50 border border-blue-200"
-                                : "bg-white border"
-                                }`}
-                              onClick={() => setAgentState(prev => ({ ...prev, activeAgent: agent.id }))}
-                            >
-                              <div className="flex items-center mb-2">
-                                <div className="relative w-12 h-12 mr-3">
-                                  <Image
-                                    src={agentImages[agent.id as keyof typeof agentImages] || agentImages.default}
-                                    alt={`${agent.name} avatar`}
-                                    fill
-                                    className="rounded-full object-cover"
-                                    priority
-                                  />
-                                </div>
-                                <div className="flex-1">
-                                  <div className="flex justify-between items-center">
-                                    <h3 className="font-medium text-gray-900">{agent.name}</h3>
-                                    <span className={`text-xs px-2 py-1 rounded-full ${agent.status === 'active' ? 'bg-green-100 text-green-800' :
-                                      agent.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
-                                        'bg-yellow-100 text-yellow-800'
-                                      }`}>
-                                      {agent.status}
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-gray-500">{agent.type || "AI Assistant"}</p>
-                                </div>
-                              </div>
-                              <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
-                              {agentState.activeAgent === agent.id && (
-                                <div className="mt-2 text-xs text-blue-600 flex items-center">
-                                  <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
-                                  Active
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                      </div>
-                    ));
-                  })()}
-                </>
-              )}
-
-              {/* Total agent count */}
-              <div className="text-xs text-gray-500 text-center mt-2">
-                Total Agents: {agents.length}
-              </div>
-            </div>
-          </div>
-
-          {/* Center - Chat Interface */}
-          <div className="flex-1 flex flex-col bg-[#0A192F]">
-            {/* Messages Container */}
-            <div
-              className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#0A192F"
-              style={{
-                height: 'calc(100vh - 280px)',
-                maxHeight: 'calc(100vh - 280px)'
-              }}
-            >
-              {messages.map((message, index) => (
-                <div
-                  key={`${message.timestamp}-${index}`}
-                  className={`mb-4 flex ${message.role === "user" ? "justify-end" : "justify-start"
-                    }`}
-                >
-                  <div
-                    className={`flex items-start max-w-[80%] ${message.role === "user" ? "flex-row-reverse" : "flex-row"
-                      }`}
-                  >
-                    {/* Agent/User Icon */}
-                    <div className={`flex-shrink-0 ${message.role === "user" ? "ml-2" : "mr-2"}`}>
-                      {message.role === "user" ? (
-                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
-                          <User className="w-5 h-5 text-white" />
-                        </div>
-                      ) : (
-                        <div className="relative">
-                          <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
-                            <Bot className="w-5 h-5 text-white" />
-                          </div>
-                          {message.collaborationType && (
-                            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500" />
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Message Content */}
-                    <div className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}>
-                      {message.agentName && (
-                        <span className="text-xs font-medium text-gray-500 mb-1">
-                          {message.agentName}
-                          {message.collaborationType && ` • ${message.collaborationType}`}
-                        </span>
-                      )}
-                      <div
-                        className={`p-3 rounded-lg ${message.role === "user"
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-100 text-gray-900"
-                          }`}
-                      >
-                        {message.content}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {message.timestamp}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input Form */}
-            <div className="border-t border-white/10">
-              <form onSubmit={handleSubmit} className="p-4">
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <label className="text-sm text-gray-400">Autonomous Mode</label>
-                    <Switch
-                      checked={autonomousMode}
-                      onCheckedChange={setAutonomousMode}
-                      className="data-[state=checked]:bg-blue-500"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      className="flex-1 rounded-lg border border-white/10 bg-black/20 p-2 text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Type your message..."
-                    />
-                    <Button type="submit" disabled={agentState.isProcessing}>
-                      <SendHorizontal className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </form>
-
-              {/* Sample Prompts Section */}
-              <div className="flex flex-wrap gap-2 mb-4 p-4">
-                {visiblePrompts.map((prompt, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handlePromptClick(prompt.text)}
-                    className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
-                  >
-                    <span>{prompt.icon}</span>
-                    <span>{prompt.text}</span>
-                  </button>
-                ))}
+      <main className="flex flex-1 overflow-hidden">
+        {/* Left Sidebar - Agent Details */}
+        <div className="w-1/4 border-r border-white/10 flex flex-col overflow-hidden max-h-[calc(100vh-8rem)]">
+          <div className="p-4 border-b border-white/10">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold">Available Agents</h2>
+              <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setShowAllPrompts(!showAllPrompts)}
-                  className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
+                  onClick={prevAgentPage}
+                  disabled={currentAgentPage === 1}
+                  className={`px-2 py-1 rounded ${currentAgentPage === 1 ? 'bg-gray-200 text-gray-400' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
                 >
-                  <span>ℹ️</span>
-                  <span>{showAllPrompts ? 'Less' : 'More'}</span>
+                  ←
+                </button>
+                <span className="text-sm">{currentAgentPage} / {totalAgentPages || 1}</span>
+                <button
+                  onClick={nextAgentPage}
+                  disabled={currentAgentPage === totalAgentPages || agents.length === 0}
+                  className={`px-2 py-1 rounded ${currentAgentPage === totalAgentPages || agents.length === 0 ? 'bg-gray-200 text-gray-400' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
+                >
+                  →
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Right Sidebar - System Events */}
-          <div
-            className={`transition-all duration-300 flex flex-col border-l border-white/10 ${isRightSidebarOpen ? 'w-1/4' : 'w-[40px]'
-              }`}
-          >
-            <div className="p-4 border-b border-white/10 flex items-center justify-between">
-              {isRightSidebarOpen && (
-                <h2 className="text-lg font-semibold">System Events</h2>
-              )}
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
-                className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
-                title={isRightSidebarOpen ? "Close sidebar" : "Open sidebar"}
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+            {currentAgents.length === 0 ? (
+              <div className="p-4 text-center text-gray-400">
+                No agents available
+              </div>
+            ) : (
+              <>
+                {/* Group agents by type */}
+                {(() => {
+                  // Get unique agent types from current page
+                  const agentTypes = Array.from(new Set(currentAgents.map(agent => agent.type)));
+
+                  return agentTypes.map(type => (
+                    <div key={type} className="mb-4">
+                      <div className="mb-2 border-b border-gray-200 pb-1">
+                        <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                          {type === 'system' ? 'System Agents' :
+                            type === 'blockchain' ? 'Blockchain Agents' :
+                              type === 'wallet' ? 'Wallet Agents' :
+                                type === 'defi' ? 'DeFi Agents' :
+                                  type === 'bridge' ? 'Bridge Agents' :
+                                    type === 'trading' ? 'Trading Agents' :
+                                      type === 'assistant' ? 'Assistant Agents' :
+                                        `${type.charAt(0).toUpperCase() + type.slice(1)} Agents`}
+                        </h3>
+                      </div>
+
+                      {currentAgents
+                        .filter(agent => agent.type === type)
+                        .map(agent => (
+                          <div
+                            key={agent.id}
+                            className={`p-4 mb-3 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${agentState.activeAgent === agent.id
+                              ? "bg-blue-50 border border-blue-200"
+                              : "bg-white border"
+                              }`}
+                            onClick={() => setAgentState(prev => ({ ...prev, activeAgent: agent.id }))}
+                          >
+                            <div className="flex items-center mb-2">
+                              <div className="relative w-12 h-12 mr-3">
+                                <Image
+                                  src={agentImages[agent.id as keyof typeof agentImages] || agentImages.default}
+                                  alt={`${agent.name} avatar`}
+                                  fill
+                                  className="rounded-full object-cover"
+                                  priority
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex justify-between items-center">
+                                  <h3 className="font-medium text-gray-900">{agent.name}</h3>
+                                  <span className={`text-xs px-2 py-1 rounded-full ${agent.status === 'active' ? 'bg-green-100 text-green-800' :
+                                    agent.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                                      'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                    {agent.status}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-500">{agent.type || "AI Assistant"}</p>
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-2">{agent.description}</p>
+                            {agentState.activeAgent === agent.id && (
+                              <div className="mt-2 text-xs text-blue-600 flex items-center">
+                                <span className="w-2 h-2 bg-blue-600 rounded-full mr-2 animate-pulse"></span>
+                                Active
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  ));
+                })()}
+              </>
+            )}
+
+            {/* Total agent count */}
+            <div className="text-xs text-gray-500 text-center mt-2">
+              Total Agents: {agents.length}
+            </div>
+          </div>
+        </div>
+
+        {/* Center - Chat Interface */}
+        <div className="flex-1 flex flex-col bg-[#0A192F] overflow-hidden max-h-[calc(100vh-8rem)]">
+          {/* Messages Container */}
+          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+            {messages.map((message, index) => (
+              <div
+                key={`${message.timestamp}-${index}`}
+                className={`mb-4 flex ${message.role === "user" ? "justify-end" : "justify-start"
+                  }`}
               >
-                {isRightSidebarOpen ? (
-                  <PanelRightClose className="h-5 w-5 text-gray-600 hover:text-gray-900" />
-                ) : (
-                  <PanelRightOpen className="h-5 w-5 text-gray-600 hover:text-gray-900" />
-                )}
-              </Button>
+                <div
+                  className={`flex items-start max-w-[80%] ${message.role === "user" ? "flex-row-reverse" : "flex-row"
+                    }`}
+                >
+                  {/* Agent/User Icon */}
+                  <div className={`flex-shrink-0 ${message.role === "user" ? "ml-2" : "mr-2"}`}>
+                    {message.role === "user" ? (
+                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                        <User className="w-5 h-5 text-white" />
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                          <Bot className="w-5 h-5 text-white" />
+                        </div>
+                        {message.collaborationType && (
+                          <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Message Content */}
+                  <div className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}>
+                    {message.agentName && (
+                      <span className="text-xs font-medium text-gray-500 mb-1">
+                        {message.agentName}
+                        {message.collaborationType && ` • ${message.collaborationType}`}
+                      </span>
+                    )}
+                    <div
+                      className={`p-3 rounded-lg ${message.role === "user"
+                        ? "bg-blue-500 text-white"
+                        : "bg-gray-100 text-gray-900"
+                        }`}
+                    >
+                      {message.content}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {message.timestamp}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Form */}
+          <div className="border-t border-white/10">
+            <div className="p-4">
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-400">Autonomous Mode</label>
+                  <Switch
+                    checked={autonomousMode}
+                    onCheckedChange={setAutonomousMode}
+                    className="data-[state=checked]:bg-blue-500"
+                  />
+                </div>
+                
+                {/* Chain Selector */}
+                <ChainSelector 
+                  onChainSelect={handleChainSelect} 
+                  selectedChain={selectedChain}
+                />
+              </div>
+              <form onSubmit={handleSubmit}>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    className="flex-1 rounded-lg border border-white/10 bg-black/20 p-2 text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Type your message..."
+                  />
+                  <Button type="submit" disabled={agentState.isProcessing}>
+                    <SendHorizontal className="h-4 w-4" />
+                  </Button>
+                </div>
+              </form>
             </div>
 
-            {isRightSidebarOpen && (
-              <div
-                className="flex-1 overflow-y-auto p-4 custom-scrollbar"
-                style={{
-                  height: 'calc(100vh - 280px)',
-                  maxHeight: 'calc(100vh - 280px)'
-                }}
+            {/* Sample Prompts Section */}
+            <div className="flex flex-wrap gap-2 mb-4 p-4">
+              {visiblePrompts.map((prompt, index) => (
+                <button
+                  key={index}
+                  onClick={() => handlePromptClick(prompt.text)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
+                >
+                  <span>{prompt.icon}</span>
+                  <span>{prompt.text}</span>
+                </button>
+              ))}
+              <button
+                onClick={() => setShowAllPrompts(!showAllPrompts)}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
               >
-                {agentState.systemEvents.map((event, index) => (
-                  <div
-                    key={index}
-                    className={`p-3 mb-2 rounded-lg ${event.type === "error"
-                      ? "bg-red-100"
-                      : event.type === "success"
-                        ? "bg-green-100"
-                        : event.type === "warning"
-                          ? "bg-yellow-100"
-                          : "bg-blue-100"
-                      }`}
-                  >
-                    <div className="text-sm font-medium">
-                      {event.agent && (
-                        <span className="text-gray-600">[{event.agent}] </span>
-                      )}
-                      <span className="text-gray-900">{event.event}</span>
-                    </div>
-                    <div className="text-xs text-gray-500">{event.timestamp}</div>
-                  </div>
-                ))}
-              </div>
-            )}
+                <span>ℹ️</span>
+                <span>{showAllPrompts ? 'Less' : 'More'}</span>
+              </button>
+            </div>
           </div>
-        </main>
+        </div>
 
-        <Footer />
-      </div>
-    </>
+        {/* Right Sidebar - System Events */}
+        <div
+          className={`transition-all duration-300 flex flex-col border-l border-white/10 max-h-[calc(100vh-8rem)] ${isRightSidebarOpen ? 'w-1/4' : 'w-[40px]'
+            }`}
+        >
+          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+            {isRightSidebarOpen && (
+              <h2 className="text-lg font-semibold">System Events</h2>
+            )}
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+              className="p-1 hover:bg-gray-100 rounded-full transition-colors duration-200"
+              title={isRightSidebarOpen ? "Close sidebar" : "Open sidebar"}
+            >
+              {isRightSidebarOpen ? (
+                <PanelRightClose className="h-5 w-5 text-gray-600 hover:text-gray-900" />
+              ) : (
+                <PanelRightOpen className="h-5 w-5 text-gray-600 hover:text-gray-900" />
+              )}
+            </Button>
+          </div>
+
+          {isRightSidebarOpen && (
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+              {agentState.systemEvents.map((event, index) => (
+                <div
+                  key={index}
+                  className={`p-3 mb-2 rounded-lg ${event.type === "error"
+                    ? "bg-red-100"
+                    : event.type === "success"
+                      ? "bg-green-100"
+                      : event.type === "warning"
+                        ? "bg-yellow-100"
+                        : "bg-blue-100"
+                      }`}
+                >
+                  <div className="text-sm font-medium">
+                    {event.agent && (
+                      <span className="text-gray-600">[{event.agent}] </span>
+                    )}
+                    <span className="text-gray-900">{event.event}</span>
+                  </div>
+                  <div className="text-xs text-gray-500">{event.timestamp}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+      <Footer className="flex-shrink-0" />
+    </div>
   );
 }
