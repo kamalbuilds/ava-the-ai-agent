@@ -17,16 +17,17 @@ import { SXTDataProvider } from "./plugins/sxt-data-provider";
 import { SonicMarketProvider } from "./plugins/sonic-market";
 import { MarginZeroProvider } from "./plugins/margin-zero";
 import { CHAIN_IDS } from "@clober/v2-sdk";
+import { MoveAgent } from "./move-agent";
 
 /**
  * Registers the agents and returns them
  * @returns The registered agents
  */
 export const registerAgents = (
-  eventBus: EventBus, 
-  account: Account, 
-  aiProvider: AIProvider, 
-  storage: StorageInterface, 
+  eventBus: EventBus,
+  account: Account,
+  aiProvider: AIProvider,
+  storage: StorageInterface,
   atcpipProvider: ATCPIPProvider
 ) => {
   console.log("======== Registering agents =========");
@@ -42,7 +43,7 @@ export const registerAgents = (
   console.log(`[registerAgents] executor agent initialized.`);
 
   console.log(`[registerAgents] initializing observer agent...`);
-  
+
   const observerAgent = new ObserverAgent(
     'observer',
     eventBus,
@@ -66,6 +67,10 @@ export const registerAgents = (
   const cdpagent = new CdpAgent("cdp-agent", eventBus, storage, atcpipProvider);
   console.log(`[registerAgents] cdp agent initialized.`);
 
+
+  const moveAgent = new MoveAgent("move-agent", eventBus);
+  console.log(`[registerAgents] Move agent initialized.`);
+
   // Initialize Zircuit agent
   const zircuitAgent = new ZircuitAgent(
     'zircuit-agent',
@@ -81,10 +86,10 @@ export const registerAgents = (
     privateKey: process.env.HEDERA_PRIVATE_KEY || 'your-private-key',
     network: (process.env.HEDERA_NETWORK || 'testnet') as 'mainnet' | 'testnet' | 'previewnet'
   };
-  
+
   console.log(`[registerAgents] Initializing Hedera agent with account ID: ${hederaConfig.accountId} on network: ${hederaConfig.network}`);
   console.log(`[registerAgents] Private key available: ${!!hederaConfig.privateKey}`);
-  
+
   const hederaAgent = new HederaAgent(
     'hedera-agent',
     eventBus,
@@ -207,6 +212,7 @@ export const registerAgents = (
     observerAgent,
     taskManagerAgent,
     cdpagent,
+    moveAgent,
     zircuitAgent,
     hederaAgent,
     ...(sxtAnalyticsAgent ? { sxtAnalyticsAgent } : {}),
@@ -218,6 +224,22 @@ function registerEventHandlers(eventBus: EventBus, agents: any) {
   // Observer <-> Task Manager
   eventBus.register(`observer-task-manager`, (data) =>
     agents.taskManagerAgent.handleEvent(`observer-task-manager`, data)
+  );
+
+  // Task Manager <-> CDP
+  eventBus.register(`task-manager-cdp`, (data) =>
+    agents.cdpAgent.handleEvent(`task-manager-cdp`, data)
+  );
+  eventBus.register(`cdp-task-manager`, (data) =>
+    agents.taskManagerAgent.handleEvent(`cdp-task-manager`, data)
+  );
+
+  // Task Manager <-> Move
+  eventBus.register(`task-manager-move-agent`, (data) =>
+    agents.moveAgent.handleEvent(`task-manager-move-agent`, data)
+  );
+  eventBus.register(`move-agent-task-manager`, (data) =>
+    agents.taskManagerAgent.handleEvent(`move-agent-task-manager`, data)
   );
 
   // Task Manager <-> Observer
