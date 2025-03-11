@@ -1,5 +1,6 @@
-import { Address, Account, createPublicClient, http, createWalletClient, parseUnits, formatUnits } from 'viem';
+import { Address, Account, createPublicClient, http, createWalletClient, parseUnits, formatUnits, Chain } from 'viem';
 import { CHAIN_IDS } from '@clober/v2-sdk';
+import { mainnet, arbitrum, optimism, base } from 'viem/chains';
 
 // ABI imports for MarginZero contracts
 const POSITION_MANAGER_ABI = [
@@ -403,6 +404,18 @@ export interface BuyOptionParams {
   maxCost: bigint;
 }
 
+// This type matches the exact structure expected by the contract ABI
+type BuyOptionParamsAbi = {
+  token0: Address;
+  token1: Address;
+  fee: number;
+  isCall: boolean;
+  expiry: bigint;
+  strike: number;
+  notionalAmount: bigint;
+  maxCost: bigint;
+};
+
 export class MarginZeroProvider {
   private config: MarginZeroConfig;
   private publicClient: ReturnType<typeof createPublicClient>;
@@ -410,15 +423,37 @@ export class MarginZeroProvider {
 
   constructor(config: MarginZeroConfig) {
     this.config = config;
+    
+    // Create a chain configuration based on the chainId
+    const chainConfig: Chain = {
+      id: Number(config.chainId),
+      name: `Chain ${config.chainId}`,
+      nativeCurrency: {
+        decimals: 18,
+        name: 'Ether',
+        symbol: 'ETH',
+      },
+      rpcUrls: {
+        default: { http: [config.rpcUrl] },
+        public: { http: [config.rpcUrl] },
+      },
+      blockExplorers: {
+        default: {
+          name: 'Explorer',
+          url: 'https://explorer.example.com',
+        },
+      },
+    };
+    
     this.publicClient = createPublicClient({
-      chain: { id: Number(config.chainId) },
+      chain: chainConfig,
       transport: http(config.rpcUrl)
     });
 
     if (config.account) {
       this.walletClient = createWalletClient({
         account: config.account,
-        chain: { id: Number(config.chainId) },
+        chain: chainConfig,
         transport: http(config.rpcUrl)
       });
     }
@@ -675,11 +710,23 @@ export class MarginZeroProvider {
     }
 
     try {
+      // Create a parameter object that matches the ABI structure
+      const buyOptionParams: BuyOptionParamsAbi = {
+        token0: params.token0,
+        token1: params.token1,
+        fee: params.fee,
+        isCall: params.isCall,
+        expiry: params.expiry,
+        strike: params.strike,
+        notionalAmount: params.notionalAmount,
+        maxCost: params.maxCost
+      };
+
       const { request } = await this.publicClient.simulateContract({
         address: this.config.optionMarketAddress,
         abi: OPTION_MARKET_ABI,
         functionName: 'buyOption',
-        args: [params],
+        args: [buyOptionParams],
         account: this.config.account!
       });
 
