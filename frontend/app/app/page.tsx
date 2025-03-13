@@ -528,7 +528,7 @@ export default function Home() {
           
           // Play each response with a delay
           for (const response of autonomousExample.responses) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 10000));
             
             setMessages(prev => {
               const newMessage: Message = {

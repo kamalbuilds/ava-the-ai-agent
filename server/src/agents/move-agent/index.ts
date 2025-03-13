@@ -316,12 +316,10 @@ export async function initializeMoveAgentKit(): Promise<ReturnType<typeof create
         const aptosAgent = new AgentRuntime(signer, aptos, {
             PANORA_API_KEY: env.PANORA_API_KEY,
         })
-        const tools = createAptosTools(aptosAgent)
-        console.log("Tools >>>", tools);
+        const tools = createAptosTools(aptosAgent);
 
         const memory = new MemorySaver()
 
-        // Create React agent
         const agent = createReactAgent({
             llm,
             tools,
@@ -340,7 +338,6 @@ export async function initializeMoveAgentKit(): Promise<ReturnType<typeof create
    `,
         })
 
-        console.log("agent", agent);
         return agent
     } catch (error) {
         console.error("[Move Agent] Error creating agent:", error);
