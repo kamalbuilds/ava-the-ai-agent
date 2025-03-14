@@ -38,9 +38,7 @@ https://youtu.be/gYtUwM4Azlc
 
 <img width="1076" alt="Screenshot 2025-02-13 at 12 12 49 PM" src="https://github.com/user-attachments/assets/246b947c-bbee-4134-bbcb-6a33e38a7230" />
 
-### 🏆 Track Submissions
-- [Flow](#flow)
-
+### Monad Demo Video 
 
 ### Flow
 
