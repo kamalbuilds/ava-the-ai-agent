@@ -76,7 +76,7 @@ export const TurnkeyProvider: React.FC<TurnkeyProviderProps> = ({ children }) =>
 
     try {
       // Call the server API to create a sub-organization
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/turnkey/sub-organization`, {
+      const response = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/turnkey/sub-organization`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -126,7 +126,7 @@ export const TurnkeyProvider: React.FC<TurnkeyProviderProps> = ({ children }) =>
 
     try {
       // Call the server API to create a wallet
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/turnkey/wallet`, {
+      const response = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/turnkey/wallet`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -161,7 +161,7 @@ export const TurnkeyProvider: React.FC<TurnkeyProviderProps> = ({ children }) =>
 
     try {
       // Call the server API to sign a transaction
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/turnkey/sign-transaction`, {
+      const response = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/turnkey/sign-transaction`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -8,6 +8,7 @@ import type { Environment } from "./env";
 // import { taskRouter } from "./routes/task";
 // import { settingsRouter } from "./routes/settings";
 import { settingsMiddleware } from "./middleware/settings";
+import turnkeyRouter from "./api/turnkey";
 
 const app = new Hono<Environment>();
 
@@ -22,5 +23,6 @@ app.use("*", settingsMiddleware);
 // app.route("/api/observer", observerRouter);
 // app.route("/api/tasks", taskRouter);
 // app.route("/api/settings", settingsRouter);
+app.route("/api/turnkey", turnkeyRouter);
 
 export { app };
