@@ -18,7 +18,6 @@ export type Chain = {
   agentId: string;
 };
 
-// Define supported chains with their details
 export const SUPPORTED_CHAINS: Chain[] = [
   {
     id: "ethereum",
@@ -33,27 +32,33 @@ export const SUPPORTED_CHAINS: Chain[] = [
     agentId: "base-agent"
   },
   {
-    id: "arbitrum",
-    name: "Arbitrum",
-    icon: "/chains/icons/arbitrum.svg",
-    agentId: "arbitrum-agent"
+    id: "polygon",
+    name: "Polygon",
+    icon: "/chains/icons/polygon.svg",
+    agentId: "polygon-agent"
   },
   {
     id: "mode",
     name: "Mode",
-    icon: "/chains/icons/mode.svg",
+    icon: "https://pbs.twimg.com/profile_images/1688569679877390338/IYXD4bdy_400x400.jpg",
     agentId: "mode-agent"
   },
   {
     id: "sonic",
     name: "Sonic",
-    icon: "/chains/icons/sonic.svg",
+    icon: "https://theoregongroup.com/wp-content/uploads/2024/12/sonic-fantom-crypto.jpg",
     agentId: "sonic-agent"
+  },
+  {
+    id: "aptos",
+    name: "Aptos",
+    icon: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSCaIIAhOxVoT5xg7qffkHijoY-vH4gzVjvXQ&s",
+    agentId: "move-agent"
   },
   {
     id: "hedera",
     name: "Hedera",
-    icon: "/hedera-agentkit.webp",
+    icon: "https://cryptologos.cc/logos/hedera-hbar-logo.png",
     agentId: "hedera-agent"
   }
 ];

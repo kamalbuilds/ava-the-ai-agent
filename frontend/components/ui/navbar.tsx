@@ -15,8 +15,8 @@ const navItems = [
     icon: ChartBarIcon
   },
   {
-    name: "Wallet",
-    href: "/wallet",
+    name: "TurnkeyWallet",
+    href: "/turnkey",
     icon: WalletIcon
   },
   {

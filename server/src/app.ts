@@ -8,6 +8,9 @@ import type { Environment } from "./env";
 // import { taskRouter } from "./routes/task";
 // import { settingsRouter } from "./routes/settings";
 import { settingsMiddleware } from "./middleware/settings";
+import turnkeyRouter from "./api/turnkey";
+import zeroXRoutes from './routes/0x-routes';
+import curvanceRoutes from './routes/curvance-routes';
 
 const app = new Hono<Environment>();
 
@@ -22,5 +25,8 @@ app.use("*", settingsMiddleware);
 // app.route("/api/observer", observerRouter);
 // app.route("/api/tasks", taskRouter);
 // app.route("/api/settings", settingsRouter);
+app.route("/api/turnkey", turnkeyRouter);
+app.use('/api/v1/0x', zeroXRoutes);
+app.use('/api/v1/curvance', curvanceRoutes);
 
 export { app };

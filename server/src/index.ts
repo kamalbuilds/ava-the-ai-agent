@@ -17,6 +17,7 @@ import { mainnet } from "viem/chains";
 // import { RecallStorage } from "./agents/plugins/recall-storage/index";
 import { HybridStorage } from "./agents/plugins/hybrid-storage/index";
 import { ATCPIPProvider } from "./agents/plugins/atcp-ip";
+import { SwapAgent } from "./agents/SwapAgent";
 
 // console.log(figlet.textSync("AVA-2.0"));
 // console.log("======== Initializing Server =========");
@@ -86,6 +87,10 @@ async function initializeServices() {
     // Register all agents
     const agents = registerAgents(eventBus, account, aiProvider, storage, atcpipProvider);
     console.log("[initializeServices] All agents registered");
+    
+    // Initialize the Swap Agent
+    const swapAgent = new SwapAgent();
+    console.log("[initializeServices] Swap Agent initialized");
 
     // Setup WebSocket server
     const WS_PORT = process.env.WS_PORT || 3001;
@@ -93,6 +98,9 @@ async function initializeServices() {
 
     wss.on("connection", (ws: WebSocket) => {
       console.log(`[WebSocket] Client connected on port ${WS_PORT}`);
+      
+      // Register the swap agent to handle WebSocket connections
+      swapAgent.handleWebSocketConnection(ws);
 
       // Forward events from event bus to WebSocket clients
       eventBus.on("agent-action", async (data) => {

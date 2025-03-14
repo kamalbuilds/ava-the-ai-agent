@@ -6,6 +6,7 @@ import { MainLayout } from "@/components/layouts/MainLayout";
 import { ThirdwebProvider } from "thirdweb/react";
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { Toaster } from "@/components/ui/toaster";
+import { TurnkeyProvider } from "@/app/contexts/TurnkeyContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -29,8 +30,10 @@ export default function RootLayout({
       >
         <QueryClientProvider client={queryClient}>
           <ThirdwebProvider>
-            <MainLayout>{children}</MainLayout>
-            <Toaster />
+            <TurnkeyProvider>
+              <MainLayout>{children}</MainLayout>
+              <Toaster />
+            </TurnkeyProvider>
           </ThirdwebProvider>
         </QueryClientProvider>
       </body>

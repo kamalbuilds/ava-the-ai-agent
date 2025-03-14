@@ -7,7 +7,7 @@ import { SendHorizontal, Bot, User, PanelRightClose, PanelRightOpen } from "luci
 import Image from "next/image";
 import { Switch } from "@/components/ui/switch";
 import { EXAMPLE_RESPONSES, AUTONOMOUS_EXAMPLES } from "../../lib/example";
-import { EventBus } from "../types/event-bus";
+import type { EventBus } from "../types/event-bus";
 import { WebSocketEventBus } from "../services/websocket-event-bus";
 import { Navbar } from "@/components/ui/navbar";
 import { Footer } from "@/components/ui/footer";
@@ -180,10 +180,33 @@ export default function Home() {
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const clientRef = useRef<any>(null);
   const agentRef = useRef<any>(null);
-  const eventBusRef = useRef<EventBus | null>(null);
+  const eventBusRef = useRef<WebSocketEventBus | null>(null);
   const agentsRef = useRef<any>(null);
   const ws = useRef<WebSocket | null>(null);
-  const [wsEventBus, setWsEventBus] = useState<WebSocketEventBus | null>(null);
+
+  // Add a state variable for connection status
+  const [connectionStatus, setConnectionStatus] = useState<string>('disconnected');
+
+  // Add a useEffect to poll connection status
+  useEffect(() => {
+    // Only poll if in autonomous mode
+    if (!autonomousMode) return;
+
+    const updateConnectionStatus = () => {
+      if (eventBusRef.current) {
+        const status = eventBusRef.current.getConnectionStatus();
+        setConnectionStatus(status);
+      }
+    };
+
+    // Update immediately
+    updateConnectionStatus();
+    
+    // Then poll every 2 seconds
+    const intervalId = setInterval(updateConnectionStatus, 2000);
+    
+    return () => clearInterval(intervalId);
+  }, [autonomousMode]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -298,6 +321,70 @@ export default function Home() {
     }
   };
 
+  // Initialize WebSocket connection and event bus
+  useEffect(() => {
+    // Create a single WebSocketEventBus instance for the entire component
+    const websocketUrl = process.env['NEXT_PUBLIC_WS_URL'] || 'ws://localhost:3001';
+    console.log(`Initializing WebSocket connection to: ${websocketUrl}`);
+    
+    const eventBus = new WebSocketEventBus(websocketUrl);
+    eventBusRef.current = eventBus;
+    
+    // Log connection status
+    eventBus.onConnectionStatusChange((status) => {
+      console.log(`WebSocket connection status: ${status}`);
+      if (status === 'connected') {
+        addSystemEvent({
+          event: "Connected to server",
+          type: "success",
+        });
+      } else if (status === 'disconnected') {
+        addSystemEvent({
+          event: "Disconnected from server",
+          type: "error",
+        });
+      }
+    });
+    
+    // Subscribe to all events
+    subscribeToAgentEvents();
+    
+    // Cleanup function
+    return () => {
+      console.log("Cleaning up WebSocket connection");
+      if (eventBusRef.current) {
+        eventBusRef.current.disconnect();
+        eventBusRef.current = null;
+      }
+    };
+  }, []);
+
+  // Handle autonomous mode toggle
+  useEffect(() => {
+    if (!eventBusRef.current) return;
+    
+    // Check connection status and reconnect if necessary
+    if (autonomousMode && !eventBusRef.current.isConnected()) {
+      const websocketUrl = process.env['NEXT_PUBLIC_WS_URL'] || 'ws://localhost:3001';
+      console.log(`Reconnecting to WebSocket: ${websocketUrl}`);
+      eventBusRef.current.connect(websocketUrl);
+      
+      addSystemEvent({
+        event: "Connected to server for autonomous mode",
+        type: "success",
+      });
+    } else if (!autonomousMode && eventBusRef.current.isConnected()) {
+      // Just log the state change, but don't disconnect
+      console.log("Autonomous mode deactivated");
+      
+      addSystemEvent({
+        event: "Autonomous mode deactivated, connection maintained",
+        type: "info",
+      });
+    }
+    
+  }, [autonomousMode, settings, selectedChain]);
+
   useEffect(() => {
     const setupAgents = async () => {
       try {
@@ -382,224 +469,20 @@ export default function Home() {
     setupAgents();
   }, []);
 
-  useEffect(() => {
-    if (autonomousMode && !eventBusRef.current) {
-      // Initialize WebSocket connection
-      const eventBus = new WebSocketEventBus();
-      eventBusRef.current = eventBus;
-
-      console.log("Event Bus Ref", eventBus, eventBusRef.current);
-
-      // Connect to backend WebSocket
-      eventBus.connect(process.env['NEXT_PUBLIC_WEBSOCKET_URL'] || 'ws://localhost:3002');
-
-      subscribeToAgentEvents();
-
-      addSystemEvent({
-        event: "Autonomous agents activated",
-        type: "success",
-      });
-    } else if (!autonomousMode && eventBusRef.current) {
-      // Send stop command and cleanup
-      eventBusRef.current.emit("command", {
-        type: "command",
-        command: "stop",
-      });
-      cleanupAutonomousAgents();
-    }
-  }, [autonomousMode]);
-
-  const [socket, setSocket] = useState(null);
-
-  const handleSendMessage = () => {
-    console.log(
-      "sending message to the server to start the event",
-      eventBusRef.current
-    );
-
-    if (eventBusRef.current) {
-      eventBusRef.current.emit("command", { type: "command", command: "stop" });
-    }
-  };
-
-  useEffect(() => {
-    console.log("socket connection start>>>");
-
-    const eventBus = new WebSocketEventBus();
-    eventBusRef.current = eventBus;
-
-    eventBus.connect(process.env['NEXT_PUBLIC_WEBSOCKET_URL'] || 'ws://localhost:3002');
-
-    console.log("Event Bus", eventBus);
-
-    // Subscribe to events instead of directly accessing the ws property
-    eventBus.subscribe('message', (event: any) => {
-      console.log("Ev", event);
-      const parsedEvent = JSON.parse(typeof event.data === 'string' ? event.data : '{}');
-      console.log("Event", parsedEvent);
-
-      addSystemEvent({
-        event: parsedEvent.type,
-        agent: parsedEvent.agent,
-        type: "info",
-      });
-    });
-
-    subscribeToAgentEvents();
-
-    return () => {
-      eventBus.disconnect();
-    };
-  }, []);
-
-  const cleanupAutonomousAgents = () => {
-    eventBusRef.current = null;
-    agentsRef.current = null;
-    addSystemEvent({
-      event: "Autonomous agents deactivated",
-      type: "info",
-    });
-  };
-
-  const subscribeToAgentEvents = () => {
-    if (!eventBusRef.current) return;
-
-    // Handle system events for right sidebar
-    eventBusRef.current.subscribe('agent-event', (data: any) => {
-      console.log(data, "data received from agent event");
-      addSystemEvent({
-        event: data.action,
-        agent: data.agent,
-        type: data.eventType || 'info',
-      });
-    });
-
-    // Handle agent messages for chat
-    eventBusRef.current.subscribe('agent-message', (data: any) => {
-      console.log('Agent message received:', data);
-
-      // Add the message to the chat
-      setMessages(prev => {
-        const newMessage = {
-          role: data.role as "user" | "assistant" | "system",
-          content: data.content,
-          timestamp: data.timestamp || new Date().toLocaleTimeString(),
-          agentName: data.agentName || 'System',
-          collaborationType: data.collaborationType || 'response'
-        } as Message;
-
-        const updatedMessages = [...prev, newMessage];
-        return deduplicateMessages(updatedMessages);
-      });
-
-      // Also add a system event
-      addSystemEvent({
-        event: `${data.agentName || 'Agent'} message: ${data.content.substring(0, 50)}${data.content.length > 50 ? '...' : ''}`,
-        agent: data.agentName,
-        type: "info",
-      });
-    });
-
-    // Handle direct Hedera responses
-    eventBusRef.current.subscribe('hedera-response', (data: any) => {
-      console.log('Direct Hedera response received:', data);
-
-      // Add the message to the chat
-      setMessages(prev => {
-        const newMessage = {
-          role: data.role as "user" | "assistant" | "system",
-          content: data.message,
-          timestamp: data.timestamp || new Date().toLocaleTimeString(),
-          agentName: data.agentName || 'Hedera Agent',
-          collaborationType: data.collaborationType || 'response'
-        } as Message;
-
-        const updatedMessages = [...prev, newMessage];
-        return deduplicateMessages(updatedMessages);
-      });
-
-      // Also add a system event
-      addSystemEvent({
-        event: `Hedera response: ${data.message.substring(0, 50)}${data.message.length > 50 ? '...' : ''}`,
-        agent: 'Hedera Agent',
-        type: "success",
-      });
-    });
-
-    // Subscribe to all WebSocket messages to capture agent communications
-    eventBusRef.current.subscribeToAllMessages((data: any) => {
-      console.log('Raw WebSocket message:', data);
-
-      // Process agent-specific messages
-      if (data.source && data.message) {
-        // Add agent communications to system events
-        addSystemEvent({
-          event: data.message,
-          agent: data.source,
-          type: data.level === 'error' ? 'error' :
-            data.level === 'warning' ? 'warning' : 'info',
-        });
-      }
-
-      // Process task-manager messages
-      if (data.type === 'task-manager' || data.source === 'task-manager') {
-        addSystemEvent({
-          event: data.message || `Task ${data.taskId || ''}: ${data.status || 'updated'}`,
-          agent: 'Task Manager',
-          type: data.status === 'failed' ? 'error' : 'info',
-        });
-      }
-
-      // Process observer messages
-      if (data.type === 'observer' || data.source === 'observer') {
-        addSystemEvent({
-          event: data.message || `Observer: ${data.action || 'processing'}`,
-          agent: 'Observer',
-          type: 'info',
-        });
-      }
-
-      // Process hedera-agent messages
-      if (data.type === 'hedera-agent' || data.source === 'hedera-agent') {
-        addSystemEvent({
-          event: data.message || `Hedera: ${data.action || 'processing'}`,
-          agent: 'Hedera Agent',
-          type: 'info',
-        });
-      }
-
-      // Process task results
-      if (data.type === 'task-result' && data.result) {
-        // Add the task result to the messages if it's a meaningful result
-        if (typeof data.result === 'object' && Object.keys(data.result).length > 0) {
-          setMessages(prev => {
-            const newMessage: Message = {
-              role: 'assistant',
-              content: typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2),
-              timestamp: new Date().toLocaleTimeString(),
-              agentName: data.agent || 'System',
-              collaborationType: 'tool-result' as CollaborationType
-            };
-            return [...prev, newMessage];
-          });
-        }
-
-        // Add system event for the task result
-        addSystemEvent({
-          event: `Task completed: ${data.taskId || ''}`,
-          agent: data.agent,
-          type: 'success',
-        });
-      }
-    });
-  };
-
   const handleChainSelect = (chain: typeof SUPPORTED_CHAINS[0]) => {
     setSelectedChain(chain);
     addSystemEvent({
       event: `Chain switched to ${chain.name}`,
       type: "info",
     });
+    
+    // Also inform the server about the chain change if in autonomous mode
+    if (autonomousMode && eventBusRef.current) {
+      eventBusRef.current.emit("command", {
+        type: "chain_change",
+        chain: chain
+      });
+    }
   };
 
   const handleMessage = async (message: string) => {
@@ -618,203 +501,220 @@ export default function Home() {
       return deduplicateMessages(updatedMessages);
     });
 
-    if (autonomousMode) {
-      // Check if this is a CDP-related query
-      const isCDPQuery = message.toLowerCase().includes('cdp');
+    // Set processing state
+    setAgentState(prev => ({
+      ...prev,
+      isProcessing: true
+    }));
 
-      if (isCDPQuery) {
+    try {
+      if (autonomousMode) {
+        // First check if this matches any of our AUTONOMOUS_EXAMPLES
+        const autonomousExample = AUTONOMOUS_EXAMPLES.find(example => 
+          example.query.toLowerCase() === message.toLowerCase() || 
+          message.toLowerCase().includes(example.query.toLowerCase().substring(0, 15))
+        );
+        
+        if (autonomousExample) {
+          console.log("Found matching autonomous example:", autonomousExample.query);
+          
+          // Display system prompt if available
+          if (autonomousExample.systemPrompt) {
+            addSystemEvent({
+              event: autonomousExample.systemPrompt,
+              type: "info",
+            });
+          }
+          
+          // Play each response with a delay
+          for (const response of autonomousExample.responses) {
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            
+            setMessages(prev => {
+              const newMessage: Message = {
+                ...response,
+                timestamp: new Date().toLocaleTimeString(),
+                role: response.role as "user" | "assistant" | "system",
+                collaborationType: response.collaborationType as CollaborationType
+              };
+              return deduplicateMessages([...prev, newMessage]);
+            });
+            
+            if (response.agentName) {
+              addSystemEvent({
+                event: `${response.agentName} responding with ${response.collaborationType || 'message'}`,
+                agent: response.agentName,
+                type: "info",
+              });
+            }
+          }
+          
+          addSystemEvent({
+            event: "Successfully executed",
+            type: "success",
+          });
+          
+          // Done with example, exit early
+          setAgentState(prev => ({
+            ...prev,
+            isProcessing: false
+          }));
+          return;
+        }
+        
+        // No matching example, proceed with server communication
+        // In autonomous mode, send the message to the server
+        if (!eventBusRef.current) {
+          throw new Error("WebSocket connection not established");
+        }
+
+        // Ensure WebSocket is connected
+        if (!eventBusRef.current.isConnected()) {
+          const websocketUrl = process.env['NEXT_PUBLIC_WS_URL'] || 'ws://localhost:3001';
+          console.log(`Reconnecting to WebSocket before sending command: ${websocketUrl}`);
+          eventBusRef.current.connect(websocketUrl);
+          
+          // Wait briefly for connection to establish
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          
+          if (!eventBusRef.current.isConnected()) {
+            throw new Error("Failed to establish WebSocket connection");
+          }
+        }
+
+        // Check if this is a CDP-related query or other special command
+        const isCDPQuery = message.toLowerCase().includes('cdp');
+        const isTurnkeyQuery = message.toLowerCase().includes('turnkey') || message.toLowerCase().includes('wallet');
+
         addSystemEvent({
-          event: "Detected CDP operation, routing to CDP agent",
+          event: `Sending command to server: ${message}`,
           type: "info",
         });
 
-        // Send command with CDP agent flag
-        eventBusRef.current?.emit('command', {
+        // Send command to server with appropriate routing
+        eventBusRef.current.emit('command', {
           type: 'command',
           command: message,
-          agentPreference: 'cdp-agent',
-          operationType: 'cdp-operation'
+          selectedChain: selectedChain,
+          agentPreference: isCDPQuery ? 'cdp-agent' : 
+                          isTurnkeyQuery ? 'turnkey-agent' : 
+                          selectedChain.agentId,
+          operationType: isCDPQuery ? 'cdp-operation' : 
+                          isTurnkeyQuery ? 'wallet-operation' :
+                          'standard'
         });
-      } else {
-        // Check if this is an example query
-        const example = Object.values(AUTONOMOUS_EXAMPLES).find(ex => ex.query === message);
 
-        if (example) {
+        addSystemEvent({
+          event: `Task sent to server: ${message} (Chain: ${selectedChain.name})`,
+          type: 'info',
+        });
+
+        // The rest of the handling will be managed by WebSocket events
+      } else {
+        // Handle regular chat mode (local agent processing)
+        // Check if this is an example query
+        const exampleKeys = Object.keys(EXAMPLE_RESPONSES);
+        const isExampleQuery = exampleKeys.includes(message);
+
+        if (isExampleQuery) {
           addSystemEvent({
             event: "Processing given scenario",
             type: "info",
           });
 
-          // Add system prompt
-          addSystemEvent({
-            event: example.systemPrompt,
-            type: "info",
-          });
-
-          // Simulate responses with delays
-          for (const response of example.responses) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            setMessages(prev => [...prev, {
-              ...response,
-              timestamp: new Date().toLocaleTimeString(),
-              role: response.role as "user" | "assistant" | "system"
-            } as Message]);
+          const responses = EXAMPLE_RESPONSES[message as keyof typeof EXAMPLE_RESPONSES];
+          for (const response of responses) {
+            await new Promise((resolve) => setTimeout(resolve, 1000)); // Shorter delay for better UX
+            setMessages((prev) => {
+              const updatedMessages = [...prev, {
+                ...response,
+                timestamp: new Date().toLocaleTimeString(),
+                role: response.role as "user" | "assistant" | "system",
+                collaborationType: response.collaborationType as CollaborationType
+              } as Message];
+              return deduplicateMessages(updatedMessages);
+            });
 
             addSystemEvent({
               event: `${response.agentName} providing ${response.collaborationType}`,
               agent: response.agentName,
-              type: "info"
+              type: "info",
             });
           }
 
           addSystemEvent({
             event: "Task completed successfully",
-            type: "success"
+            type: "success",
           });
-          return;
+        } else {
+          // Process with local agents
+          await processWithLocalAgents(message);
         }
-
-        // Continue with regular autonomous mode handling
-        eventBusRef.current?.emit('command', {
-          type: 'command',
-          command: message,
-          selectedChain: selectedChain,
-          agentPreference: selectedChain.agentId
-        });
-
-        addSystemEvent({
-          event: `Task received: ${message} (Chain: ${selectedChain.name})`,
-          type: 'info',
-        });
-
-        addSystemEvent({
-          event: "Starting agent collaboration",
-          type: "info",
-        });
-
-        const portfolioAgent = agents.find((agent) => agent.id === "portfolio");
-        const initialAnalysis = await portfolioAgent?.agent?.invoke(
-          {
-            input: `Analyze this request and determine which other agents should be involved: ${message}`,
-          },
-          { configurable: { sessionId: "user-1" } }
-        );
-
-        console.log(initialAnalysis, "initialAnalysis", portfolioAgent);
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: initialAnalysis.output,
-            timestamp: new Date().toLocaleTimeString(),
-            agentId: "portfolio",
-            agentName: "Portfolio Manager",
-            collaborationType: "analysis",
-          },
-        ]);
-
-        const relevantAgents = agents.filter((agent) => {
-          const messageContent = message.toLowerCase();
-          return (
-            (messageContent.includes("trade") && agent.id === "trading") ||
-            (messageContent.includes("liquidity") && agent.id === "liquidity") ||
-            (messageContent.includes("analytics") &&
-              agent.id === "defi-analytics")
-          );
-        });
-
-        console.log(relevantAgents, "relevantAgents selected are");
-
-        for (const agent of relevantAgents) {
-          const agentResponse = await agent?.agent?.invoke(
-            {
-              input: `Given the user request "${message}" and portfolio analysis "${initialAnalysis.output}", what is your perspective and recommendation?`,
-            },
-            { configurable: { sessionId: "user-1" } }
-          );
-
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: agentResponse.output,
-              timestamp: new Date().toLocaleTimeString(),
-              agentId: agent.id,
-              agentName: agent.name,
-              collaborationType: "suggestion",
-            },
-          ]);
-        }
-
-        const finalConsensus = await portfolioAgent?.agent?.invoke(
-          {
-            input: `Based on all suggestions, provide a final recommendation for: ${message}`,
-          },
-          { configurable: { sessionId: "user-1" } }
-        );
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: finalConsensus.output,
-            timestamp: new Date().toLocaleTimeString(),
-            agentId: "portfolio",
-            agentName: "Portfolio Manager",
-            collaborationType: "decision",
-          },
-        ]);
       }
-    } else {
-      // Handle regular chat mode
-      // Check if this is an example query
-      const exampleKeys = Object.keys(EXAMPLE_RESPONSES);
-      const isExampleQuery = exampleKeys.includes(message);
-
-      if (isExampleQuery) {
-        addSystemEvent({
-          event: "Processing given scenario",
-          type: "info",
-        });
-
-        const responses = EXAMPLE_RESPONSES[message as keyof typeof EXAMPLE_RESPONSES];
-        for (const response of responses) {
-          await new Promise((resolve) => setTimeout(resolve, 40000)); // 40 second delay between responses
-          setMessages((prev) => {
-            const updatedMessages = [...prev, {
-              ...response,
-              timestamp: new Date().toLocaleTimeString(),
-              role: response.role as "user" | "assistant" | "system",
-              collaborationType: response.collaborationType as CollaborationType
-            } as Message];
-            return deduplicateMessages(updatedMessages);
-          });
-
-          addSystemEvent({
-            event: `${response.agentName} providing ${response.collaborationType}`,
-            agent: response.agentName,
-            type: "info",
-          });
-        }
-
-        addSystemEvent({
-          event: "Task completed successfully",
-          type: "success",
-        });
-
-        return;
-      }
-
+    } catch (error) {
+      console.error("Error handling message:", error);
       addSystemEvent({
-        event: "Starting agent collaboration",
-        type: "info",
+        event: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+        type: "error",
       });
+    } finally {
+      // Reset processing state
+      setAgentState(prev => ({
+        ...prev,
+        isProcessing: false
+      }));
+    }
+  };
 
-      const portfolioAgent = agents.find((agent) => agent.id === "portfolio");
-      const initialAnalysis = await portfolioAgent?.agent?.invoke(
+  // New helper function to process messages with local agents
+  const processWithLocalAgents = async (message: string) => {
+    addSystemEvent({
+      event: "Starting agent collaboration",
+      type: "info",
+    });
+
+    const portfolioAgent = agents.find((agent) => agent.id === "portfolio");
+    if (!portfolioAgent || !portfolioAgent.agent) {
+      addSystemEvent({
+        event: "Portfolio agent not initialized",
+        type: "error",
+      });
+      return;
+    }
+
+    const initialAnalysis = await portfolioAgent.agent.invoke(
+      {
+        input: `Analyze this request and determine which other agents should be involved: ${message}`,
+      },
+      { configurable: { sessionId: "user-1" } }
+    );
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content: initialAnalysis.output,
+        timestamp: new Date().toLocaleTimeString(),
+        agentName: "Portfolio Manager",
+        collaborationType: "analysis",
+      },
+    ]);
+
+    const relevantAgents = agents.filter((agent) => {
+      const messageContent = message.toLowerCase();
+      return (
+        (messageContent.includes("trade") && agent.id === "trading") ||
+        (messageContent.includes("liquidity") && agent.id === "liquidity") ||
+        (messageContent.includes("analytics") && agent.id === "defi-analytics")
+      );
+    });
+
+    for (const agent of relevantAgents) {
+      if (!agent.agent) continue;
+
+      const agentResponse = await agent.agent.invoke(
         {
-          input: `Analyze this request and determine which other agents should be involved: ${message}`,
+          input: `Given the user request "${message}" and portfolio analysis "${initialAnalysis.output}", what is your perspective and recommendation?`,
         },
         { configurable: { sessionId: "user-1" } }
       );
@@ -823,66 +723,31 @@ export default function Home() {
         ...prev,
         {
           role: "assistant",
-          content: initialAnalysis.output,
+          content: agentResponse.output,
           timestamp: new Date().toLocaleTimeString(),
-          agentId: "portfolio",
-          agentName: "Portfolio Manager",
-          collaborationType: "analysis",
-        },
-      ]);
-
-      const relevantAgents = agents.filter((agent) => {
-        const messageContent = message.toLowerCase();
-        return (
-          (messageContent.includes("trade") && agent.id === "trading") ||
-          (messageContent.includes("liquidity") && agent.id === "liquidity") ||
-          (messageContent.includes("analytics") &&
-            agent.id === "defi-analytics")
-        );
-      });
-
-      console.log(relevantAgents, "relevantAgents selected are");
-
-      for (const agent of relevantAgents) {
-        const agentResponse = await agent?.agent?.invoke(
-          {
-            input: `Given the user request "${message}" and portfolio analysis "${initialAnalysis.output}", what is your perspective and recommendation?`,
-          },
-          { configurable: { sessionId: "user-1" } }
-        );
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: agentResponse.output,
-            timestamp: new Date().toLocaleTimeString(),
-            agentId: agent.id,
-            agentName: agent.name,
-            collaborationType: "suggestion",
-          },
-        ]);
-      }
-
-      const finalConsensus = await portfolioAgent?.agent?.invoke(
-        {
-          input: `Based on all suggestions, provide a final recommendation for: ${message}`,
-        },
-        { configurable: { sessionId: "user-1" } }
-      );
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: finalConsensus.output,
-          timestamp: new Date().toLocaleTimeString(),
-          agentId: "portfolio",
-          agentName: "Portfolio Manager",
-          collaborationType: "decision",
+          agentName: agent.name,
+          collaborationType: "suggestion",
         },
       ]);
     }
+
+    const finalConsensus = await portfolioAgent.agent.invoke(
+      {
+        input: `Based on all suggestions, provide a final recommendation for: ${message}`,
+      },
+      { configurable: { sessionId: "user-1" } }
+    );
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content: finalConsensus.output,
+        timestamp: new Date().toLocaleTimeString(),
+        agentName: "Portfolio Manager",
+        collaborationType: "decision",
+      },
+    ]);
   };
 
   const addSystemEvent = (
@@ -900,116 +765,148 @@ export default function Home() {
     }));
   };
 
-  const initializeAutonomousMode = async () => {
-    if (!wsEventBus) return;
+  const subscribeToAgentEvents = () => {
+    if (!eventBusRef.current) return;
+    
+    console.log("Subscribing to agent events");
 
-    try {
-      wsEventBus.emit('command', {
-        command: 'start',
-        settings: {
-          aiProvider: settings.aiProvider,
-          enablePrivateCompute: settings.enablePrivateCompute
-        }
+    // Handle system events for right sidebar
+    eventBusRef.current.subscribe('agent-event', (data: any) => {
+      console.log("Agent event received:", data);
+      addSystemEvent({
+        event: data.action || data.event || "Event received",
+        agent: data.agent || data.agentName,
+        type: data.eventType || data.type || 'info',
       });
-    } catch (error) {
-      console.error('Failed to initialize autonomous mode:', error);
-      throw error;
-    }
+    });
+
+    // Handle agent messages for chat
+    eventBusRef.current.subscribe('agent-message', (data: any) => {
+      console.log('Agent message received:', data);
+
+      // Add the message to the chat
+      setMessages(prev => {
+        const newMessage = {
+          role: data.role as "user" | "assistant" | "system",
+          content: data.content || data.message,
+          timestamp: data.timestamp || new Date().toLocaleTimeString(),
+          agentName: data.agentName || 'System',
+          collaborationType: data.collaborationType || 'response'
+        } as Message;
+
+        const updatedMessages = [...prev, newMessage];
+        return deduplicateMessages(updatedMessages);
+      });
+    });
+
+    // Handle direct Hedera responses
+    eventBusRef.current.subscribe('hedera-response', (data: any) => {
+      console.log('Direct Hedera response received:', data);
+
+      // Add the message to the chat
+      setMessages(prev => {
+        const newMessage = {
+          role: data.role as "user" | "assistant" | "system",
+          content: data.message || data.content,
+          timestamp: data.timestamp || new Date().toLocaleTimeString(),
+          agentName: data.agentName || 'Hedera Agent',
+          collaborationType: data.collaborationType || 'response'
+        } as Message;
+
+        const updatedMessages = [...prev, newMessage];
+        return deduplicateMessages(updatedMessages);
+      });
+    });
+
+    // Subscribe to CDP responses
+    eventBusRef.current.subscribe('cdp-response', (data: any) => {
+      console.log('CDP response received:', data);
+      setMessages(prev => {
+        const newMessage = {
+          role: "assistant",
+          content: data.message || data.content || JSON.stringify(data.result || {}, null, 2),
+          timestamp: new Date().toLocaleTimeString(),
+          agentName: 'CDP Agent',
+          collaborationType: 'response'
+        } as Message;
+
+        const updatedMessages = [...prev, newMessage];
+        return deduplicateMessages(updatedMessages);
+      });
+    });
+    
+    // Subscribe to Turnkey wallet responses
+    eventBusRef.current.subscribe('turnkey-response', (data: any) => {
+      console.log('Turnkey response received:', data);
+      setMessages(prev => {
+        const newMessage = {
+          role: "assistant",
+          content: data.message || data.content || JSON.stringify(data.result || {}, null, 2),
+          timestamp: new Date().toLocaleTimeString(),
+          agentName: 'Turnkey Wallet',
+          collaborationType: 'response'
+        } as Message;
+
+        const updatedMessages = [...prev, newMessage];
+        return deduplicateMessages(updatedMessages);
+      });
+    });
+
+    // Subscribe to general result responses
+    eventBusRef.current.subscribe('result', (data: any) => {
+      console.log('Result received:', data);
+      
+      if (data.content || data.message || data.result) {
+        setMessages(prev => {
+          const newMessage = {
+            role: "assistant",
+            content: data.content || data.message || (typeof data.result === 'object' ? JSON.stringify(data.result, null, 2) : String(data.result)),
+            timestamp: new Date().toLocaleTimeString(),
+            agentName: data.agentName || data.agent || 'System',
+            collaborationType: 'response'
+          } as Message;
+  
+          const updatedMessages = [...prev, newMessage];
+          return deduplicateMessages(updatedMessages);
+        });
+      }
+    });
+
+    // Subscribe to errors
+    eventBusRef.current.subscribe('error', (data: any) => {
+      console.error('Error received:', data);
+      addSystemEvent({
+        event: data.message || data.error || "An error occurred",
+        agent: data.agentName || data.agent,
+        type: "error",
+      });
+    });
+
+    // Subscribe to connection status changes
+    eventBusRef.current.onOpen(() => {
+      console.log("WebSocket connection opened");
+      addSystemEvent({
+        event: "Connected to server",
+        type: "success",
+      });
+    });
+
+    eventBusRef.current.onClose(() => {
+      console.log("WebSocket connection closed");
+      addSystemEvent({
+        event: "Disconnected from server",
+        type: "error",
+      });
+    });
+
+    eventBusRef.current.onError((error) => {
+      console.error("WebSocket error:", error);
+      addSystemEvent({
+        event: `WebSocket error: ${error}`,
+        type: "error",
+      });
+    });
   };
-
-  const enableAutonomousMode = async () => {
-    if (!wsEventBus) return;
-
-    try {
-      // Send settings to server
-      wsEventBus.emit('settings', {
-        settings: {
-          aiProvider: settings.aiProvider,
-          enablePrivateCompute: settings.enablePrivateCompute
-        }
-      });
-
-      // Initialize agents
-      await initializeAutonomousMode();
-
-      // Enable autonomous mode
-      setAutonomousMode(true);
-    } catch (error) {
-      console.error('Failed to enable autonomous mode:', error);
-    }
-  };
-
-  useEffect(() => {
-    const eventBus = new WebSocketEventBus();
-    setWsEventBus(eventBus);
-
-    // Subscribe to agent messages
-    eventBus.subscribe('agent-message', (data: AgentMessage) => {
-      const newMessage: Message = {
-        role: data.role,
-        content: data.content,
-        timestamp: data.timestamp || new Date().toLocaleTimeString(),
-        agentName: data.agentName,
-        collaborationType: data.collaborationType
-      };
-
-      setMessages(prev => {
-        const updatedMessages = [...prev, newMessage];
-        return deduplicateMessages(updatedMessages);
-      });
-    });
-
-    // Subscribe to system events
-    eventBus.subscribe('agent-event', (data: AgentMessage) => {
-      const newEvent: SystemEvent = {
-        timestamp: data.timestamp || new Date().toLocaleTimeString(),
-        event: data.action || data.event || '',
-        agent: data.agentName,
-        type: data.eventType || 'info'
-      };
-
-      setAgentState(prev => ({
-        ...prev,
-        systemEvents: [...prev.systemEvents, newEvent]
-      }));
-    });
-
-    // Subscribe to executor responses
-    eventBus.subscribe('executor-response', (data: { report?: string; result?: string }) => {
-      const newMessage: Message = {
-        role: 'assistant',
-        content: data.report || data.result || '',
-        timestamp: new Date().toLocaleTimeString(),
-        agentName: 'Executor',
-        collaborationType: 'execution'
-      };
-
-      setMessages(prev => {
-        const updatedMessages = [...prev, newMessage];
-        return deduplicateMessages(updatedMessages);
-      });
-    });
-
-    // Subscribe to CDP agent responses
-    eventBus.subscribe('cdp-agent-response', (data: { report?: string; result?: string }) => {
-      const newMessage: Message = {
-        role: 'assistant',
-        content: data.report || data.result || '',
-        timestamp: new Date().toLocaleTimeString(),
-        agentName: 'CDP Agent',
-        collaborationType: 'execution'
-      };
-
-      setMessages(prev => {
-        const updatedMessages = [...prev, newMessage];
-        return deduplicateMessages(updatedMessages);
-      });
-    });
-
-    return () => {
-      eventBus.disconnect();
-    };
-  }, []);
 
   return (
     <div className="flex flex-col min-h-screen bg-[#0A192F]">
@@ -1188,12 +1085,75 @@ export default function Home() {
             <div className="p-4">
               <div className="flex items-center justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-400">Autonomous Mode</label>
-                  <Switch
-                    checked={autonomousMode}
-                    onCheckedChange={setAutonomousMode}
-                    className="data-[state=checked]:bg-blue-500"
-                  />
+                  <div className="flex items-center">
+                    <label className="text-sm text-gray-400 mr-2">Autonomous Mode</label>
+                    <Switch
+                      checked={autonomousMode}
+                      onCheckedChange={setAutonomousMode}
+                      className="data-[state=checked]:bg-blue-500"
+                    />
+                  </div>
+                  {autonomousMode && (
+                    <div className="flex items-center ml-2">
+                      <div 
+                        className={`w-2 h-2 rounded-full mr-1 ${
+                          connectionStatus === 'connected' 
+                            ? 'bg-green-500' 
+                            : connectionStatus === 'connecting' 
+                              ? 'bg-yellow-500 animate-pulse' 
+                              : 'bg-red-500'
+                        }`} 
+                      />
+                      <span className="text-xs text-gray-400">
+                        {connectionStatus}
+                      </span>
+                      {connectionStatus !== 'connected' && (
+                        <button
+                          onClick={() => {
+                            const websocketUrl = process.env['NEXT_PUBLIC_WS_URL'] || 'ws://localhost:3001';
+                            console.log(`Manually reconnecting to WebSocket: ${websocketUrl}`);
+                            
+                            if (eventBusRef.current) {
+                              // First disconnect if already connected
+                              eventBusRef.current.disconnect();
+                              
+                              // Then reconnect
+                              eventBusRef.current.connect(websocketUrl);
+                              
+                              // Wait briefly for connection to be established
+                              setTimeout(() => {
+                                // If connected successfully and in autonomous mode, resend the start command
+                                if (eventBusRef.current?.isConnected() && autonomousMode) {
+                                  eventBusRef.current.emit("command", {
+                                    type: "command",
+                                    command: "start",
+                                    settings: {
+                                      aiProvider: settings.aiProvider || "openai",
+                                      enablePrivateCompute: settings.enablePrivateCompute || false,
+                                      selectedChain: selectedChain
+                                    }
+                                  });
+                                  
+                                  addSystemEvent({
+                                    event: "Autonomous mode restored after reconnection",
+                                    type: "success",
+                                  });
+                                }
+                              }, 1000);
+                            }
+                            
+                            addSystemEvent({
+                              event: "Reconnecting to server...",
+                              type: "info",
+                            });
+                          }}
+                          className="ml-2 text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        >
+                          Reconnect
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 {/* Chain Selector */}
