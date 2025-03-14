@@ -33,10 +33,10 @@ export const SUPPORTED_CHAINS: Chain[] = [
     agentId: "base-agent"
   },
   {
-    id: "arbitrum",
-    name: "Arbitrum",
-    icon: "/chains/icons/arbitrum.svg",
-    agentId: "arbitrum-agent"
+    id: "polygon",
+    name: "Polygon",
+    icon: "/chains/icons/polygon.svg",
+    agentId: "polygon-agent"
   },
   {
     id: "mode",
@@ -47,8 +47,14 @@ export const SUPPORTED_CHAINS: Chain[] = [
   {
     id: "sonic",
     name: "Sonic",
-    icon: "/chains/icons/sonic.svg",
+    icon: "https://theoregongroup.com/wp-content/uploads/2024/12/sonic-fantom-crypto.jpg",
     agentId: "sonic-agent"
+  },
+  {
+    id: "aptos",
+    name: "Aptos",
+    icon: "/chains/icons/aptos.svg",
+    agentId: "move-agent"
   },
   {
     id: "hedera",
