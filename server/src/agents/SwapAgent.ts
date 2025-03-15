@@ -28,7 +28,7 @@ export class SwapAgent {
         this.provider = new ethers.providers.JsonRpcProvider(process.env.RPC_URL);
       } else {
         // Fallback to a public provider (not recommended for production)
-        console.warn('No RPC_URL provided, using public provider');
+        console.log('No RPC_URL provided, using public provider');
         this.provider = ethers.getDefaultProvider('mainnet');
       }
     } catch (error) {
