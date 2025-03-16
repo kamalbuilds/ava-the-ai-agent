@@ -129,6 +129,19 @@ export class MoveAgent extends Agent {
         // Emit the event to the frontend via the event bus
         this.eventBus.emit('frontend-event', eventData);
         console.log(`[${this.name}] Emitted frontend event:`, eventData.type);
+        
+        // For messages that should appear in chat, also emit as agent-message
+        if (data.type === 'TASK_COMPLETED' || data.type === 'FINAL_RESPONSE') {
+            this.eventBus.emit('agent-message', {
+                timestamp: new Date().toISOString(),
+                role: 'assistant',
+                content: data.result || data.content || data.message || '',
+                agentName: this.name,
+                collaborationType: 'response'
+            });
+            
+            console.log(`[${this.name}] Emitted agent-message for chat display`);
+        }
     }
 
     private async executeTask(task: string): Promise<any> {
@@ -154,6 +167,15 @@ export class MoveAgent extends Agent {
             taskId: this.currentTaskId,
             message,
             timestamp: new Date().toISOString()
+        });
+        
+        // Directly emit to agent-message channel to ensure visibility in frontend
+        this.eventBus.emit('agent-message', {
+            timestamp: new Date().toISOString(),
+            role: 'assistant',
+            content: `Processing your request: "${message}"`,
+            agentName: this.name,
+            collaborationType: 'analysis'
         });
 
         if (!this.agent) {
@@ -245,6 +267,25 @@ export class MoveAgent extends Agent {
                 content: responseMessage,
                 timestamp: new Date().toISOString()
             });
+            
+            // Directly emit the final response to agent-message channel
+            this.eventBus.emit('agent-message', {
+                timestamp: new Date().toISOString(),
+                role: 'assistant',
+                content: responseMessage,
+                agentName: this.name,
+                collaborationType: 'response'
+            });
+            
+            // Also emit to move-agent-response channel for frontend specific handler
+            this.eventBus.emit('move-agent-response', {
+                timestamp: new Date().toISOString(),
+                role: 'assistant',
+                content: responseMessage,
+                agentName: this.name,
+                collaborationType: 'response',
+                taskId: this.currentTaskId
+            });
 
             return responseMessage;
         } catch (error) {
@@ -294,8 +335,13 @@ export async function initializeMoveAgentKit(): Promise<ReturnType<typeof create
     try {
         // Create the LLM and use type assertion to ensure compatibility
         const llm = new ChatGroq({
-            apiKey: env.GROQ_API_KEY
+            apiKey: env.GROQ_API_KEY,
+            modelName: "deepseek-r1-distill-llama-70b-specdec",
         }) as unknown as BaseChatModel;
+
+        const llm2 = new ChatOpenAI({
+            openAIApiKey: env.OPENAI_API_KEY,
+        })
 
         const aptosConfig = new AptosConfig({
             network: env.APTOS_NETWORK as Network,
@@ -321,7 +367,7 @@ export async function initializeMoveAgentKit(): Promise<ReturnType<typeof create
         const memory = new MemorySaver()
 
         const agent = createReactAgent({
-            llm,
+            llm: llm2,
             tools,
             checkpointSaver: memory,
             messageModifier: `

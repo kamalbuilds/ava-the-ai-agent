@@ -482,6 +482,14 @@ export default function Home() {
         type: "chain_change",
         chain: chain
       });
+      
+      // If this is a chain that uses the move-agent, log additional info
+      if (chain.agentId === 'move-agent') {
+        addSystemEvent({
+          event: `Move Agent will be used for ${chain.name} operations`,
+          type: "info",
+        });
+      }
     }
   };
 
@@ -844,6 +852,23 @@ export default function Home() {
           content: data.message || data.content || JSON.stringify(data.result || {}, null, 2),
           timestamp: new Date().toLocaleTimeString(),
           agentName: 'Turnkey Wallet',
+          collaborationType: 'response'
+        } as Message;
+
+        const updatedMessages = [...prev, newMessage];
+        return deduplicateMessages(updatedMessages);
+      });
+    });
+
+    // Subscribe to Move Agent responses
+    eventBusRef.current.subscribe('move-agent-response', (data: any) => {
+      console.log('Move Agent response received:', data);
+      setMessages(prev => {
+        const newMessage = {
+          role: "assistant",
+          content: data.message || data.content || JSON.stringify(data.result || {}, null, 2),
+          timestamp: new Date().toLocaleTimeString(),
+          agentName: 'Move Agent',
           collaborationType: 'response'
         } as Message;
 

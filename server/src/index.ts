@@ -150,6 +150,32 @@ async function initializeServices() {
         console.log(`[WebSocket] Forwarded CDP event: ${data.type}`);
       });
 
+      // Forward move-agent responses to WebSocket clients
+      eventBus.on("move-agent-task-manager", async (data) => {
+        console.log("[WebSocket] Received move-agent response:", data);
+        
+        ws.send(JSON.stringify({
+          type: "agent-message",
+          timestamp: new Date().toLocaleTimeString(),
+          role: "assistant",
+          content: data.result,
+          agentName: "Move Agent",
+          collaborationType: "response"
+        }));
+        
+        // Also send a result event for compatibility with frontend handlers
+        ws.send(JSON.stringify({
+          type: "result",
+          timestamp: new Date().toLocaleTimeString(),
+          agent: "Move Agent",
+          agentName: "Move Agent",
+          content: data.result,
+          taskId: data.taskId
+        }));
+        
+        console.log(`[WebSocket] Forwarded move-agent response`);
+      });
+
       ws.on("message", async (message: string) => {
         try {
           const data = JSON.parse(message.toString());
@@ -172,44 +198,84 @@ async function initializeServices() {
               action: "Updated AI provider settings",
             });
           } else if (data.type === "command") {
-            // Add user message to chat
-            ws.send(JSON.stringify({
-              type: "agent-message",
-              timestamp: new Date().toLocaleTimeString(),
-              role: "user",
-              content: data.command,
-              agentName: "user",
-            }));
-
-            if (data.command === "stop") {
-              agents.observerAgent.stop();
+            // Route task based on agent preference and operation type
+            if (data.operationType === "cdp-operation") {
+              // Route to CDP agent
+              eventBus.emit("task-manager-cdp-agent", {
+                task: data.command,
+                selectedChain: data.selectedChain,
+              });
+              
               eventBus.emit("agent-action", {
-                agent: "system",
-                action: "All agents stopped",
+                agent: "task-manager",
+                action: `Routing CDP operation to CDP Agent: ${data.command}`,
+              });
+            } else if (data.agentPreference === "move-agent" || data.selectedChain?.agentId === "move-agent") {
+              // Route to Move agent
+              console.log("[WebSocket] Routing task to Move Agent:", data.command);
+              
+              eventBus.emit("task-manager-move-agent", {
+                taskId: `move-${Date.now()}`,
+                task: data.command,
+                selectedChain: data.selectedChain,
+                type: "command"
+              });
+              
+              eventBus.emit("agent-action", {
+                agent: "task-manager",
+                action: `Routing task to Move Agent: ${data.command}`,
+              });
+            } else if (data.operationType === "wallet-operation" || data.agentPreference === "turnkey-agent") {
+              // Route to Turnkey agent
+              eventBus.emit("task-manager-turnkey", {
+                task: data.command,
+                selectedChain: data.selectedChain,
+              });
+              
+              eventBus.emit("agent-action", {
+                agent: "task-manager",
+                action: `Routing wallet operation to Turnkey Agent: ${data.command}`,
               });
             } else {
-              // Check if a specific chain is selected
-              const chainInfo = data.selectedChain ? 
-                `for ${data.selectedChain.name} chain` : '';
-              
-              eventBus.emit("agent-action", {
-                agent: "system",
-                action: `Starting task processing ${chainInfo}`,
-              });
-              
-              // Create task with options including selectedChain if provided
-              const taskOptions = {
-                targetAgent: data.agentPreference,
-                operationType: data.operationType,
-                selectedChain: data.selectedChain
-              };
-              
-              // Create and process task through task manager
-              const taskId = await agents.taskManagerAgent.createTask(data.command, taskOptions);
-              // Get the task from the task manager and then assign it
-              const task = await agents.taskManagerAgent.getTaskById(taskId);
-              if (task) {
-                await agents.taskManagerAgent.assignTask(task);
+              // Add user message to chat
+              ws.send(JSON.stringify({
+                type: "agent-message",
+                timestamp: new Date().toLocaleTimeString(),
+                role: "user",
+                content: data.command,
+                agentName: "user",
+              }));
+
+              if (data.command === "stop") {
+                agents.observerAgent.stop();
+                eventBus.emit("agent-action", {
+                  agent: "system",
+                  action: "All agents stopped",
+                });
+              } else {
+                // Check if a specific chain is selected
+                const chainInfo = data.selectedChain ? 
+                  `for ${data.selectedChain.name} chain` : '';
+                
+                eventBus.emit("agent-action", {
+                  agent: "system",
+                  action: `Starting task processing ${chainInfo}`,
+                });
+                
+                // Create task with options including selectedChain if provided
+                const taskOptions = {
+                  targetAgent: data.agentPreference,
+                  operationType: data.operationType,
+                  selectedChain: data.selectedChain
+                };
+                
+                // Create and process task through task manager
+                const taskId = await agents.taskManagerAgent.createTask(data.command, taskOptions);
+                // Get the task from the task manager and then assign it
+                const task = await agents.taskManagerAgent.getTaskById(taskId);
+                if (task) {
+                  await agents.taskManagerAgent.assignTask(task);
+                }
               }
             }
           }
