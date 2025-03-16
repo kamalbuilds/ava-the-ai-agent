@@ -2,6 +2,15 @@
 
 > Group of Multiple specialized autonomous AI agents with powerful tools that work together in collaberation to analyze, recommend, and execute the most optimal DeFi strategies while maintaining user-defined risk parameters and portfolio goals currently live on Flow, Hedera , Sui , Base, Avalanche , Mode , Arbitrium, powered by Story Protocol , and LangChain.
 
+
+## 📑 Quick Navigation
+
+### 🚀 Core Sections
+- [Problem Statement](#-problem-statement)
+- [Solution](#-solution)
+- [Architecture](#-architecture)
+- [Key Features](#-key-features)
+
 ## 🎯 Problem Statement
 Managing DeFi portfolios across multiple protocols across different chains can be complex and time-consuming.
 
@@ -20,6 +29,10 @@ An autonomous group of AI agents that manages your Multichain DeFi portfolio by:
 - Providing real-time updates and progress tracking
 - Maintaining portfolio balance according to user preferences
 
+## Docs 
+
+https://cryptoinnovators.gitbook.io/ava-the-defai-agent/agents/protocol-specific-agent/lit-agent-wallet
+
 ## Demo Vid
 
 https://www.youtube.com/watch?v=kYpniQ4neQk
@@ -28,15 +41,6 @@ https://www.youtube.com/watch?v=kYpniQ4neQk
 
 https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f
 
-## 📑 Quick Navigation
-
-### 🚀 Core Sections
-- [Problem Statement](#-problem-statement)
-- [Solution](#-solution)
-- [Architecture](#-architecture)
-- [Key Features](#-key-features)
-- [Technology Stack](#-technology-stack)
-- [Technology Integrations](#technology-integrations)
 
 ## 🏗 Architecture
 
@@ -113,7 +117,6 @@ https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f
 
 ## Technology Integrations
 
-
 - **Multi-Agent Orchestration**
   ```typescript
   // Eliza coordinates with other agents through event-driven architecture
@@ -125,8 +128,6 @@ https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f
       tone,
       powered_by
     }) {
-      // Natural language generation with personality
-      // Coordination with other agents
     }
   }
   ```
@@ -143,64 +144,6 @@ https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f
   - Real-time position monitoring
   - Risk alerts and notifications
 
-### Navi Protocol Integration
-
-Navi Protocol powers our leveraged yield strategies with deep integration:
-
-https://github.com/kamalbuilds/ava-the-ai-agent/blob/dev/server/src/agents/task-manager/toolkit.ts#L59
-
-- **Position Management**
-  ```typescript
-  // Example of Navi position handling
-  interface NaviPosition {
-    asset: string;
-    leverage: number;
-    healthFactor: number;
-    liquidationPrice: number;
-    collateralFactor: number;
-  }
-  ```
-
-- **Risk Management**
-  - Real-time health factor monitoring
-  - Automated position adjustment
-  - Liquidation prevention strategies
-  - Collateral optimization
-
-- **Yield Strategies**
-  - Leveraged yield farming
-  - Auto-compounding positions
-  - APY optimization
-  - Gas-efficient rebalancing
-
-### Protocol Integrations
-
-#### Bluefin Integration
-
-https://github.com/atoma-network/atoma-agents/pull/30
-
-- **Perpetual Trading**
-  - Leverage up to 3x
-  - Stop-loss and take-profit automation
-  - Funding rate optimization
-  - Risk-adjusted position sizing
-
-#### Cetus Integration
-
-https://github.com/atoma-network/atoma-agents/pull/24
-
-- **Liquidity Management**
-  - Concentrated liquidity positions
-  - Range order optimization
-  - Impermanent loss protection
-  - Yield farming strategies
-
-#### Aftermath Integration
-- **DCA & Staking**
-  - Automated DCA execution
-  - afSUI staking management
-  - Yield optimization
-  - Gas-efficient order splitting
 
 ### Agent Collaboration Architecture
 Our multi-agent system enables complex DeFi operations through specialized agents:
