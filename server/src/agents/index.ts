@@ -166,7 +166,6 @@ export const registerAgents = (
     observerAgent,
     taskManagerAgent,
     cdpagent,
-    moveAgent,
     zircuitAgent,
     hederaAgent,
     ...(sonicAgent ? { sonicAgent } : {})
