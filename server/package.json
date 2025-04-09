@@ -51,7 +51,6 @@
     "figlet": "^1.8.0",
     "hedera-agent-kit": "^1.0.3",
     "hono": "^4.6.12",
-    "move-agent-kit": "^0.2.0",
     "nodemon": "^3.1.9",
     "openai": "^4.76.1",
     "sxt-nodejs-sdk": "^2.1.5",

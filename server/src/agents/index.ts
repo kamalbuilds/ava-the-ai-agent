@@ -15,8 +15,6 @@ import { StorageInterface } from "./types/storage";
 import { SonicMarketProvider } from "./plugins/sonic-market";
 import { MarginZeroProvider } from "./plugins/margin-zero";
 import { CHAIN_IDS } from "@clober/v2-sdk";
-import { MoveAgent } from "./move-agent";
-
 /**
  * Registers the agents and returns them
  * @returns The registered agents
@@ -65,9 +63,6 @@ export const registerAgents = (
   const cdpagent = new CdpAgent("cdp-agent", eventBus, storage, atcpipProvider);
   console.log(`[registerAgents] cdp agent initialized.`);
 
-
-  const moveAgent = new MoveAgent("move-agent", eventBus);
-  console.log(`[registerAgents] Move agent initialized.`);
 
   // Initialize Zircuit agent
   const zircuitAgent = new ZircuitAgent(
@@ -190,14 +185,6 @@ function registerEventHandlers(eventBus: EventBus, agents: any) {
   );
   eventBus.register(`cdp-task-manager`, (data) =>
     agents.taskManagerAgent.handleEvent(`cdp-task-manager`, data)
-  );
-
-  // Task Manager <-> Move
-  eventBus.register(`task-manager-move-agent`, (data) =>
-    agents.moveAgent.handleEvent(`task-manager-move-agent`, data)
-  );
-  eventBus.register(`move-agent-task-manager`, (data) =>
-    agents.taskManagerAgent.handleEvent(`move-agent-task-manager`, data)
   );
 
   // Task Manager <-> Observer

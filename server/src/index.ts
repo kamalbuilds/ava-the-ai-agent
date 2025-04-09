@@ -150,32 +150,6 @@ async function initializeServices() {
         console.log(`[WebSocket] Forwarded CDP event: ${data.type}`);
       });
 
-      // Forward move-agent responses to WebSocket clients
-      eventBus.on("move-agent-task-manager", async (data) => {
-        console.log("[WebSocket] Received move-agent response:", data);
-        
-        ws.send(JSON.stringify({
-          type: "agent-message",
-          timestamp: new Date().toLocaleTimeString(),
-          role: "assistant",
-          content: data.result,
-          agentName: "Move Agent",
-          collaborationType: "response"
-        }));
-        
-        // Also send a result event for compatibility with frontend handlers
-        ws.send(JSON.stringify({
-          type: "result",
-          timestamp: new Date().toLocaleTimeString(),
-          agent: "Move Agent",
-          agentName: "Move Agent",
-          content: data.result,
-          taskId: data.taskId
-        }));
-        
-        console.log(`[WebSocket] Forwarded move-agent response`);
-      });
-
       ws.on("message", async (message: string) => {
         try {
           const data = JSON.parse(message.toString());
@@ -209,21 +183,6 @@ async function initializeServices() {
               eventBus.emit("agent-action", {
                 agent: "task-manager",
                 action: `Routing CDP operation to CDP Agent: ${data.command}`,
-              });
-            } else if (data.agentPreference === "move-agent" || data.selectedChain?.agentId === "move-agent") {
-              // Route to Move agent
-              console.log("[WebSocket] Routing task to Move Agent:", data.command);
-              
-              eventBus.emit("task-manager-move-agent", {
-                taskId: `move-${Date.now()}`,
-                task: data.command,
-                selectedChain: data.selectedChain,
-                type: "command"
-              });
-              
-              eventBus.emit("agent-action", {
-                agent: "task-manager",
-                action: `Routing task to Move Agent: ${data.command}`,
               });
             } else if (data.operationType === "wallet-operation" || data.agentPreference === "turnkey-agent") {
               // Route to Turnkey agent
