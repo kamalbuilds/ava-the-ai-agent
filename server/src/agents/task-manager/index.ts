@@ -656,14 +656,6 @@ export class TaskManagerAgent extends IPAgent {
         taskId: task.id,
         task: task
       });
-    } else if (agentType === 'move-agent') {
-      // Use the move-agent event for Aptos tasks
-      this.eventBus.emit('move-agent', {
-        type: 'move-agent',
-        action: 'process-task',
-        taskId: task.id,
-        task: task
-      });
     } else if (agentType === 'sonic-agent') {
       // Use the sonic-agent event for Sonic tasks
       this.eventBus.emit('sonic-agent', {
