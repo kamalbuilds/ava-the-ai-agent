@@ -14,6 +14,7 @@ import { Footer } from "@/components/ui/footer";
 import { useSettingsStore } from '../stores/settingsStore';
 import { ChainSelector, SUPPORTED_CHAINS } from "@/components/ui/chain-selector";
 import { useChainStore } from '../stores/chainStore';
+import ExamplePrompts from "@/components/ExamplePrompts";
 
 type CollaborationType =
   | "analysis"
@@ -136,25 +137,6 @@ export default function Home() {
   const [currentAgentPage, setCurrentAgentPage] = useState(1);
   const agentsPerPage = 4;
 
-  // Sample prompts data
-  const samplePrompts = [
-    { icon: "💱", text: "I have 10 AVAX and want to optimize my portfolio between lending, liquidity provision, and trading. What's the best strategy right now?" },
-    { icon: "💱", text: "bridge 0.0001 ETH from BaseSepolia to ArbitriumSepolia using cdp agent kit" },
-    { icon: "📈", text: "Create investment plan with 1 ETH to make 500 USDC" },
-    { icon: "🔄", text: "Find me the best opportunity on Zircuit and deposit 0.0001 ETH" },
-    { icon: "💰", text: "Find best yield farming opportunities" },
-    { icon: "📊", text: "Analyze my portfolio performance" },
-    { icon: "📉", text: "Show price chart for PEPE" },
-    { icon: "🏦", text: "Deposit 100 USDC to Aave" },
-    { icon: "💎", text: "Find undervalued NFT collections on Base" },
-    { icon: "🔍", text: "Check my wallet health" },
-    { icon: "⚡", text: "Find gas-optimized DEX route" }
-  ];
-
-  const [showAllPrompts, setShowAllPrompts] = useState(false);
-
-  const visiblePrompts = showAllPrompts ? samplePrompts : samplePrompts.slice(0, 4);
-
   const handlePromptClick = (promptText: string) => {
     setInput(promptText);
   };
@@ -201,10 +183,10 @@ export default function Home() {
 
     // Update immediately
     updateConnectionStatus();
-    
+
     // Then poll every 2 seconds
     const intervalId = setInterval(updateConnectionStatus, 2000);
-    
+
     return () => clearInterval(intervalId);
   }, [autonomousMode]);
 
@@ -326,10 +308,10 @@ export default function Home() {
     // Create a single WebSocketEventBus instance for the entire component
     const websocketUrl = process.env['NEXT_PUBLIC_WS_URL'] || 'ws://localhost:3001';
     console.log(`Initializing WebSocket connection to: ${websocketUrl}`);
-    
+
     const eventBus = new WebSocketEventBus(websocketUrl);
     eventBusRef.current = eventBus;
-    
+
     // Log connection status
     eventBus.onConnectionStatusChange((status) => {
       console.log(`WebSocket connection status: ${status}`);
@@ -345,10 +327,10 @@ export default function Home() {
         });
       }
     });
-    
+
     // Subscribe to all events
     subscribeToAgentEvents();
-    
+
     // Cleanup function
     return () => {
       console.log("Cleaning up WebSocket connection");
@@ -362,13 +344,13 @@ export default function Home() {
   // Handle autonomous mode toggle
   useEffect(() => {
     if (!eventBusRef.current) return;
-    
+
     // Check connection status and reconnect if necessary
     if (autonomousMode && !eventBusRef.current.isConnected()) {
       const websocketUrl = process.env['NEXT_PUBLIC_WS_URL'] || 'ws://localhost:3001';
       console.log(`Reconnecting to WebSocket: ${websocketUrl}`);
       eventBusRef.current.connect(websocketUrl);
-      
+
       addSystemEvent({
         event: "Connected to server for autonomous mode",
         type: "success",
@@ -376,13 +358,13 @@ export default function Home() {
     } else if (!autonomousMode && eventBusRef.current.isConnected()) {
       // Just log the state change, but don't disconnect
       console.log("Autonomous mode deactivated");
-      
+
       addSystemEvent({
         event: "Autonomous mode deactivated, connection maintained",
         type: "info",
       });
     }
-    
+
   }, [autonomousMode, settings, selectedChain]);
 
   useEffect(() => {
@@ -475,14 +457,14 @@ export default function Home() {
       event: `Chain switched to ${chain.name}`,
       type: "info",
     });
-    
+
     // Also inform the server about the chain change if in autonomous mode
     if (autonomousMode && eventBusRef.current) {
       eventBusRef.current.emit("command", {
         type: "chain_change",
         chain: chain
       });
-      
+
       // If this is a chain that uses the move-agent, log additional info
       if (chain.agentId === 'move-agent') {
         addSystemEvent({
@@ -518,14 +500,14 @@ export default function Home() {
     try {
       if (autonomousMode) {
         // First check if this matches any of our AUTONOMOUS_EXAMPLES
-        const autonomousExample = AUTONOMOUS_EXAMPLES.find(example => 
-          example.query.toLowerCase() === message.toLowerCase() || 
+        const autonomousExample = AUTONOMOUS_EXAMPLES.find(example =>
+          example.query.toLowerCase() === message.toLowerCase() ||
           message.toLowerCase().includes(example.query.toLowerCase().substring(0, 15))
         );
-        
+
         if (autonomousExample) {
           console.log("Found matching autonomous example:", autonomousExample.query);
-          
+
           // Display system prompt if available
           if (autonomousExample.systemPrompt) {
             addSystemEvent({
@@ -533,11 +515,11 @@ export default function Home() {
               type: "info",
             });
           }
-          
+
           // Play each response with a delay
           for (const response of autonomousExample.responses) {
             await new Promise(resolve => setTimeout(resolve, 10000));
-            
+
             setMessages(prev => {
               const newMessage: Message = {
                 ...response,
@@ -547,7 +529,7 @@ export default function Home() {
               };
               return deduplicateMessages([...prev, newMessage]);
             });
-            
+
             if (response.agentName) {
               addSystemEvent({
                 event: `${response.agentName} responding with ${response.collaborationType || 'message'}`,
@@ -556,12 +538,12 @@ export default function Home() {
               });
             }
           }
-          
+
           addSystemEvent({
             event: "Successfully executed",
             type: "success",
           });
-          
+
           // Done with example, exit early
           setAgentState(prev => ({
             ...prev,
@@ -569,7 +551,7 @@ export default function Home() {
           }));
           return;
         }
-        
+
         // No matching example, proceed with server communication
         // In autonomous mode, send the message to the server
         if (!eventBusRef.current) {
@@ -581,10 +563,10 @@ export default function Home() {
           const websocketUrl = process.env['NEXT_PUBLIC_WS_URL'] || 'ws://localhost:3001';
           console.log(`Reconnecting to WebSocket before sending command: ${websocketUrl}`);
           eventBusRef.current.connect(websocketUrl);
-          
+
           // Wait briefly for connection to establish
           await new Promise((resolve) => setTimeout(resolve, 500));
-          
+
           if (!eventBusRef.current.isConnected()) {
             throw new Error("Failed to establish WebSocket connection");
           }
@@ -604,12 +586,12 @@ export default function Home() {
           type: 'command',
           command: message,
           selectedChain: selectedChain,
-          agentPreference: isCDPQuery ? 'cdp-agent' : 
-                          isTurnkeyQuery ? 'turnkey-agent' : 
-                          selectedChain.agentId,
-          operationType: isCDPQuery ? 'cdp-operation' : 
-                          isTurnkeyQuery ? 'wallet-operation' :
-                          'standard'
+          agentPreference: isCDPQuery ? 'cdp-agent' :
+            isTurnkeyQuery ? 'turnkey-agent' :
+              selectedChain.agentId,
+          operationType: isCDPQuery ? 'cdp-operation' :
+            isTurnkeyQuery ? 'wallet-operation' :
+              'standard'
         });
 
         addSystemEvent({
@@ -775,7 +757,7 @@ export default function Home() {
 
   const subscribeToAgentEvents = () => {
     if (!eventBusRef.current) return;
-    
+
     console.log("Subscribing to agent events");
 
     // Handle system events for right sidebar
@@ -842,7 +824,7 @@ export default function Home() {
         return deduplicateMessages(updatedMessages);
       });
     });
-    
+
     // Subscribe to Turnkey wallet responses
     eventBusRef.current.subscribe('turnkey-response', (data: any) => {
       console.log('Turnkey response received:', data);
@@ -880,7 +862,7 @@ export default function Home() {
     // Subscribe to general result responses
     eventBusRef.current.subscribe('result', (data: any) => {
       console.log('Result received:', data);
-      
+
       if (data.content || data.message || data.result) {
         setMessages(prev => {
           const newMessage = {
@@ -890,7 +872,7 @@ export default function Home() {
             agentName: data.agentName || data.agent || 'System',
             collaborationType: 'response'
           } as Message;
-  
+
           const updatedMessages = [...prev, newMessage];
           return deduplicateMessages(updatedMessages);
         });
@@ -1120,14 +1102,13 @@ export default function Home() {
                   </div>
                   {autonomousMode && (
                     <div className="flex items-center ml-2">
-                      <div 
-                        className={`w-2 h-2 rounded-full mr-1 ${
-                          connectionStatus === 'connected' 
-                            ? 'bg-green-500' 
-                            : connectionStatus === 'connecting' 
-                              ? 'bg-yellow-500 animate-pulse' 
-                              : 'bg-red-500'
-                        }`} 
+                      <div
+                        className={`w-2 h-2 rounded-full mr-1 ${connectionStatus === 'connected'
+                          ? 'bg-green-500'
+                          : connectionStatus === 'connecting'
+                            ? 'bg-yellow-500 animate-pulse'
+                            : 'bg-red-500'
+                          }`}
                       />
                       <span className="text-xs text-gray-400">
                         {connectionStatus}
@@ -1137,14 +1118,14 @@ export default function Home() {
                           onClick={() => {
                             const websocketUrl = process.env['NEXT_PUBLIC_WS_URL'] || 'ws://localhost:3001';
                             console.log(`Manually reconnecting to WebSocket: ${websocketUrl}`);
-                            
+
                             if (eventBusRef.current) {
                               // First disconnect if already connected
                               eventBusRef.current.disconnect();
-                              
+
                               // Then reconnect
                               eventBusRef.current.connect(websocketUrl);
-                              
+
                               // Wait briefly for connection to be established
                               setTimeout(() => {
                                 // If connected successfully and in autonomous mode, resend the start command
@@ -1158,7 +1139,7 @@ export default function Home() {
                                       selectedChain: selectedChain
                                     }
                                   });
-                                  
+
                                   addSystemEvent({
                                     event: "Autonomous mode restored after reconnection",
                                     type: "success",
@@ -1166,7 +1147,7 @@ export default function Home() {
                                 }
                               }, 1000);
                             }
-                            
+
                             addSystemEvent({
                               event: "Reconnecting to server...",
                               type: "info",
@@ -1180,10 +1161,10 @@ export default function Home() {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Chain Selector */}
-                <ChainSelector 
-                  onChainSelect={handleChainSelect} 
+                <ChainSelector
+                  onChainSelect={handleChainSelect}
                   selectedChain={selectedChain}
                 />
               </div>
@@ -1204,25 +1185,7 @@ export default function Home() {
             </div>
 
             {/* Sample Prompts Section */}
-            <div className="flex flex-wrap gap-2 mb-4 p-4">
-              {visiblePrompts.map((prompt, index) => (
-                <button
-                  key={index}
-                  onClick={() => handlePromptClick(prompt.text)}
-                  className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
-                >
-                  <span>{prompt.icon}</span>
-                  <span>{prompt.text}</span>
-                </button>
-              ))}
-              <button
-                onClick={() => setShowAllPrompts(!showAllPrompts)}
-                className="flex items-center gap-2 px-3 py-2 text-sm bg-black/20 hover:bg-black/30 text-gray-300 rounded-lg transition-colors duration-200 backdrop-blur-sm border border-white/10"
-              >
-                <span>ℹ️</span>
-                <span>{showAllPrompts ? 'Less' : 'More'}</span>
-              </button>
-            </div>
+            <ExamplePrompts handlePromptClick={handlePromptClick} />
           </div>
         </div>
 
@@ -1262,7 +1225,7 @@ export default function Home() {
                       : event.type === "warning"
                         ? "bg-yellow-100"
                         : "bg-blue-100"
-                      }`}
+                    }`}
                 >
                   <div className="text-sm font-medium">
                     {event.agent && (

@@ -3,11 +3,11 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Button } from "./button";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from "./dropdown-menu";
 
 // Define the chain type
@@ -107,11 +107,11 @@ export function ChainSelector({ onChainSelect, selectedChain }: ChainSelectorPro
           <span>{selected.name}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[200px]">
+      <DropdownMenuContent align="end" className="w-[200px] bg-gray-800" >
         {SUPPORTED_CHAINS.map((chain) => (
           <DropdownMenuItem
             key={chain.id}
-            className="flex items-center gap-2 cursor-pointer"
+            className="flex items-center gap-2 cursor-pointer hover:bg-gray-600 border-none"
             onClick={() => handleSelect(chain)}
           >
             {chain.icon ? (
