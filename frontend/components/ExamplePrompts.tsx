@@ -44,7 +44,7 @@ const ExamplePrompts: FC<Props> = ({ handlePromptClick }) => {
                 <DialogTrigger className='border rounded-lg px-2 py-1'>
                     Show Examples
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className='bg-black'>
                     <DialogHeader>
                         <DialogTitle>Example Prompts:</DialogTitle>
                         {visiblePrompts.map((prompt, index) => (
