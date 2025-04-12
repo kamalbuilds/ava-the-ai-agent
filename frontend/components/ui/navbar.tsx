@@ -43,7 +43,7 @@ export function Navbar({ className }: NavbarProps) {
           <div className="flex-shrink-0">
             <Link href="/" className="flex items-center space-x-2">
               <span className="text-xl text-white font-bold bg-gradient-to-r from-[var(--primary-blue)] to-[var(--secondary-blue)] bg-clip-text text-transparent">
-                Ava The DefAi Agent
+                Ava The DeFAi Agent
               </span>
             </Link>
           </div>
