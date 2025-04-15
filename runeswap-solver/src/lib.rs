@@ -1,11 +1,10 @@
 // Basic module structure for RuneSwap Solver
-// This will be expanded in future commits
 
 // Module declarations
-pub mod types; // Will be added in future commits
-pub mod config; // Will be added in future commits
-pub mod runeswap; // Will be added in future commits
-pub mod solver; // Will be added in future commits
+pub mod types;
+pub mod config;
+pub mod runeswap;
+pub mod solver;
 
 /// Main entry point for the RuneSwap NEAR Intents integration
 pub struct RuneSwapSolver {
