@@ -9,6 +9,7 @@ pub mod solver;
 use std::error::Error;
 use crate::config::Config;
 use crate::runeswap::RuneSwapClient;
+use crate::solver::{NearIntentsSolver, Solver};
 
 /// Main entry point for the RuneSwap NEAR Intents integration
 pub struct RuneSwapSolver {
@@ -33,6 +34,24 @@ impl RuneSwapSolver {
     pub fn init_default() -> Result<Self, Box<dyn Error>> {
         let config = Config::from_env()?;
         Ok(Self::new(config))
+    }
+    
+    /// Start the solver service
+    pub async fn start(&self) -> Result<(), Box<dyn Error>> {
+        log::info!("Starting RuneSwap solver for NEAR Intents");
+        
+        // Create the NEAR Intents solver
+        let solver = NearIntentsSolver::new(
+            self.config.near_account_id.clone(),
+            self.config.near_private_key.clone(),
+            self.config.solver_bus_url.clone(),
+            self.runeswap_client.clone(),
+        );
+        
+        // Start the solver
+        solver.start().await?;
+        
+        Ok(())
     }
 }
 
