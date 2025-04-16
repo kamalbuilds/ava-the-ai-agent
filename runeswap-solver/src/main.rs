@@ -3,24 +3,30 @@ use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    println!("RuneSwap Solver - NEAR Intents Integration");
+    // Initialize logger
+    env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
+    
+    log::info!("RuneSwap Solver - NEAR Intents Integration");
     
     // Initialize the solver with configuration from environment variables
     let solver = match RuneSwapSolver::init_default() {
         Ok(solver) => {
-            println!("Solver initialized successfully");
+            log::info!("Solver initialized successfully");
             solver
         },
         Err(e) => {
-            eprintln!("Failed to initialize solver: {}", e);
-            eprintln!("Make sure all required environment variables are set");
+            log::error!("Failed to initialize solver: {}", e);
+            log::error!("Make sure all required environment variables are set");
             return Err(e);
         }
     };
     
     // In future versions, we'll add proper startup logic here
-    println!("Using RuneSwap API key: {}", mask_api_key(&solver.config.runeswap_api_key));
-    println!("Using NEAR account ID: {}", solver.config.near_account_id);
+    log::info!("Using RuneSwap API key: {}", mask_api_key(&solver.config.runeswap_api_key));
+    log::info!("Using NEAR account ID: {}", solver.config.near_account_id);
+    
+    // Start solver in future implementations
+    log::info!("Solver initialized and ready");
     
     Ok(())
 }
