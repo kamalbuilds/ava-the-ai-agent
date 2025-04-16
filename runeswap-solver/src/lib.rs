@@ -6,15 +6,33 @@ pub mod config;
 pub mod runeswap;
 pub mod solver;
 
+use std::error::Error;
+use crate::config::Config;
+use crate::runeswap::RuneSwapClient;
+
 /// Main entry point for the RuneSwap NEAR Intents integration
 pub struct RuneSwapSolver {
-    // Will be expanded with configuration and client fields
+    /// Configuration for the solver
+    pub config: Config,
+    
+    /// Client for interacting with RuneSwap API
+    pub runeswap_client: RuneSwapClient,
 }
 
 impl RuneSwapSolver {
     /// Create a new RuneSwap solver instance
-    pub fn new() -> Self {
-        Self { }
+    pub fn new(config: Config) -> Self {
+        let runeswap_client = RuneSwapClient::new(&config.runeswap_api_key);
+        Self {
+            config,
+            runeswap_client,
+        }
+    }
+    
+    /// Initialize the solver with default configuration from environment variables
+    pub fn init_default() -> Result<Self, Box<dyn Error>> {
+        let config = Config::from_env()?;
+        Ok(Self::new(config))
     }
 }
 
