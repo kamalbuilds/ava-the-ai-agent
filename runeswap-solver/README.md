@@ -34,7 +34,15 @@ Configuration is handled via environment variables:
 - `NEAR_PRIVATE_KEY`: The private key for signing transactions
 - `SOLVER_BUS_URL`: URL of the solver bus to connect to
 
+You can set these variables in your environment or use a `.env` file.
+
 ## Development
+
+### Prerequisites
+
+- Rust 1.70 or later
+- Access to RuneSwap API
+- NEAR account with sufficient funds
 
 ### Building
 
@@ -44,9 +52,30 @@ cargo build --release
 
 ### Testing
 
+To run the test suite:
+
 ```sh
 cargo test
 ```
+
+### Local Development
+
+For local development, you can use the following command to start the solver with debug logs:
+
+```sh
+RUST_LOG=debug cargo run
+```
+
+## Architecture
+
+The solver is built with a modular architecture:
+
+- `main.rs`: Entry point with signal handling
+- `lib.rs`: Core solver implementation
+- `config.rs`: Configuration management
+- `runeswap.rs`: API client for RuneSwap
+- `solver.rs`: NEAR Intents solver implementation
+- `types.rs`: Type definitions for messages and data structures
 
 ## License
 
