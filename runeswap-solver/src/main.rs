@@ -1,5 +1,6 @@
 use runeswap_solver::RuneSwapSolver;
 use std::error::Error;
+use tokio::signal;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -26,12 +27,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
     log::info!("Using NEAR account ID: {}", solver.config.near_account_id);
     log::info!("Connecting to solver bus: {}", solver.config.solver_bus_url);
     
-    // Start the solver service
-    if let Err(e) = solver.start().await {
-        log::error!("Fatal error: {}", e);
-        log::error!("RuneSwap solver terminated unexpectedly");
-        return Err(e);
+    // Start the solver service in a separate task
+    let solver_task = tokio::spawn(async move {
+        if let Err(e) = solver.start().await {
+            log::error!("Fatal error: {}", e);
+            log::error!("RuneSwap solver terminated unexpectedly");
+        }
+    });
+    
+    // Wait for shutdown signal
+    log::info!("Press Ctrl+C to shut down");
+    match signal::ctrl_c().await {
+        Ok(()) => {
+            log::info!("Shutdown signal received, closing solver...");
+        },
+        Err(e) => {
+            log::error!("Failed to listen for shutdown signal: {}", e);
+        }
     }
+    
+    // Cancel the solver task (in a real implementation, we'd wait for it to finish gracefully)
+    solver_task.abort();
     
     log::info!("RuneSwap solver shutdown complete");
     Ok(())
