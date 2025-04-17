@@ -21,13 +21,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
     
-    // In future versions, we'll add proper startup logic here
+    // Log configuration details (with sensitive data masked)
     log::info!("Using RuneSwap API key: {}", mask_api_key(&solver.config.runeswap_api_key));
     log::info!("Using NEAR account ID: {}", solver.config.near_account_id);
+    log::info!("Connecting to solver bus: {}", solver.config.solver_bus_url);
     
-    // Start solver in future implementations
-    log::info!("Solver initialized and ready");
+    // Start the solver service
+    if let Err(e) = solver.start().await {
+        log::error!("Fatal error: {}", e);
+        log::error!("RuneSwap solver terminated unexpectedly");
+        return Err(e);
+    }
     
+    log::info!("RuneSwap solver shutdown complete");
     Ok(())
 }
 
