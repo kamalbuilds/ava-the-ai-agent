@@ -1,11 +1,15 @@
 // Implementation of the NEAR Intents solver
 
 use crate::runeswap::RuneSwapClient;
-use crate::types::{SwapIntent, SwapQuote, SwapStatus};
+use crate::types::{
+    Intent, IntentDeadline, IntentMessage, JsonRpcRequest, JsonRpcResponse,
+    SolverBusMessage, SwapIntent, SwapQuote, SwapStatus,
+};
 use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
+use std::collections::HashMap;
 use std::error::Error;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
@@ -69,9 +73,17 @@ impl NearIntentsSolver {
     ) -> Result<(), Box<dyn Error>> {
         log::info!("Starting to process messages from solver bus");
         
-        // Subscribe to intent messages
-        let subscribe_msg = r#"{"jsonrpc":"2.0","id":1,"method":"subscribe","params":["intents"]}"#;
-        ws_stream.send(Message::Text(subscribe_msg.to_string())).await?;
+        // Subscribe to intent messages using the JsonRpcRequest type
+        let subscribe_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: 1,
+            method: "subscribe".to_string(),
+            params: Some(vec!["intents".to_string()]),
+        };
+        
+        // Convert the request to JSON and send it
+        let subscribe_json = serde_json::to_string(&subscribe_request)?;
+        ws_stream.send(Message::Text(subscribe_json)).await?;
         
         // Set up a simple ping/pong interval to keep the connection alive
         let mut interval = tokio::time::interval(Duration::from_secs(30));
@@ -83,8 +95,46 @@ impl NearIntentsSolver {
                     match msg {
                         Some(Ok(Message::Text(text))) => {
                             log::debug!("Received message: {}", text);
-                            // In a real implementation, we would parse and process the message
-                            // For now, just log it
+                            
+                            // Try to parse the message as a SolverBusMessage
+                            match serde_json::from_str::<SolverBusMessage>(&text) {
+                                Ok(solver_msg) => {
+                                    if solver_msg.method == "subscription" {
+                                        if let Some(intent) = solver_msg.params.intent {
+                                            log::info!("Received swap intent: {} ({} -> {})", 
+                                                intent.id, 
+                                                intent.from_token.symbol, 
+                                                intent.to_token.symbol);
+                                                
+                                            // Process the intent and get a quote
+                                            match self.process_intent(&intent).await {
+                                                Ok(quote) => {
+                                                    log::info!("Generated quote for intent: {}", intent.id);
+                                                    
+                                                    // Send the quote response
+                                                    // In a real implementation, this would send the quote back to the bus
+                                                },
+                                                Err(e) => {
+                                                    log::error!("Failed to process intent: {}", e);
+                                                }
+                                            }
+                                        }
+                                    } else if solver_msg.method == "response" {
+                                        log::info!("Received response: {}", text);
+                                    }
+                                },
+                                Err(e) => {
+                                    // Try to parse as a JsonRpcResponse for subscription confirmation
+                                    match serde_json::from_str::<JsonRpcResponse>(&text) {
+                                        Ok(response) => {
+                                            log::info!("Subscription confirmed with ID: {}", response.result);
+                                        },
+                                        Err(_) => {
+                                            log::error!("Failed to parse message: {}", e);
+                                        }
+                                    }
+                                }
+                            }
                         },
                         Some(Ok(Message::Ping(data))) => {
                             // Respond to ping with pong
@@ -137,6 +187,30 @@ impl NearIntentsSolver {
         log::info!("Quote received: amount_out={}, price={}", 
             quote.amount_out, 
             quote.price);
+            
+        // Create a token diff intent message
+        let deadline = IntentDeadline {
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs() + 300, // 5 minutes in the future
+        };
+        
+        // Create token diff for the swap (this would be used in a real implementation)
+        let mut diff = HashMap::new();
+        diff.insert(intent.from_token.address.clone(), format!("-{}", intent.amount));
+        diff.insert(intent.to_token.address.clone(), quote.amount_out.clone());
+        
+        let _intent_message = IntentMessage {
+            signer_id: self.account_id.clone(),
+            deadline,
+            intents: vec![Intent {
+                intent: "token_diff".to_string(),
+                diff,
+            }],
+        };
+        
+        // In a real implementation, this message would be signed and included in the quote response
             
         Ok(quote)
     }
