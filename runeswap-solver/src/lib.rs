@@ -61,4 +61,53 @@ pub trait Solver {
     fn execute_swap(&self) -> Result<(), Box<dyn std::error::Error>>;
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{Token, SwapIntent};
+    
+    #[test]
+    fn test_create_solver() {
+        let config = Config::new(
+            "test_api_key".to_string(),
+            "test.near".to_string(),
+            "test_private_key".to_string(),
+            "wss://test.runeswap.io".to_string(),
+        );
+        
+        let solver = RuneSwapSolver::new(config);
+        
+        assert_eq!(solver.config.runeswap_api_key, "test_api_key");
+        assert_eq!(solver.config.near_account_id, "test.near");
+    }
+    
+    #[test]
+    fn test_create_swap_intent() {
+        let from_token = Token {
+            symbol: "ETH".to_string(),
+            address: "0xETH".to_string(),
+            decimals: 18,
+        };
+        
+        let to_token = Token {
+            symbol: "USDC".to_string(),
+            address: "0xUSDC".to_string(),
+            decimals: 6,
+        };
+        
+        let intent = SwapIntent {
+            id: "test_intent_1".to_string(),
+            from_token,
+            to_token,
+            amount: "1000000000000000000".to_string(), // 1 ETH
+            min_amount_out: "1900000000".to_string(),  // 1900 USDC
+            deadline: 1682661234,
+        };
+        
+        assert_eq!(intent.from_token.symbol, "ETH");
+        assert_eq!(intent.to_token.symbol, "USDC");
+        assert_eq!(intent.amount, "1000000000000000000");
+    }
+}
+
 // Export modules (to be added in future commits) 
