@@ -1,4 +1,5 @@
 export * from "./event-bus";
+export * from "./a2a-bus";
 
 export interface EventBus {
   emit: (event: string, data: any) => void;

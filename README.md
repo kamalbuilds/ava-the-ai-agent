@@ -1,6 +1,6 @@
 # 🤖 Ava the MultiChain IP powered DeFAI Portfolio Managing AI Agents Platform
 
-> Group of Multiple specialized autonomous AI agents with powerful tools that work together in collaberation to analyze, recommend, and execute the most optimal DeFi strategies while maintaining user-defined risk parameters and portfolio goals currently live on Flow, Hedera , Sui , Base, Avalanche , Mode , Arbitrium, powered by Story Protocol , and LangChain.
+> Group of Multiple specialized autonomous AI agents with powerful tools that work together in collaberation to analyze, recommend, and execute the most optimal DeFi strategies while maintaining user-defined risk parameters and portfolio goals currently live on Flow, Hedera , Sui , Base, Avalanche , Mode , Arbitrium, powered by Story Protocol, Agent2Agent (A2A) Protocol, and LangChain.
 
 
 ## 📑 Quick Navigation
@@ -44,7 +44,24 @@ https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f
 
 ## 🏗 Architecture
 
-<img width="1076" alt="Screenshot 2025-02-13 at 12 12 49 PM" src="https://github.com/user-attachments/assets/246b947c-bbee-4134-bbcb-6a33e38a7230" />
+### Agent-to-Agent (A2A) Protocol
+
+Ava uses Google's A2A protocol for standardized communication between agents:
+
+1. **Task-Based Communication**: Agents communicate by sending task requests and receiving responses
+2. **Capability Discovery**: Agents discover each other's capabilities through standardized Agent Cards
+3. **Multimodal Messaging**: Supports text, forms, and file exchanges between agents
+4. **Secure Collaboration**: Enterprise-grade authentication and authorization
+
+<img width="1076" alt="A2A Architecture" src="https://github.com/user-attachments/assets/246b947c-bbee-4134-bbcb-6a33e38a7230" />
+
+### Model Context Protocol (MCP)
+
+MCP provides tools and resources to agents:
+- Brave Search for web queries
+- GitHub for repository operations
+- Filesystem for file management
+- And more...
 
 ### Monad Demo Video 
 
@@ -55,58 +72,65 @@ https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f
 
 ## 🌟 Key Features
 
-1. Natural Language Interface
-- Express portfolio goals in plain English
-- No need to understand complex DeFi terminology
-- AI translates intentions into actions
+1. **Natural Language Interface**
+   - Express portfolio goals in plain English
+   - No need to understand complex DeFi terminology
+   - AI translates intentions into actions
 
- 2. Autonomous Execution
-- Breaks down complex goals into steps
-- Executes transactions automatically
-- Handles error recovery
-- Provides progress updates
+2. **Autonomous Execution**
+   - Breaks down complex goals into steps
+   - Executes transactions automatically
+   - Handles error recovery
+   - Provides progress updates
 
-3. Advanced Trading & Routing
+3. **Advanced Trading & Routing**
    - Enso Finance integration for smart routing
    - CoW Protocol for MEV-protected trades
    - Gas-optimized transaction bundling
    - Cross-chain bridging via SuperchainBridge
    - Automated slippage protection
 
-4. Treasury Management
+4. **Treasury Management**
    - Portfolio rebalancing across protocols
    - Yield optimization strategies
    - Risk-adjusted position management
    - Liquid staking automation
    - Cross-chain asset allocation
 
-5. AI-Powered Decision Making
+5. **AI-Powered Decision Making**
    - Venice.AI integration for market analysis
    - Multi-model architecture for diverse tasks
    - Real-time market sentiment analysis
    - Autonomous strategy formulation
    - Risk assessment and optimization
 
-6. Cross-Chain Operations
+6. **Cross-Chain Operations**
    - SuperchainBridge for L2 transfers
    - Unified liquidity management
    - Cross-chain yield farming
    - Gas-efficient bridging operations
    - Multi-chain position monitoring
 
-7. Privacy & Security
+7. **Privacy & Security**
    - Lit Protocol for decentralized key management
    - Private transaction execution
    - Secure multi-party computation
    - Zero-knowledge proofs for verification
    - Encrypted agent communication
 
-8. Real-Time Event Communication
+8. **Real-Time Event Communication**
    - WebSocket-based event architecture
    - Bidirectional real-time updates
    - Status tracking and monitoring
    - Autonomous mode support
    - Reliable connection management
+
+9. **Standardized Agent Communication**
+   - A2A protocol implementation for agent interoperability
+   - Dynamic capability discovery between agents
+   - Task delegation and coordination
+   - Secure message exchange
+   - Long-running task support
 
 ## 🛠 Technology Stack
 - **Frontend**: Next.js, TypeScript, TailwindCSS
@@ -114,22 +138,18 @@ https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f
 - **Blockchain**: Avalanche C-Chain, Teleporter, Eigenlayer AVS
 - **Development**: Foundry, Avalanche CLI
 - **Indexing**: The Graph Protocol
+- **Agent Communication**: Google's A2A Protocol, MCP Protocol
+- **Social Media Integration**: ZerePy for Twitter interactions
 
 ## Technology Integrations
 
 - **Multi-Agent Orchestration**
   ```typescript
-  // Eliza coordinates with other agents through event-driven architecture
-
-  class ElizaAgent extends BaseAgent {
-    async generateInsight({
-      position,
-      analysis,
-      tone,
-      powered_by
-    }) {
-    }
-  }
+  // Using A2A protocol for standardized agent communication
+  const response = await a2aBus.sendTask('executor', {
+    role: MessageRole.USER,
+    parts: [{ text: "Execute swap of 10 ETH to USDC" }]
+  });
   ```
 
 - **Protocol-Specific Adapters**
@@ -149,11 +169,12 @@ https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f
 Our multi-agent system enables complex DeFi operations through specialized agents:
 
 ```typescript
+// A2A-based agent collaboration
 interface AgentCollaboration {
-  observer: Observer;      // Monitors positions and market conditions
-  executor: Executor;      // Handles transaction execution
-  taskManager: TaskManager;// Coordinates multi-step operations
-  suiAgent: SuiAgent;     // SUI-specific operations
-  elizaAgent: ElizaAgent; // User interaction and strategy explanation
+  observer: ObserverAgent;    // Monitors positions and market conditions
+  executor: ExecutorAgent;    // Handles transaction execution
+  taskManager: TaskManagerAgent; // Coordinates multi-step operations
+  suiAgent: SuiAgent;         // SUI-specific operations
+  elizaAgent: ElizaAgent;     // User interaction and strategy explanation
 }
 ```
