@@ -53,7 +53,7 @@ export function Navbar({ className }: NavbarProps) {
   useEffect(() => {
     const initNearWallet = async () => {
       const walletConnect = setupWalletConnect({
-        projectId: "a9ca5089c7163a5f44b5c8ac162fdaa2",
+        projectId: process.env['NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID'] || "",
         metadata: {
           name: "Ava The DefAi Agent",
           description: "DeFi portfolio management platform using specialized autonomous AI agents",
