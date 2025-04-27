@@ -67,3 +67,20 @@ const WS_PORT = 3001;
 
 //   return wss;
 // }
+
+/**
+ * Sets up the WebSocket server for real-time communication with clients
+ * @returns Configured WebSocketServer instance
+ */
+export function setupWebSocketServer() {
+  const WS_PORT = parseInt(process.env.WS_PORT || '8020');
+  
+  try {
+    const wss = new WebSocketServer({ port: WS_PORT });
+    console.log(`[WebSocket] Server initialized on port ${WS_PORT}`);
+    return wss;
+  } catch (error) {
+    console.error('[WebSocket] Error initializing server:', error);
+    throw new Error(`Failed to initialize WebSocket server: ${error}`);
+  }
+}

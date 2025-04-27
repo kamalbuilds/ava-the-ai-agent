@@ -1,9 +1,14 @@
 import { z } from "zod";
 import dotenv from "dotenv";
-
 dotenv.config();
+// Define the environment variables schema with A2A and MCP related fields
+const schema = z.object({
+  // Server configuration
+  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  HTTP_PORT: z.string().default("3020"),
+  WS_PORT: z.string().default("8020"),
+  API_BASE_URL: z.string().default("http://localhost:3020"),
 
-const envSchema = z.object({
   PORT: z.coerce.number().default(3001),
   GROQ_API_KEY: z.string(),
   NETWORK_ID: z.string(),
@@ -37,13 +42,44 @@ const envSchema = z.object({
   RPC_PROVIDER_URL: z.string().default("https://base.llamarpc.com"),
   APTOS_PRIVATE_KEY: z.string(),
   PANORA_API_KEY: z.string(),
-  APTOS_NETWORK: z.string()
+  APTOS_NETWORK: z.string(),
+  
+  // Wallet configuration
+
+  ANTHROPIC_API_KEY: z.string().optional(),
+  
+  // MCP servers
+  BRAVE_API_KEY: z.string().optional(),
+  GITHUB_TOKEN: z.string().optional(),
+  SLACK_BOT_TOKEN: z.string().optional(),
+  SLACK_TEAM_ID: z.string().optional(),
+  
+  // DeFi protocols
+  HEDERA_ACCOUNT_ID: z.string().optional(),
+  HEDERA_PRIVATE_KEY: z.string().optional(),
+  HEDERA_NETWORK: z.enum(["mainnet", "testnet", "previewnet"]).optional(),
+  
+  // A2A configuration
+  A2A_PROTOCOL_VERSION: z.string().default("1.0"),
+  
+  // Storage
+  STORAGE_TYPE: z.enum(["hybrid", "memory", "eth"]).default("hybrid"),
+  ETHSTORAGE_RPC: z.string().optional(),
 });
 
-export const env = envSchema.parse(process.env);
+// Parse and validate environment variables
+const result = schema.parse(process.env);
+
+if (!result.success) {
+  console.error("❌ Invalid environment variables:");
+  console.error(result.error.format());
+  throw new Error("Invalid environment variables");
+}
+
+export const env = result.data;
 
 export type Environment = {
-  Bindings: z.infer<typeof envSchema>;
+  Bindings: z.infer<typeof schema>;
 };
 
 export default env;

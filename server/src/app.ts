@@ -1,32 +1,74 @@
-import { Hono } from "hono";
-import { logger } from "hono/logger";
-import { cors } from "hono/cors";
-import type { Environment } from "./env";
-// import { thoughtsRouter, walletRouter } from "./routes";
-// import { cdpRouter } from "./routes/cdp";
-// import { observerRouter } from "./routes/observer";
-// import { taskRouter } from "./routes/task";
-// import { settingsRouter } from "./routes/settings";
-import { settingsMiddleware } from "./middleware/settings";
-import turnkeyRouter from "./api/turnkey";
-import zeroXRoutes from './routes/0x-routes';
-import curvanceRoutes from './routes/curvance-routes';
+import express from 'express';
+import cors from 'cors';
+import { WebSocketServer } from 'ws';
+import { A2AMiddleware } from './middleware';
+import { createA2ARoutes } from './routes';
+import { MCPService } from './services';
+import { AgentCard } from './types/a2a';
+import { env } from './env';
 
-const app = new Hono<Environment>();
+const app = express();
 
-app.use("*", logger());
-app.use("*", cors());
-app.use("*", settingsMiddleware);
+// Configure middleware
+app.use(cors());
+app.use(express.json());
 
-// Mount all routers
-// app.route("/api/thoughts", thoughtsRouter);
-// app.route("/api/wallet", walletRouter);
-// app.route("/api/cdp", cdpRouter);
-// app.route("/api/observer", observerRouter);
-// app.route("/api/tasks", taskRouter);
-// app.route("/api/settings", settingsRouter);
-app.route("/api/turnkey", turnkeyRouter);
-app.use('/api/v1/0x', zeroXRoutes);
-app.use('/api/v1/curvance', curvanceRoutes);
+// Initialize MCP service - will be configured in index.ts
+export const mcpService = new MCPService();
 
-export { app };
+// Configure A2A middleware for each agent
+// These agent cards define their capabilities according to the A2A protocol
+const observerAgentCard: AgentCard = {
+  name: 'ObserverAgent',
+  description: 'Monitors positions and market conditions',
+  url: `${env.API_BASE_URL}/agent/observer`,
+  version: '1.0',
+  capabilities: {
+    streaming: false,
+    pushNotifications: false
+  }
+};
+
+const executorAgentCard: AgentCard = {
+  name: 'ExecutorAgent',
+  description: 'Handles transaction execution',
+  url: `${env.API_BASE_URL}/agent/executor`,
+  version: '1.0',
+  capabilities: {
+    streaming: false,
+    pushNotifications: false
+  }
+};
+
+const taskManagerAgentCard: AgentCard = {
+  name: 'TaskManagerAgent',
+  description: 'Coordinates multi-step operations',
+  url: `${env.API_BASE_URL}/agent/task-manager`,
+  version: '1.0',
+  capabilities: {
+    streaming: true,
+    pushNotifications: false
+  }
+};
+
+// Create A2A middleware for each agent
+export const observerA2AMiddleware = new A2AMiddleware(observerAgentCard);
+export const executorA2AMiddleware = new A2AMiddleware(executorAgentCard);
+export const taskManagerA2AMiddleware = new A2AMiddleware(taskManagerAgentCard);
+
+// Set up A2A routes for each agent
+app.use('/agent/observer', createA2ARoutes('observer', observerA2AMiddleware));
+app.use('/agent/executor', createA2ARoutes('executor', executorA2AMiddleware));
+app.use('/agent/task-manager', createA2ARoutes('task-manager', taskManagerA2AMiddleware));
+
+// Health check endpoint
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+// Configure WebSocket server (will be initialized in index.ts)
+export const wss = new WebSocketServer({ 
+  port: parseInt(env.WS_PORT || '8020')
+});
+
+export default app;

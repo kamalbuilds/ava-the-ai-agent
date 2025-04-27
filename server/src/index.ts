@@ -7,17 +7,24 @@
 // import { privateKeyToAccount } from "viem/accounts";
 // import { setupWebSocket } from "./websocket";
 // import figlet from "figlet";
-import { WebSocket, WebSocketServer } from "ws";
+import { WebSocket } from 'ws';
+import { createPrivateKey } from "crypto";
+import { Account, createWalletClient, http } from "viem";
+import { env } from "./env";
 import { EventBus } from "./comms/event-bus";
-import { registerAgents } from "./agents";
+import { A2ABus } from "./comms/a2a-bus";
 import { AIFactory } from "./services/ai/factory";
-import env from "./env";
-import { privateKeyToAccount } from "viem/accounts";
-import { mainnet } from "viem/chains";
-// import { RecallStorage } from "./agents/plugins/recall-storage/index";
-import { HybridStorage } from "./agents/plugins/hybrid-storage/index";
+import { registerAgents } from "./agents";
+import { HybridStorage } from "./agents/plugins/hybrid-storage";
 import { ATCPIPProvider } from "./agents/plugins/atcp-ip";
-import { SwapAgent } from "./agents/SwapAgent";
+import { MessageRole } from "./types/a2a";
+import { mcpService } from "./app";
+import app, { 
+  observerA2AMiddleware, 
+  executorA2AMiddleware, 
+  taskManagerA2AMiddleware, 
+  wss 
+} from "./app";
 
 // console.log(figlet.textSync("AVA-2.0"));
 // console.log("======== Initializing Server =========");
@@ -46,156 +53,218 @@ import { SwapAgent } from "./agents/SwapAgent";
 //   }
 // );
 
+// Create a logger
+const logger = pino.default({
+  transport: {
+    target: 'pino-pretty',
+    options: {
+      colorize: true
+    }
+  }
+});
+
+// Add process-level error handling
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught exception:', error);
+  // Continue running despite errors
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled rejection at:', promise, 'reason:', reason);
+  // Continue running despite errors
+});
+
+const WS_PORT = parseInt(env.WS_PORT || '8020');
+const HTTP_PORT = parseInt(env.HTTP_PORT || '3020');
+
+// Initialize blockchain wallet client and account
+const PRIVATE_KEY = env.PRIVATE_KEY || "0x";
+const account: Account = {
+  address: env.WALLET_ADDRESS as `0x${string}`,
+  privateKey: PRIVATE_KEY as `0x${string}`,
+};
+
+const walletClient = createWalletClient({
+  account,
+  transport: http(),
+});
+
+// initialize event bus for agent communication
+const eventBus = new EventBus();
+
+// Initialize A2A bus for standardized agent-to-agent communication
+const a2aBus = new A2ABus(env.API_BASE_URL || '');
+
+// Create storage and ATCP/IP providers
+const storage = new HybridStorage({
+  network: 'testnet',
+  syncInterval: 2 * 60 * 1000, // 2 minutes
+  batchSize: 4, // 4KB
+  eventBus,
+  bucketAlias: 'ava',
+  maxRetries: 5,
+  retryDelay: 1000, // Start with 1 second delay
+});
+
+const atcpipProvider = new ATCPIPProvider({
+  agentId: 'ava'
+});
+
+// Set up AI provider
+const defaultProvider = AIFactory.createProvider({
+  provider: 'openai',
+  apiKey: env.OPENAI_API_KEY
+});
+
+// Register MCP servers
+// Brave Search MCP server for web search capabilities
+mcpService.registerServer('brave-search', {
+  command: 'npx',
+  args: ['-y', '@modelcontextprotocol/server-brave-search'],
+  env: { BRAVE_API_KEY: env.BRAVE_API_KEY || '' }
+});
+
+// Filesystem MCP server for file operations
+mcpService.registerServer('filesystem', {
+  command: 'npx',
+  args: ['-y', '@modelcontextprotocol/server-filesystem', '.'],
+});
+
+// Register the agents
+const agents = registerAgents(
+  eventBus,
+  account,
+  defaultProvider,
+  storage,
+  atcpipProvider
+);
+
+// Register the agents with the A2A middleware
+observerA2AMiddleware.registerTaskProcessor('observer', async (request) => {
+  return await agents.observerAgent.processA2ATask(request);
+});
+
+executorA2AMiddleware.registerTaskProcessor('executor', async (request) => {
+  return await agents.executorAgent.processA2ATask(request);
+});
+
+taskManagerA2AMiddleware.registerTaskProcessor('task-manager', async (request) => {
+  return await agents.taskManagerAgent.processA2ATask(request);
+});
+
+// Initialize services
 async function initializeServices() {
   try {
-    // Initialize core services
-    const eventBus = new EventBus();
-    const account = privateKeyToAccount(env.WALLET_PRIVATE_KEY as `0x${string}`);
+    console.log(`Starting server...`);
     
-    // Create AI provider
-    const aiProvider = AIFactory.createProvider({
-      provider: 'groq',
-      apiKey: env.GROQ_API_KEY as string,
-      modelName: 'gemma2-9b-it'
+    // Start MCP servers
+    console.log(`Starting MCP servers...`);
+    await mcpService.startAll();
+    console.log(`MCP servers started successfully!`);
+
+    // Start HTTP server
+    app.listen(HTTP_PORT, () => {
+      console.log(`HTTP server listening on port ${HTTP_PORT}`);
     });
 
+    // WebSocket server for frontend communication
+    console.log(`WebSocket server starting on port ${WS_PORT}...`);
 
-    // Initialize Hybrid Storage with both Recall and EthStorage
-    const storage = new HybridStorage({
-      network: 'testnet',
-      syncInterval: 2 * 60 * 1000, // 2 minutes
-      batchSize: 4, // 4KB
-      eventBus,
-      bucketAlias: 'ava',
-      maxRetries: 5,
-      retryDelay: 1000, // Start with 1 second delay, will increase exponentially
-      // EthStorage specific config
-      ethStorageRpc: "https://rpc.beta.testnet.l2.ethstorage.io:9596"
-    });
-
-    // Wait for client initialization
-    await storage.waitForInitialization();
-
-    // Initialize ATCP/IP Provider
-    const atcpipProvider = new ATCPIPProvider({
-      agentId: 'ava'
-    });
-
-    // Initialize agents
-    console.log("======== Registering agents =========");
-
-    // Register all agents
-    const agents = registerAgents(eventBus, account, aiProvider, storage, atcpipProvider);
-    console.log("[initializeServices] All agents registered");
-    
-    // Initialize the Swap Agent
-    const swapAgent = new SwapAgent();
-    console.log("[initializeServices] Swap Agent initialized");
-
-    // Setup WebSocket server
-    const WS_PORT = process.env.WS_PORT || 3001;
-    const wss = new WebSocketServer({ port: WS_PORT as number });
-
+    // Define WebSocket message handlers
     wss.on("connection", (ws: WebSocket) => {
       console.log(`[WebSocket] Client connected on port ${WS_PORT}`);
-      
-      // Register the swap agent to handle WebSocket connections
-      swapAgent.handleWebSocketConnection(ws);
 
-      // Forward events from event bus to WebSocket clients
-      eventBus.on("agent-action", async (data) => {
+      // Send initial connection message
+      ws.send(JSON.stringify({
+        type: "connection-established",
+        timestamp: new Date().toLocaleTimeString()
+      }));
+
+      // Forward agent events to the WebSocket client
+      const handleAgentAction = (data: any) => {
+        ws.send(JSON.stringify({
+          type: "agent-action",
+          timestamp: new Date().toLocaleTimeString(),
+          data
+        }));
+      };
+
+      const handleAgentMessage = (data: any) => {
         ws.send(JSON.stringify({
           type: "agent-message",
           timestamp: new Date().toLocaleTimeString(),
-          role: "assistant",
-          content: `[${data.agent}] ${data.action}`,
-          agentName: data.agent,
+          ...data
         }));
-      });
+      };
 
-      eventBus.on("agent-response", async (data) => {
+      const handlePositionUpdate = (data: any) => {
         ws.send(JSON.stringify({
-          type: "agent-message",
+          type: "position-update",
           timestamp: new Date().toLocaleTimeString(),
-          role: "assistant",
-          content: data.message,
-          agentName: data.agent,
+          data
         }));
-      });
+      };
 
-      eventBus.on("agent-error", async (data) => {
+      const handleTaskUpdate = (data: any) => {
         ws.send(JSON.stringify({
-          type: "agent-message",
+          type: "task-update",
           timestamp: new Date().toLocaleTimeString(),
-          role: "error",
-          content: `Error in ${data.agent}: ${data.error}`,
-          agentName: data.agent,
+          data
         }));
-      });
+      };
 
-      // Forward CDP Agent frontend events to WebSocket clients
-      eventBus.on("frontend-event", async (data) => {
-        ws.send(JSON.stringify({
-          type: "cdp-event",
-          timestamp: new Date().toLocaleTimeString(),
-          eventType: data.type,
-          taskId: data.taskId,
-          content: data.content || data.message || data.result || null,
-          error: data.error || null,
-          source: data.source,
-          details: data
-        }));
-        
-        // Also log the event to the console
-        console.log(`[WebSocket] Forwarded CDP event: ${data.type}`);
-      });
+      // Register WebSocket event listeners
+      eventBus.on("agent-action", handleAgentAction);
+      eventBus.on("agent-message", handleAgentMessage);
+      eventBus.on("position-update", handlePositionUpdate);
+      eventBus.on("task-update", handleTaskUpdate);
 
+      // Handle messages from the client
       ws.on("message", async (message: string) => {
         try {
           const data = JSON.parse(message.toString());
-          console.log("[WebSocket] Received message:", data);
-          if (data.type === "settings") {
-            // Update AI provider based on settings
-            const newProvider = AIFactory.createProvider({
-              provider: data.settings.aiProvider.provider,
-              apiKey: data.settings.aiProvider.apiKey,
-              modelName: data.settings.aiProvider.modelName,
-              enablePrivateCompute: data.settings.enablePrivateCompute,
-            });
+          console.log(`[WebSocket] Received message of type: ${data.type}`);
 
-            // Update agents with new settings
-            agents.observerAgent.updateAIProvider(newProvider);
-            agents.taskManagerAgent.updateAIProvider(newProvider);
+          // Process messages based on type
+          if (data.type === "command") {
+            if (!data.command) {
+              ws.send(JSON.stringify({
+                type: "error",
+                message: "No command provided",
+                timestamp: new Date().toLocaleTimeString()
+              }));
+              return;
+            }
 
-            eventBus.emit("agent-action", {
-              agent: "system",
-              action: "Updated AI provider settings",
-            });
-          } else if (data.type === "command") {
-            // Route task based on agent preference and operation type
-            if (data.operationType === "cdp-operation") {
-              // Route to CDP agent
-              eventBus.emit("task-manager-cdp-agent", {
-                task: data.command,
-                selectedChain: data.selectedChain,
-              });
-              
-              eventBus.emit("agent-action", {
-                agent: "task-manager",
-                action: `Routing CDP operation to CDP Agent: ${data.command}`,
-              });
-            } else if (data.operationType === "wallet-operation" || data.agentPreference === "turnkey-agent") {
-              // Route to Turnkey agent
-              eventBus.emit("task-manager-turnkey", {
-                task: data.command,
-                selectedChain: data.selectedChain,
-              });
-              
-              eventBus.emit("agent-action", {
-                agent: "task-manager",
-                action: `Routing wallet operation to Turnkey Agent: ${data.command}`,
-              });
+            // Check if using A2A protocol
+            if (data.useA2A && data.targetAgent) {
+              // Create A2A message
+              const a2aMessage = {
+                role: MessageRole.USER,
+                parts: [{ text: data.command }]
+              };
+
+              // Send task to agent using A2A protocol
+              try {
+                const response = await a2aBus.sendTask(data.targetAgent, a2aMessage);
+                
+                // Forward response to frontend
+                ws.send(JSON.stringify({
+                  type: "a2a-response",
+                  taskId: response.id,
+                  status: response.status,
+                  messages: response.messages,
+                  timestamp: new Date().toLocaleTimeString()
+                }));
+              } catch (error) {
+                ws.send(JSON.stringify({
+                  type: "error",
+                  message: `A2A communication error: ${error instanceof Error ? error.message : String(error)}`,
+                  timestamp: new Date().toLocaleTimeString()
+                }));
+              }
             } else {
+              // Legacy command handling using event bus
               // Add user message to chat
               ws.send(JSON.stringify({
                 type: "agent-message",
@@ -241,33 +310,33 @@ async function initializeServices() {
         } catch (error) {
           console.error("[WebSocket] Error processing message:", error);
           ws.send(JSON.stringify({
-            type: "agent-message",
-            timestamp: new Date().toLocaleTimeString(),
-            role: "error",
-            content: "Error processing command",
-            agentName: "system",
+            type: "error",
+            message: `Error processing message: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: new Date().toLocaleTimeString()
           }));
         }
       });
 
+      // Handle WebSocket close
       ws.on("close", () => {
-        eventBus.unsubscribe("agent-action", async (data: any) => Promise.resolve());
-        eventBus.unsubscribe("agent-response", async (data: any) => Promise.resolve());
-        eventBus.unsubscribe("agent-error", async (data: any) => Promise.resolve());
-        eventBus.unsubscribe("frontend-event", async (data: any) => Promise.resolve());
+        console.log(`[WebSocket] Client disconnected`);
+        // Remove event listeners
+        eventBus.unregister("agent-action", handleAgentAction);
+        eventBus.unregister("agent-message", handleAgentMessage);
+        eventBus.unregister("position-update", handlePositionUpdate);
+        eventBus.unregister("task-update", handleTaskUpdate);
       });
     });
 
-    console.log(`[🔌] WebSocket Server running on ws://localhost:${WS_PORT}`);
-
+    console.log(`[Server] Initialization complete, server is ready!`);
   } catch (error) {
-    console.error("Error initializing services:", error);
+    console.error("[Server] Error during initialization:", error);
     process.exit(1);
   }
 }
 
-// Start the application
-initializeServices().catch(error => {
-  console.error("Failed to start application:", error);
+// Start the server
+initializeServices().catch((error) => {
+  console.error("[Server] Unhandled error:", error);
   process.exit(1);
 });
