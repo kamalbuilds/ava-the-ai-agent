@@ -25,6 +25,7 @@ import app, {
   taskManagerA2AMiddleware, 
   wss 
 } from "./app";
+import pino from "pino";
 
 // console.log(figlet.textSync("AVA-2.0"));
 // console.log("======== Initializing Server =========");
