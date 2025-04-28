@@ -15,7 +15,6 @@ import { setupWalletConnect } from "@near-wallet-selector/wallet-connect";
 import { setupModal } from "@near-wallet-selector/modal-ui";
 import { setupMyNearWallet } from "@near-wallet-selector/my-near-wallet";
 import { setupBitteWallet } from "@near-wallet-selector/bitte-wallet";
-import { setupBitteWallet } from "@near-wallet-selector/bitte-wallet";
 import "@near-wallet-selector/modal-ui/styles.css";
 
 const navItems = [
