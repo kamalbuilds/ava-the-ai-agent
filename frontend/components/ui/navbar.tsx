@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import { setupWalletSelector } from "@near-wallet-selector/core";
 import { setupWalletConnect } from "@near-wallet-selector/wallet-connect";
 import { setupModal } from "@near-wallet-selector/modal-ui";
+import { setupMyNearWallet } from "@near-wallet-selector/my-near-wallet";
+import { setupBitteWallet } from "@near-wallet-selector/bitte-wallet";
 import type { WalletSelector, WalletSelectorState } from "@near-wallet-selector/core";
 import "@near-wallet-selector/modal-ui/styles.css";
 
@@ -74,7 +76,7 @@ export function Navbar({ className }: NavbarProps) {
 
       const selector = await setupWalletSelector({
         network: "testnet",
-        modules: [walletConnect],
+        modules: [walletConnect, setupMyNearWallet()],
       });
 
       const modal = setupModal(selector, {
