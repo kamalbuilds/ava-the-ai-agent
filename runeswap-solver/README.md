@@ -17,6 +17,23 @@ This solver works by:
 2. Calculating optimal swap routes and prices using RuneSwap API
 3. Executing the swaps and reporting back to the NEAR Intents protocol
 
+## Implementation Status
+
+The core functionality is complete, including:
+
+- Configuration management with environment variables
+- RuneSwap API client for fetching quotes and executing swaps
+- NEAR Intents solver with WebSocket integration
+- Structured message types for solver bus communication
+- Signal handling for graceful shutdown
+- Unit tests for basic functionality
+
+Future enhancements will include:
+- More comprehensive test coverage
+- Better error handling and retries
+- Support for additional token types
+- Performance optimizations
+
 ## Usage
 
 The solver can be deployed as a service that continuously monitors for new intents and provides swap solutions:
