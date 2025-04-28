@@ -40,14 +40,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     match signal::ctrl_c().await {
         Ok(()) => {
             log::info!("Shutdown signal received, closing solver...");
+            let _ = shutdown_tx.send(true); // Signal the solver to shut down
         },
         Err(e) => {
             log::error!("Failed to listen for shutdown signal: {}", e);
         }
     }
     
-    // Cancel the solver task (in a real implementation, we'd wait for it to finish gracefully)
-    solver_task.abort();
+    // Wait for the solver task to finish
+    if let Err(e) = solver_task.await {
+        log::error!("Solver task encountered an error: {:?}", e);
+    }
     
     log::info!("RuneSwap solver shutdown complete");
     Ok(())
