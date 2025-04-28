@@ -15,6 +15,7 @@ import { setupWalletConnect } from "@near-wallet-selector/wallet-connect";
 import { setupModal } from "@near-wallet-selector/modal-ui";
 import { setupMyNearWallet } from "@near-wallet-selector/my-near-wallet";
 import { setupBitteWallet } from "@near-wallet-selector/bitte-wallet";
+// @ts-ignore
 import "@near-wallet-selector/modal-ui/styles.css";
 
 const navItems = [
@@ -73,8 +74,16 @@ export function Navbar({ className }: NavbarProps) {
         ]
       });
 
+      const bitteWallet =  setupBitteWallet({
+        // networkId: 'mainnet',
+        walletUrl: 'https://wallet.bitte.ai',
+        callbackUrl: 'https://www.mywebsite.com',
+        contractId: "kamalwillwin.near", //remove if you don't want limited access keys to be generated
+        deprecated: false,
+      });
+
       const selector = await setupWalletSelector({
-        network: "testnet",
+        network: "mainnet",
         modules: [walletConnect, setupMyNearWallet(), bitteWallet],
       });
 
@@ -107,14 +116,6 @@ export function Navbar({ className }: NavbarProps) {
 
     initNearWallet().catch(console.error);
   }, []);
-
-  const bitteWallet =  setupBitteWallet({
-    // networkId: 'mainnet',
-    walletUrl: 'https://wallet.bitte.ai',
-    callbackUrl: 'https://www.mywebsite.com',
-    contractId: "kamalwillwin.near", //remove if you don't want limited access keys to be generated
-    deprecated: false,
-  });
 
   // Hide navbar on deck page
   if (pathname === "/deck") return null;

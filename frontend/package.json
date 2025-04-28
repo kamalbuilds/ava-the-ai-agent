@@ -20,6 +20,7 @@
     "@langchain/openai": "^0.3.14",
     "@langchain/xai": "^0.0.1",
     "@near-wallet-selector/bitte-wallet": "^8.10.2",
+    "@near-wallet-selector/modal-ui": "^8.10.2",
     "@near-wallet-selector/my-near-wallet": "^8.10.2",
     "@near-wallet-selector/wallet-connect": "^8.10.2",
     "@radix-ui/react-avatar": "^1.1.1",
