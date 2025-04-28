@@ -13,7 +13,8 @@ import { cn } from "@/lib/utils";
 import { setupWalletSelector } from "@near-wallet-selector/core";
 import { setupWalletConnect } from "@near-wallet-selector/wallet-connect";
 import { setupModal } from "@near-wallet-selector/modal-ui";
-import type { WalletSelector, WalletSelectorState } from "@near-wallet-selector/core";
+import { setupMyNearWallet } from "@near-wallet-selector/my-near-wallet";
+import { setupBitteWallet } from "@near-wallet-selector/bitte-wallet";
 import "@near-wallet-selector/modal-ui/styles.css";
 
 const navItems = [
@@ -74,7 +75,7 @@ export function Navbar({ className }: NavbarProps) {
 
       const selector = await setupWalletSelector({
         network: "testnet",
-        modules: [walletConnect],
+        modules: [walletConnect, setupMyNearWallet(), bitteWallet],
       });
 
       const modal = setupModal(selector, {
@@ -106,6 +107,14 @@ export function Navbar({ className }: NavbarProps) {
 
     initNearWallet().catch(console.error);
   }, []);
+
+  const bitteWallet =  setupBitteWallet({
+    // networkId: 'mainnet',
+    walletUrl: 'https://wallet.bitte.ai',
+    callbackUrl: 'https://www.mywebsite.com',
+    contractId: "kamalwillwin.near", //remove if you don't want limited access keys to be generated
+    deprecated: false,
+  });
 
   // Hide navbar on deck page
   if (pathname === "/deck") return null;

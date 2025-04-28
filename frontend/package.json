@@ -19,6 +19,8 @@
     "@hookform/resolvers": "^4.0.0",
     "@langchain/openai": "^0.3.14",
     "@langchain/xai": "^0.0.1",
+    "@near-wallet-selector/bitte-wallet": "^8.10.2",
+    "@near-wallet-selector/my-near-wallet": "^8.10.2",
     "@near-wallet-selector/wallet-connect": "^8.10.2",
     "@radix-ui/react-avatar": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.7",
