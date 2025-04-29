@@ -1,105 +1,105 @@
 /**
- * Logger utility for the Ref Finance agent
+ * Simple logger utility for consistent logging throughout the application
  */
 
-// ANSI color codes for terminal output
-const COLORS = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  dim: '\x1b[2m',
-  underscore: '\x1b[4m',
-  blink: '\x1b[5m',
-  reverse: '\x1b[7m',
-  hidden: '\x1b[8m',
-  
-  black: '\x1b[30m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  magenta: '\x1b[35m',
-  cyan: '\x1b[36m',
-  white: '\x1b[37m',
-  
-  bgBlack: '\x1b[40m',
-  bgRed: '\x1b[41m',
-  bgGreen: '\x1b[42m',
-  bgYellow: '\x1b[43m',
-  bgBlue: '\x1b[44m',
-  bgMagenta: '\x1b[45m',
-  bgCyan: '\x1b[46m',
-  bgWhite: '\x1b[47m'
-};
+/**
+ * Log levels for the application
+ */
+export enum LogLevel {
+  DEBUG = 'DEBUG',
+  INFO = 'INFO',
+  WARN = 'WARN',
+  ERROR = 'ERROR'
+}
 
 /**
  * Logger interface
  */
 export interface Logger {
-  info(message: string): void;
-  success(message: string): void;
-  warn(message: string): void;
-  error(message: string): void;
-  debug(message: string): void;
+  debug(message: string, data?: any): void;
+  info(message: string, data?: any): void;
+  warn(message: string, data?: any): void;
+  error(message: string, data?: any): void;
 }
 
 /**
- * Console implementation of the Logger interface
+ * Logger configuration
  */
-export class ConsoleLogger implements Logger {
-  private readonly prefix: string;
-  private readonly debugEnabled: boolean;
-
-  constructor(prefix: string = 'RefAgent', debugEnabled: boolean = false) {
-    this.prefix = prefix;
-    this.debugEnabled = debugEnabled;
-  }
-
-  /**
-   * Log an informational message
-   */
-  public info(message: string): void {
-    console.log(`${COLORS.blue}[${this.prefix}] INFO:${COLORS.reset} ${message}`);
-  }
-
-  /**
-   * Log a success message
-   */
-  public success(message: string): void {
-    console.log(`${COLORS.green}[${this.prefix}] SUCCESS:${COLORS.reset} ${message}`);
-  }
-
-  /**
-   * Log a warning message
-   */
-  public warn(message: string): void {
-    console.log(`${COLORS.yellow}[${this.prefix}] WARNING:${COLORS.reset} ${message}`);
-  }
-
-  /**
-   * Log an error message
-   */
-  public error(message: string): void {
-    console.error(`${COLORS.red}[${this.prefix}] ERROR:${COLORS.reset} ${message}`);
-  }
-
-  /**
-   * Log a debug message (only when debug is enabled)
-   */
-  public debug(message: string): void {
-    if (this.debugEnabled) {
-      console.log(`${COLORS.dim}[${this.prefix}] DEBUG:${COLORS.reset} ${message}`);
-    }
-  }
+export interface LoggerConfig {
+  serviceName: string;
+  minLogLevel?: LogLevel;
+  enableTimestamps?: boolean;
 }
 
 /**
  * Create a new logger instance
+ * @param config Logger configuration
+ * @returns Logger instance
  */
-export function createLogger(prefix: string = 'RefAgent', debugEnabled: boolean = false): Logger {
-  return new ConsoleLogger(prefix, debugEnabled);
+export function createLogger(config: LoggerConfig): Logger {
+  const { 
+    serviceName, 
+    minLogLevel = LogLevel.INFO, 
+    enableTimestamps = true 
+  } = config;
+  
+  const logLevelPriority: Record<LogLevel, number> = {
+    [LogLevel.DEBUG]: 0,
+    [LogLevel.INFO]: 1,
+    [LogLevel.WARN]: 2,
+    [LogLevel.ERROR]: 3
+  };
+  
+  const shouldLog = (level: LogLevel): boolean => {
+    return logLevelPriority[level] >= logLevelPriority[minLogLevel];
+  };
+  
+  const formatMessage = (level: LogLevel, message: string): string => {
+    const timestamp = enableTimestamps ? `[${new Date().toISOString()}]` : '';
+    return `${timestamp} [${level}] [${serviceName}] ${message}`;
+  };
+  
+  const formatData = (data: any): string | undefined => {
+    if (!data) return undefined;
+    try {
+      return typeof data === 'object' ? JSON.stringify(data, null, 2) : String(data);
+    } catch (error) {
+      return `[Error formatting data: ${error instanceof Error ? error.message : String(error)}]`;
+    }
+  };
+  
+  const log = (level: LogLevel, message: string, data?: any): void => {
+    if (!shouldLog(level)) return;
+    
+    const formattedMessage = formatMessage(level, message);
+    const formattedData = formatData(data);
+    
+    switch (level) {
+      case LogLevel.DEBUG:
+      case LogLevel.INFO:
+        console.log(formattedMessage);
+        if (formattedData) console.log(formattedData);
+        break;
+      case LogLevel.WARN:
+        console.warn(formattedMessage);
+        if (formattedData) console.warn(formattedData);
+        break;
+      case LogLevel.ERROR:
+        console.error(formattedMessage);
+        if (formattedData) console.error(formattedData);
+        break;
+    }
+  };
+  
+  return {
+    debug: (message: string, data?: any) => log(LogLevel.DEBUG, message, data),
+    info: (message: string, data?: any) => log(LogLevel.INFO, message, data),
+    warn: (message: string, data?: any) => log(LogLevel.WARN, message, data),
+    error: (message: string, data?: any) => log(LogLevel.ERROR, message, data)
+  };
 }
 
 /**
  * Default logger instance
  */
-export const logger = createLogger(); 
+export const logger = createLogger({ serviceName: 'RefAgent' }); 
