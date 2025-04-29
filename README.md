@@ -7,9 +7,14 @@
 
 ### 🚀 Core Sections
 - [Problem Statement](#-problem-statement)
-- [Solution](#-solution)
+- [Solution](#-solution) 
+- [Demo Video](#demo-vid)
 - [Architecture](#-architecture)
 - [Key Features](#-key-features)
+- [A2A Protocol](#-a2a-protocol)
+- [MCP Integration](#-mcp-integration)
+- [Agent Capabilities](#-agent-capabilities)
+- [Documentation](#docs)
 
 ## 🎯 Problem Statement
 Managing DeFi portfolios across multiple protocols across different chains can be complex and time-consuming.
@@ -31,15 +36,11 @@ An autonomous group of AI agents that manages your Multichain DeFi portfolio by:
 
 ## Docs 
 
-https://cryptoinnovators.gitbook.io/ava-the-defai-agent/agents/protocol-specific-agent/lit-agent-wallet
+https://cryptoinnovators.gitbook.io/ava-the-defai-agent
 
 ## Demo Vid
 
 https://www.youtube.com/watch?v=kYpniQ4neQk
-
-### Flow
-
-https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f
 
 
 ## 🏗 Architecture
@@ -63,9 +64,7 @@ MCP provides tools and resources to agents:
 - Filesystem for file management
 - And more...
 
-### Monad Demo Video 
-
-### Flow
+### Demo on Flow
 
 https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f
 
