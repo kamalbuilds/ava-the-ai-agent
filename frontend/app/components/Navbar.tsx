@@ -11,7 +11,8 @@ import {
   Users,
   Settings,
   Repeat,
-  X
+  X,
+  Coins
 } from "lucide-react";
 
 interface NavbarProps {
@@ -57,6 +58,13 @@ export function Navbar({ toggleSidebar, sidebarOpen }: NavbarProps) {
           <Link href="/swap">
             <Repeat size={16} />
             Swap
+          </Link>
+        </Button>
+        
+        <Button variant="ghost" asChild className={`flex gap-2 ${pathname === '/coins' ? 'bg-accent' : ''}`}>
+          <Link href="/coins">
+            <Coins size={16} />
+            Zora Coins
           </Link>
         </Button>
         
