@@ -21,9 +21,8 @@ export function Footer({ className }: FooterProps) {
 
   const sections = {
     main: [
-      { label: "Blog", href: "https://ava-portfolio-manager-ai-agent.vercel.app/blog" },
       { label: "Whitepaper", href: "https://ava-portfolio-manager-ai-agent.vercel.app/whitepaper" },
-      { label: "Docs", href: "https://ava-portfolio-manager-ai-agent.vercel.app/docs" },
+      { label: "Docs", href: "https://cryptoinnovators.gitbook.io/ava-the-defai-agent" },
     ],
     legal: [
       { label: "Privacy", href: "https://ava-portfolio-manager-ai-agent.vercel.app/privacy" },
