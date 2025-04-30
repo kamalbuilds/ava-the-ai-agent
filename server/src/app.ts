@@ -6,6 +6,7 @@ import { createA2ARoutes } from './routes';
 import { MCPService } from './services';
 import { AgentCard } from './types/a2a';
 import { env } from './env';
+import { zoraCoinsRouter } from './controllers/zoraCoinsController';
 
 const app = express();
 
@@ -60,6 +61,9 @@ export const taskManagerA2AMiddleware = new A2AMiddleware(taskManagerAgentCard);
 app.use('/agent/observer', createA2ARoutes('observer', observerA2AMiddleware));
 app.use('/agent/executor', createA2ARoutes('executor', executorA2AMiddleware));
 app.use('/agent/task-manager', createA2ARoutes('task-manager', taskManagerA2AMiddleware));
+
+// Register routers
+app.route('/api/zora', zoraCoinsRouter);
 
 // Health check endpoint
 app.get('/health', (_req, res) => {

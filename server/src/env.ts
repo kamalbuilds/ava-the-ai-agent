@@ -65,6 +65,8 @@ const schema = z.object({
   // Storage
   STORAGE_TYPE: z.enum(["hybrid", "memory", "eth"]).default("hybrid"),
   ETHSTORAGE_RPC: z.string().optional(),
+  ZORA_API_KEY: z.string().optional(),
+  BASE_RPC_URL: z.string().optional(),
 });
 
 // Parse and validate environment variables

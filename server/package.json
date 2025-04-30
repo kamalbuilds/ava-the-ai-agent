@@ -42,6 +42,7 @@
     "@supabase/supabase-js": "^2.47.0",
     "@turnkey/sdk-server": "^2.4.0",
     "@wormhole-foundation/sdk": "^1.11.0",
+    "@zoralabs/coins-sdk": "^0.1.0",
     "ai": "^4.0.12",
     "atoma-ts-sdk": "^0.1.2",
     "brahma-console-kit": "^1.0.6",
