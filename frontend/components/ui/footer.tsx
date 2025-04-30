@@ -61,6 +61,17 @@ export function Footer({ className }: FooterProps) {
                   </Link>
                 ))}
               </div>
+              <div className="hidden md:flex space-x-4 ml-8">
+                {sections.chains.map((item) => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="text-sm text-gray-400 hover:text-white transition-colors"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               {sections.social.map((item) => (
