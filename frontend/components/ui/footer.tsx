@@ -24,6 +24,11 @@ export function Footer({ className }: FooterProps) {
       { label: "Whitepaper", href: "https://ava-portfolio-manager-ai-agent.vercel.app/whitepaper" },
       { label: "Docs", href: "https://cryptoinnovators.gitbook.io/ava-the-defai-agent" },
     ],
+    chains: [
+      { label: "Flow", href: "https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f" },
+      { label: "NEAR", href: "#" },
+      { label: "Hedera", href: "#" },
+    ],
     legal: [
       { label: "Privacy", href: "https://ava-portfolio-manager-ai-agent.vercel.app/privacy" },
       { label: "Terms", href: "https://ava-portfolio-manager-ai-agent.vercel.app/terms" },
@@ -31,6 +36,7 @@ export function Footer({ className }: FooterProps) {
     social: [
       { label: "Twitter", href: "https://twitter.com" },
       { label: "YouTube", href: "https://www.youtube.com/watch?v=kYpniQ4neQk" },
+      { label: "GitHub", href: "https://github.com/ava-ecosystem" },
       { label: "Telegram", href: "https://telegram.org" },
     ],
   };
@@ -46,6 +52,17 @@ export function Footer({ className }: FooterProps) {
               <span className="text-sm text-gray-400">© {currentYear} Ava AI | Powered by Story Protocol</span>
               <div className="hidden md:flex space-x-4">
                 {sections.main.map((item) => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="text-sm text-gray-400 hover:text-white transition-colors"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+              <div className="hidden md:flex space-x-4 ml-8">
+                {sections.chains.map((item) => (
                   <Link
                     key={item.label}
                     href={item.href}
