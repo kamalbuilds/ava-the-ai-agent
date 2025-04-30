@@ -77,6 +77,7 @@ const agentImages = {
   "hedera-agent": "/hedera-agentkit.webp",
   "zircuit-agent": "/agent_analyst.png",
   "flow-agent": "/executor.png",
+  "near-agent": "/near-agentkit.png",
   "eliza-agent": "/taskManager.png",
   "ip-manager": "/ip-manager.jpg",
   default: "/agent_default.png",
