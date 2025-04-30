@@ -265,6 +265,14 @@ export default function Home() {
       agent: null
     },
     {
+      id: 'near-agent',
+      name: 'NEAR Agent',
+      type: 'blockchain',
+      status: 'active',
+      description: 'Specialized agent for NEAR Protocol operations, including smart contract interactions, staking, and account management.',
+      agent: null
+    },
+    {
       id: 'eliza-agent',
       name: 'Eliza Agent',
       type: 'system',
