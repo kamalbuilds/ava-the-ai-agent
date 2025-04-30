@@ -262,4 +262,4 @@ export function useZoraCoins() {
     getProfileBalances,
     getTrendingCoins,
   };
-} 
+}
