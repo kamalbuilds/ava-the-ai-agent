@@ -868,6 +868,23 @@ export default function Home() {
       });
     });
 
+    // Subscribe to NEAR Agent responses
+    eventBusRef.current.subscribe('near-agent-response', (data: any) => {
+      console.log('NEAR Agent response received:', data);
+      setMessages(prev => {
+        const newMessage = {
+          role: "assistant",
+          content: data.message || data.content || JSON.stringify(data.result || {}, null, 2),
+          timestamp: new Date().toLocaleTimeString(),
+          agentName: 'NEAR Agent',
+          collaborationType: 'response'
+        } as Message;
+
+        const updatedMessages = [...prev, newMessage];
+        return deduplicateMessages(updatedMessages);
+      });
+    });
+
     // Subscribe to general result responses
     eventBusRef.current.subscribe('result', (data: any) => {
       console.log('Result received:', data);
