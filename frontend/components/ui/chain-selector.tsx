@@ -60,6 +60,12 @@ export const SUPPORTED_CHAINS: Chain[] = [
     name: "Hedera",
     icon: "https://cryptologos.cc/logos/hedera-hbar-logo.png",
     agentId: "hedera-agent"
+  },
+  {
+    id: "near",
+    name: "NEAR Protocol",
+    icon: "https://cryptologos.cc/logos/near-protocol-near-logo.png",
+    agentId: "near-agent"
   }
 ];
 

@@ -21,9 +21,8 @@ export function Footer({ className }: FooterProps) {
 
   const sections = {
     main: [
-      { label: "Blog", href: "https://ava-portfolio-manager-ai-agent.vercel.app/blog" },
       { label: "Whitepaper", href: "https://ava-portfolio-manager-ai-agent.vercel.app/whitepaper" },
-      { label: "Docs", href: "https://ava-portfolio-manager-ai-agent.vercel.app/docs" },
+      { label: "Docs", href: "https://cryptoinnovators.gitbook.io/ava-the-defai-agent" },
     ],
     legal: [
       { label: "Privacy", href: "https://ava-portfolio-manager-ai-agent.vercel.app/privacy" },
@@ -31,7 +30,7 @@ export function Footer({ className }: FooterProps) {
     ],
     social: [
       { label: "Twitter", href: "https://twitter.com" },
-      { label: "Discord", href: "https://discord.com" },
+      { label: "YouTube", href: "https://www.youtube.com/watch?v=kYpniQ4neQk" },
       { label: "Telegram", href: "https://telegram.org" },
     ],
   };
@@ -44,7 +43,7 @@ export function Footer({ className }: FooterProps) {
         <div className="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-full">
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-400">© {currentYear} Ava AI</span>
+              <span className="text-sm text-gray-400">© {currentYear} Ava AI | Powered by Story Protocol</span>
               <div className="hidden md:flex space-x-4">
                 {sections.main.map((item) => (
                   <Link
