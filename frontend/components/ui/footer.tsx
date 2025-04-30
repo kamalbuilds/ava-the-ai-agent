@@ -30,6 +30,7 @@ export function Footer({ className }: FooterProps) {
     ],
     social: [
       { label: "Twitter", href: "https://twitter.com" },
+      { label: "YouTube", href: "https://www.youtube.com/watch?v=kYpniQ4neQk" },
       { label: "Telegram", href: "https://telegram.org" },
     ],
   };
