@@ -7,14 +7,10 @@
  */
 export interface TokenMetadata {
   id: string;
-  decimals: number;
-  symbol: string;
   name: string;
+  symbol: string;
+  decimals: number;
   icon?: string;
-  spec?: string;
-  reference?: string;
-  reference_hash?: string;
-  price?: number;
 }
 
 /**
@@ -23,8 +19,9 @@ export interface TokenMetadata {
 export interface TokenBalance {
   token_id: string;
   balance: string;
-  formatted_balance?: string;
-  metadata?: TokenMetadata;
+  formatted_amount: string;
+  usd_value: string;
+  metadata: TokenMetadata;
 }
 
 /**
@@ -71,10 +68,10 @@ export interface TokenPriceParams {
  */
 export interface TokenPriceResponse {
   success: boolean;
-  error?: string;
   price?: number;
   quote_token?: string;
   timestamp?: string;
+  error?: string;
 }
 
 /**
@@ -126,8 +123,9 @@ export interface TokenBalancesParams {
  */
 export interface TokenBalancesResponse {
   success: boolean;
-  error?: string;
+  account_id?: string;
   balances?: TokenBalance[];
+  error?: string;
 }
 
 /**
