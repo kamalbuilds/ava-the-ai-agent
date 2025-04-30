@@ -31,6 +31,7 @@ export function Footer({ className }: FooterProps) {
     social: [
       { label: "Twitter", href: "https://twitter.com" },
       { label: "YouTube", href: "https://www.youtube.com/watch?v=kYpniQ4neQk" },
+      { label: "GitHub", href: "https://github.com/ava-ecosystem" },
       { label: "Telegram", href: "https://telegram.org" },
     ],
   };
