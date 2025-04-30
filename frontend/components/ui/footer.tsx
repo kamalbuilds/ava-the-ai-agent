@@ -43,7 +43,7 @@ export function Footer({ className }: FooterProps) {
         <div className="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-full">
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-400">© {currentYear} Ava AI</span>
+              <span className="text-sm text-gray-400">© {currentYear} Ava AI | Powered by Story Protocol</span>
               <div className="hidden md:flex space-x-4">
                 {sections.main.map((item) => (
                   <Link
