@@ -77,6 +77,7 @@ const agentImages = {
   "hedera-agent": "/hedera-agentkit.webp",
   "zircuit-agent": "/agent_analyst.png",
   "flow-agent": "/executor.png",
+  "near-agent": "/near-agentkit.png",
   "eliza-agent": "/taskManager.png",
   "ip-manager": "/ip-manager.jpg",
   default: "/agent_default.png",
@@ -262,6 +263,14 @@ export default function Home() {
       type: 'blockchain',
       status: 'active',
       description: 'Interacts with Flow blockchain for NFT operations, token management, and secure scaling of digital assets across the ecosystem.',
+      agent: null
+    },
+    {
+      id: 'near-agent',
+      name: 'NEAR Agent',
+      type: 'blockchain',
+      status: 'active',
+      description: 'Specialized agent for NEAR Protocol operations, including smart contract interactions, staking, and account management.',
       agent: null
     },
     {
@@ -851,6 +860,23 @@ export default function Home() {
           content: data.message || data.content || JSON.stringify(data.result || {}, null, 2),
           timestamp: new Date().toLocaleTimeString(),
           agentName: 'Move Agent',
+          collaborationType: 'response'
+        } as Message;
+
+        const updatedMessages = [...prev, newMessage];
+        return deduplicateMessages(updatedMessages);
+      });
+    });
+
+    // Subscribe to NEAR Agent responses
+    eventBusRef.current.subscribe('near-agent-response', (data: any) => {
+      console.log('NEAR Agent response received:', data);
+      setMessages(prev => {
+        const newMessage = {
+          role: "assistant",
+          content: data.message || data.content || JSON.stringify(data.result || {}, null, 2),
+          timestamp: new Date().toLocaleTimeString(),
+          agentName: 'NEAR Agent',
           collaborationType: 'response'
         } as Message;
 
