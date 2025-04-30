@@ -30,7 +30,6 @@ export function Footer({ className }: FooterProps) {
     ],
     social: [
       { label: "Twitter", href: "https://twitter.com" },
-      { label: "Discord", href: "https://discord.com" },
       { label: "Telegram", href: "https://telegram.org" },
     ],
   };
