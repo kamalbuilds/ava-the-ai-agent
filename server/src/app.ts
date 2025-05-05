@@ -63,7 +63,7 @@ app.use('/agent/executor', createA2ARoutes('executor', executorA2AMiddleware));
 app.use('/agent/task-manager', createA2ARoutes('task-manager', taskManagerA2AMiddleware));
 
 // Register routers
-app.route('/api/zora', zoraCoinsRouter);
+app.use('/api/zora', zoraCoinsRouter);
 
 // Health check endpoint
 app.get('/health', (_req, res) => {
