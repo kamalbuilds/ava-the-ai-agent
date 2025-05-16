@@ -1,0 +1,29 @@
+{
+  "name": "near-contract-automation",
+  "version": "1.0.0",
+  "description": "Contract interaction automation for NEAR Protocol",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "near-sdk-js build src/contract.ts build/contract.wasm",
+    "deploy": "near deploy",
+    "automate": "node scripts/automation.js",
+    "automate:testnet": "NETWORK_ID=testnet node scripts/automation.js",
+    "automate:mainnet": "NETWORK_ID=mainnet node scripts/automation.js",
+    "cron": "node scripts/cron.js",
+    "cron:testnet": "NETWORK_ID=testnet node scripts/cron.js",
+    "cron:mainnet": "NETWORK_ID=mainnet node scripts/cron.js"
+  },
+  "keywords": [
+    "near",
+    "blockchain",
+    "smart-contract",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "near-api-js": "^5.1.1",
+    "near-sdk-js": "^1.0.0"
+  }
+}

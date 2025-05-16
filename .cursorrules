@@ -1,0 +1,37 @@
+# Ava Portfolio Manager AI Agent
+
+## Project Overview
+- Ava is a DeFi portfolio management platform using specialized autonomous AI agents
+- Agents work together to analyze, recommend, and execute optimal DeFi strategies
+- Currently deployed on Flow, Hedera, Sui, Base, Avalanche, Mode, Arbitrium
+- Powered by Story Protocol and LangChain
+
+## Current Status
+- Event-based communication between agents using EventBus
+- Each agent has specialized roles (observer, executor, task-manager, etc.)
+- MCP (Model Context Protocol) implemented for tool usage
+- No standardized agent-to-agent communication protocol
+
+## Implemented Features
+- Natural language interface for portfolio goals
+- Autonomous execution of financial transactions
+- Cross-chain operations
+- Treasury management
+- Privacy & security with Lit Protocol
+- Real-time event communication
+
+## Current Tasks
+- [ ] Implement Google's A2A (Agent-to-Agent) protocol for standardized agent communication
+- [ ] Set up MCP servers for tools and resources
+- [ ] Create A2A server endpoints for each agent 
+- [ ] Modify frontend to support A2A protocol
+- [ ] Update README.md to reflect A2A implementation
+- [ ] Integrate ZerePy for Twitter interaction
+
+## Implementation Plan
+- Create A2A-compliant agent cards for each agent
+- Set up task endpoint APIs
+- Implement capability discovery
+- Enable secure collaboration between agents
+- Support multimodal communication (text, forms, files)
+- Ensure task and state management 

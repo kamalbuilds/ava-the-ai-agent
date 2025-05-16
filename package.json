@@ -1,0 +1,22 @@
+{
+  "dependencies": {
+    "@near-wallet-selector/core": "^8.10.2",
+    "@near-wallet-selector/modal-ui": "^8.10.2",
+    "@near-wallet-selector/wallet-connect": "^8.10.2",
+    "@ref-finance/ref-sdk": "^1.4.6",
+    "bn.js": "^5.2.2",
+    "bs58": "^6.0.0",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.5.0",
+    "fs": "^0.0.1-security",
+    "near-api-js": "^5.1.1",
+    "near-seed-phrase": "^0.2.1",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.1.6",
+    "@types/node": "^22.15.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
