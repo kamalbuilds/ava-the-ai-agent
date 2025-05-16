@@ -55,7 +55,7 @@
     "https-browserify": "^1.0.0",
     "jsonwebtoken": "^9.0.2",
     "langchain": "^0.3.6",
-    "lucide-react": "^0.475.0",
+    "lucide-react": "^0.511.0",
     "near-api-js": "^5.1.1",
     "next": "^15.0.3",
     "next-auth": "^4.24.10",
