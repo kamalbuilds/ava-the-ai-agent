@@ -33,7 +33,7 @@ export function exportConfig(
   if (options.sections && options.sections.length > 0) {
     const filteredConfig: Partial<EnterpriseConfigData> = {};
     options.sections.forEach(section => {
-      filteredConfig[section] = exportConfig[section];
+      filteredConfig[section] = exportConfig[section] as any;
     });
     return formatExport(filteredConfig, options.format);
   }
@@ -168,7 +168,6 @@ function parseYaml(yamlString: string): any {
   const lines = yamlString.split('\n');
   const result: any = {};
   const stack: any[] = [result];
-  let currentIndent = 0;
 
   for (const line of lines) {
     if (line.trim() === '' || line.trim().startsWith('#')) continue;
@@ -179,6 +178,8 @@ function parseYaml(yamlString: string): any {
     if (content.includes(':')) {
       const [key, ...valueParts] = content.split(':');
       const value = valueParts.join(':').trim();
+      
+      if (!key) continue;
       
       // Handle different indent levels
       while (stack.length > Math.floor(indent / 2) + 1) {
@@ -215,13 +216,23 @@ function parseEnv(envString: string): any {
     const value = valueParts.join('=');
     const keys = key.split('_').map(k => k.toLowerCase());
     
+    if (keys.length < 2) continue; // Skip invalid keys
+    
     let current = result;
     for (let i = 1; i < keys.length - 1; i++) {
-      if (!current[keys[i]]) current[keys[i]] = {};
-      current = current[keys[i]];
+      const currentKey = keys[i];
+      if (currentKey && !current[currentKey]) {
+        current[currentKey] = {};
+      }
+      if (currentKey) {
+        current = current[currentKey];
+      }
     }
     
-    current[keys[keys.length - 1]] = parseValue(value);
+    const finalKey = keys[keys.length - 1];
+    if (finalKey) {
+      current[finalKey] = parseValue(value);
+    }
   }
 
   return result;
