@@ -133,7 +133,11 @@ export class NearAIAgent {
       throw new Error('NEAR not initialized');
     }
     
-    await this.wallet.requestSignIn("");
+    await this.wallet.requestSignIn({
+      contractId: "",
+      methodNames: [],
+      keyType: "ed25519"
+    });
   }
 
   async disconnectWallet(): Promise<void> {
