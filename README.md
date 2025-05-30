@@ -1,6 +1,6 @@
 # 🤖 Ava the MultiChain IP powered DeFAI Portfolio Managing AI Agents Platform
 
-> Group of Multiple specialized autonomous AI agents with powerful tools that work together in collaberation to analyze, recommend, and execute the most optimal DeFi strategies while maintaining user-defined risk parameters and portfolio goals currently live on Flow, Hedera , Sui , Base, Avalanche , Mode , Arbitrium, powered by Story Protocol, Agent2Agent (A2A) Protocol, and LangChain.
+> Group of Multiple specialized autonomous AI agents with powerful tools that work together in collaberation to analyze, recommend, and execute the most optimal DeFi strategies while maintaining user-defined risk parameters and portfolio goals currently live on Flow, Hedera , Sui , Base, Avalanche , Mode , Arbitrium, powered by Story Protocol, Agent2Agent (A2A) Protocol, LangChain, and Zora Coins.
 
 
 ## 📑 Quick Navigation
@@ -14,6 +14,7 @@
 - [A2A Protocol](#-a2a-protocol)
 - [MCP Integration](#-mcp-integration)
 - [Agent Capabilities](#-agent-capabilities)
+- [Zora Coins Integration](#-zora-coins-integration)
 - [Documentation](#docs)
 
 ## 🎯 Problem Statement
@@ -25,6 +26,7 @@ Users need to:
 - Stay updated with the latest crosschain yield opportunities
 - Maintain desired portfolio allocations
 - React quickly to market changes
+- Track and manage social tokens and creator coins
 
 ## 💡 Solution
 An autonomous group of AI agents that manages your Multichain DeFi portfolio by:
@@ -33,6 +35,7 @@ An autonomous group of AI agents that manages your Multichain DeFi portfolio by:
 - Automatically executing transactions when needed
 - Providing real-time updates and progress tracking
 - Maintaining portfolio balance according to user preferences
+- Creating and managing social tokens via Zora Coins
 
 ## Docs 
 
@@ -131,14 +134,60 @@ https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f
    - Secure message exchange
    - Long-running task support
 
+10. **Zora Coins Integration**
+   - Create and manage Zora coins (ERC-20 tokens)
+   - Track trending coins in the social token ecosystem
+   - AI-powered coin recommendations based on portfolio
+   - Trade creator coins directly from the portfolio manager
+   - Earn referral fees through platform usage
+
+## 🚀 Zora Coins Integration
+
+Our platform now features full integration with Zora's Coins Protocol, allowing users to:
+
+### For Creators
+- **Create Coins**: Easily deploy new ERC-20 tokens on Base through our intuitive UI
+- **Manage Payouts**: Configure payout addresses for creator earnings
+- **Update Metadata**: Modify coin metadata to keep information current
+- **Track Performance**: Monitor coin trading activity and earnings
+
+### For Traders
+- **Discover Coins**: Explore trending and recommended coins
+- **Trade Efficiently**: Buy and sell coins with optimized slippage protection
+- **Portfolio Integration**: View all your Zora coins alongside other assets
+- **Performance Analytics**: Track your coin holdings' performance over time
+
+### For Developers
+- **Earn Referral Fees**: Implement the SDK and earn platform and trade referral fees
+- **API Access**: Use our REST API to access Zora coin data programmatically
+- **AI Integration**: Leverage our AI agents to analyze and recommend Zora coins
+
+### Technical Implementation
+- Full REST API for Zora Coins operations
+- Server-side SDK integration for secure API key usage
+- Seamless UI components for coin management
+- Automated portfolio analysis including Zora coins
+
+```typescript
+// Example usage of our Zora Coins integration
+const { getProfileBalances, getTrendingCoins } = useZoraCoins();
+
+// Get user's coin balances
+const balances = await getProfileBalances(userAddress);
+
+// Get trending coins
+const trending = await getTrendingCoins('day', 5);
+```
+
 ## 🛠 Technology Stack
 - **Frontend**: Next.js, TypeScript, TailwindCSS
 - **AI Engine**: Brian AI, LangChain, GPT-4
-- **Blockchain**: Avalanche C-Chain, Teleporter, Eigenlayer AVS
+- **Blockchain**: Avalanche C-Chain, Teleporter, Eigenlayer AVS, Base (for Zora Coins)
 - **Development**: Foundry, Avalanche CLI
 - **Indexing**: The Graph Protocol
 - **Agent Communication**: Google's A2A Protocol, MCP Protocol
 - **Social Media Integration**: ZerePy for Twitter interactions
+- **Social Tokens**: Zora Coins SDK
 
 ## Technology Integrations
 
@@ -156,12 +205,14 @@ https://github.com/user-attachments/assets/2eec58f7-7a5d-414d-8aa7-672cf5fa245f
   - Bluefin interface for perpetual trading
   - Cetus integration for liquidity provision
   - Aftermath connection for DCA and staking
+  - Zora Coins SDK for social token creation and management
 
 - **User Interaction Layer**
   - Casual, friendly communication style
   - Complex strategy simplification
   - Real-time position monitoring
   - Risk alerts and notifications
+  - Creator coin recommendations
 
 
 ### Agent Collaboration Architecture
@@ -175,5 +226,6 @@ interface AgentCollaboration {
   taskManager: TaskManagerAgent; // Coordinates multi-step operations
   suiAgent: SuiAgent;         // SUI-specific operations
   elizaAgent: ElizaAgent;     // User interaction and strategy explanation
+  zoraAgent: ZoraAgent;       // Zora coins creation and management
 }
 ```
