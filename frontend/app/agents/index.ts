@@ -14,6 +14,7 @@ import { z } from "zod";
 import { FunctorService } from '../services/functorService';
 import { defiLlamaToolkit, coingeckoTool } from "./tools";
 import { ChainValues } from "@langchain/core/utils/types";
+import { useAddress, useWallet } from "thirdweb/react";
 
 // Update message history store and getter
 const store: Record<string, ChatMessageHistory> = {};
