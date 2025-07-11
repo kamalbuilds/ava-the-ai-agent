@@ -27,8 +27,6 @@
 * [Chain Specific Agents](agents/chain-specific-agents/README.md)
   * [Sonic Agent](agents/chain-specific-agents/sonic.md)
 * [Protocol Specific Agent](agents/protocol-specific-agent/README.md)
-  * [Safe Wallet Agent](agents/protocol-specific-agent/safe-wallet-agent.md)
-  * [CoW Trading Agent](agents/protocol-specific-agent/cow-trading-agent.md)
   * [MarginZero Agent](agents/protocol-specific-agent/margin-zero.md)
 
 ## API Reference
