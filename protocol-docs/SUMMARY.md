@@ -22,9 +22,9 @@
 * [Swap Agent](agents/swap-agent.md)
 * [Move Agent](agents/move.md)
 * [Eliza Agent](agents/eliza.md)
-* [Sei Money Market Agent](agents/sei-money-market-agent.md)
 * [Specialized Agents](agents/specialized-agents.md)
 * [Chain Specific Agents](agents/chain-specific-agents/README.md)
+* [Sei Money Market Agent](agents/chain-specific-agents/sei-money-market.md)
   * [Sonic Agent](agents/chain-specific-agents/sonic.md)
 * [Protocol Specific Agent](agents/protocol-specific-agent/README.md)
   * [MarginZero Agent](agents/protocol-specific-agent/margin-zero.md)
@@ -64,12 +64,6 @@
 
 * [Configuration Guide](enterprise/configuration-guide.md)
 
-## Tutorials
-
-* [Integration Guide](tutorials/Integration.md)
-
 ## Reference
 
-* [Data Models](data-models.md)
-* [Error Handling](error-handling.md)
 * [Use Cases](usecases.md)
