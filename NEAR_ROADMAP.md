@@ -34,12 +34,12 @@ AVA will become the premier **Chain-Abstracted AI Portfolio Manager** on NEAR Pr
 **Timeline: January 2025**
 
 #### Core Infrastructure
-- [ ] **Chain Signatures Implementation**
+- [x] **Chain Signatures Implementation**
   - Integrate NEAR's MPC network for cross-chain transaction signing
   - Implement derivation paths for multi-chain address generation
   - Build secure key management system using NEAR validators
   
-- [ ] **NEAR Intents Integration**
+- [x] **NEAR Intents Integration**
   - Implement intent-based transaction system
   - Create solver network integration for optimal execution
   - Build cross-chain swap optimization using intents
@@ -125,7 +125,7 @@ class MultiChainAssetManager {
 **Timeline: March 2025**
 
 #### Autonomous AI Portfolio Management
-- [ ] **Shade Agent Implementation**
+- [x] **Shade Agent Implementation**
   - Deploy autonomous trading agents using NEAR's Shade Agent framework
   - Implement Trusted Execution Environment (TEE) for secure AI inference
   - Build verifiable on-chain execution for AI decisions
