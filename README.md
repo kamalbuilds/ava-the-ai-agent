@@ -80,10 +80,6 @@ graph TD
     Q --> R[📱 Real-time Updates]
     R --> S[👤 User Notification]
     
-    style A fill:#e1f5fe
-    style B fill:#f3e5f5
-    style K fill:#fff3e0
-    style Q fill:#e8f5e8
 ```
 
 ### Detailed Step-by-Step Process
