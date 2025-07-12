@@ -10,6 +10,7 @@
 - [Solution](#-solution) 
 - [Demo Video](#demo-vid)
 - [Architecture](#-architecture)
+- [NEAR Intents User Flow](#-near-intents-user-flow)
 - [Key Features](#-key-features)
 - [A2A Protocol](#-a2a-protocol)
 - [MCP Integration](#-mcp-integration)
@@ -45,6 +46,205 @@ https://cryptoinnovators.gitbook.io/ava-the-defai-agent
 
 https://www.youtube.com/watch?v=kYpniQ4neQk
 
+## 🔗 NEAR Intents User Flow
+
+### Overview
+Ava leverages NEAR Protocol's Intents system to provide seamless cross-chain DeFi operations with AI-powered natural language interface. The system uses Chain Abstraction and MPC technology for gasless, cross-chain transactions.
+
+### Complete User Interaction Flow
+
+```mermaid
+graph TD
+    A[👤 User Input] -->|"Swap 100 NEAR to Bitcoin"| B[🤖 Eliza AI Agent]
+    B -->|Natural Language Processing| C{Intent Recognition}
+    
+    C -->|Portfolio Query| D[📊 Portfolio Analysis]
+    C -->|Swap Intent| E[🔄 Cross-Chain Swap]
+    C -->|Stake Intent| F[🏦 Staking Operation]
+    C -->|DeFi Strategy| G[💰 Yield Optimization]
+    
+    E --> H[🎯 NEAR Intent Creation]
+    H -->|Intent Message| I[📝 Intent Serialization]
+    I -->|NEP-413 Standard| J[🔐 NEAR Wallet Signing]
+    
+    J --> K[🌐 Solver Network]
+    K -->|Best Quote| L[💱 RunesDex Solver]
+    K -->|Alternative| M[🔗 Other DEX Solvers]
+    
+    L --> N[🔄 Cross-Chain Execution]
+    N -->|MPC Signatures| O[⛓️ Bitcoin Network]
+    N -->|Direct Call| P[🟢 NEAR Network]
+    
+    O --> Q[✅ Transaction Complete]
+    P --> Q
+    Q --> R[📱 Real-time Updates]
+    R --> S[👤 User Notification]
+    
+    style A fill:#e1f5fe
+    style B fill:#f3e5f5
+    style K fill:#fff3e0
+    style Q fill:#e8f5e8
+```
+
+### Detailed Step-by-Step Process
+
+#### 1️⃣ **Natural Language Input**
+```typescript
+// User says: "I want to swap 100 NEAR to Bitcoin with the best rate"
+const userInput = {
+  message: "Swap 100 NEAR to Bitcoin",
+  context: "portfolio_optimization",
+  urgency: "normal"
+};
+```
+
+#### 2️⃣ **AI Agent Processing**
+```typescript
+// Eliza Agent processes natural language
+const intentAnalysis = await elizaAgent.processMessage({
+  content: userInput.message,
+  agentCapabilities: ['swap', 'portfolio', 'cross-chain'],
+  supportedChains: ['near', 'bitcoin', 'ethereum']
+});
+
+// Result: Identifies cross-chain swap intent
+{
+  type: 'CROSS_CHAIN_SWAP',
+  fromToken: { symbol: 'NEAR', amount: '100', chain: 'near' },
+  toToken: { symbol: 'BTC', chain: 'bitcoin' },
+  strategy: 'best_rate'
+}
+```
+
+#### 3️⃣ **Intent Creation & Solver Discovery**
+```typescript
+// Create NEAR Intent for cross-chain swap
+const swapIntent = {
+  id: generateUniqueId(),
+  fromToken: {
+    address: 'wrap.near',
+    symbol: 'NEAR',
+    decimals: 24
+  },
+  toToken: {
+    address: 'bitcoin',
+    symbol: 'BTC',
+    decimals: 8
+  },
+  amount: '100000000000000000000000000', // 100 NEAR in yoctoNEAR
+  slippageTolerance: 0.01,
+  deadline: Date.now() + 300000 // 5 minutes
+};
+
+// Query solver network for best quotes
+const quotes = await solverNetwork.getQuotes(swapIntent);
+```
+
+#### 4️⃣ **Wallet Interaction & Signing**
+```typescript
+// User approves the best quote through NEAR wallet
+const selectedQuote = quotes.find(q => q.rate === bestRate);
+
+// Sign intent using NEP-413 standard
+const signature = await nearWallet.signMessage({
+  message: serializeIntent(swapIntent),
+  receiver: 'intents.near',
+  nonce: generateNonce()
+});
+```
+
+#### 5️⃣ **Solver Execution**
+```typescript
+// RunesDex solver executes the cross-chain swap
+const execution = await runesdexSolver.executeSwap({
+  intent: swapIntent,
+  signature: signature,
+  quote: selectedQuote
+});
+
+// Solver coordinates:
+// 1. NEAR → Wrapped BTC on NEAR (via Ref Finance)
+// 2. Wrapped BTC → Native Bitcoin (via cross-chain bridge)
+// 3. Bitcoin delivery to user's BTC address
+```
+
+#### 6️⃣ **Real-time Updates & Completion**
+```typescript
+// WebSocket updates keep user informed
+websocket.on('transaction_update', (update) => {
+  displayNotification({
+    type: 'progress',
+    message: `Step ${update.step}/3: ${update.description}`,
+    txHash: update.transactionHash
+  });
+});
+
+// Final confirmation
+websocket.on('swap_complete', (result) => {
+  displayNotification({
+    type: 'success',
+    message: `✅ Successfully swapped 100 NEAR for ${result.btcReceived} BTC`,
+    explorerLink: result.explorerUrl
+  });
+});
+```
+
+### 🌟 Key Benefits of NEAR Intents Integration
+
+#### **For Users**
+- **Gasless Transactions**: Pay fees in any token through NEAR's meta-transactions
+- **Chain Abstraction**: No need to understand different blockchain complexities
+- **Natural Language**: Express complex DeFi operations in plain English
+- **Optimal Routing**: Solver network finds best rates across multiple protocols
+- **Single Interface**: Manage multi-chain portfolio from one dashboard
+
+#### **For Developers**
+- **Standardized Intents**: NEP-413 compliant intent messaging
+- **Solver Flexibility**: Multiple execution strategies via competitive solver network
+- **MPC Security**: Secure cross-chain signatures using NEAR's validator network
+- **Event-Driven**: Real-time updates via WebSocket and event bus
+- **Composable**: Intents can be combined for complex multi-step operations
+
+### 🔧 Technical Implementation
+
+#### **Chain Abstraction Architecture**
+```typescript
+interface ChainAbstractionLayer {
+  // Generate addresses for any chain using MPC
+  generateAddress(derivationPath: string): Promise<MultichainAddress>;
+  
+  // Sign transactions for any chain
+  signTransaction(tx: Transaction, chain: string): Promise<Signature>;
+  
+  // Execute intents across chains
+  executeIntent(intent: CrossChainIntent): Promise<ExecutionResult>;
+}
+```
+
+#### **Agent Coordination**
+```typescript
+// Multi-agent collaboration for complex intents
+const agentOrchestration = {
+  elizaAgent: 'Natural language processing',
+  observerAgent: 'Market analysis and risk assessment',
+  executorAgent: 'Transaction execution and monitoring',
+  nearAgent: 'NEAR-specific operations and ref finance',
+  bitcoinAgent: 'Bitcoin network interactions'
+};
+```
+
+#### **Solver Network Integration**
+```typescript
+// Competitive solver network
+const solverNetwork = {
+  runesdexSolver: 'Bitcoin ↔ NEAR swaps via RunesDex',
+  refFinanceSolver: 'NEAR ecosystem DEX operations',
+  crossChainSolver: 'Multi-chain bridging and swaps',
+  yieldSolver: 'DeFi yield optimization strategies'
+};
+```
+
+This NEAR Intents integration makes Ava the most user-friendly cross-chain DeFi platform, where users can express complex financial operations in natural language and have them executed seamlessly across multiple blockchains.
 
 ## 🏗 Architecture
 
