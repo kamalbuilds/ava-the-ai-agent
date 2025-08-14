@@ -11,6 +11,10 @@
 * [System Overview](architecture/overview.md)
 * [Architecture Deep Dive](architecture/deep-dive.md)
 
+## Tokenomics
+
+* [Tokenomics Overview](tokenomics.md)
+
 ## Agents
 
 * [Agent Overview](agents/index.md)
